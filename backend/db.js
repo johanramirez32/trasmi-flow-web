@@ -25,10 +25,14 @@ function configuracion() {
   if (process.env.DATABASE_URL) {
     const url = limpiarUrl(process.env.DATABASE_URL);
 
-    // Neon y Render exigen cifrado en transito
-    const ssl = /sslmode=disable/.test(url) ? false : { rejectUnauthorized: false };
+    // El cifrado se activa solo si la URL lo pide.
+    // Sin este chequeo, un PostgreSQL local sin SSL fallaria.
+    const pideSsl = /sslmode=(require|prefer|verify-ca|verify-full)/.test(url);
 
-    return { connectionString: url, ssl };
+    return {
+      connectionString: url,
+      ssl: pideSsl ? { rejectUnauthorized: false } : false,
+    };
   }
 
   // --- Local: tu PostgreSQL de siempre ---
