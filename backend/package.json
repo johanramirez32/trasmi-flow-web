@@ -1,0 +1,22 @@
+{
+  "name": "transmiflow-backend",
+  "version": "1.0.0",
+  "description": "TransmiFlow - sistema inteligente de transporte sobre TransMilenio",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "cargar": "node cargar-estaciones.js",
+    "exportar": "node exportar-estaciones.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.11.3"
+  }
+}

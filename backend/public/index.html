@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>TransmiFlow - Sistema Inteligente de Transporte</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              red: '#ef4444', darkRed: '#b91c1c', dark: '#030712',
+              card: '#0b0f19', border: '#1f293d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: rgba(3,7,18,.3); border-radius: 10px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #ef4444; }
+
+    .leaflet-control-zoom a {
+      background-color: #0b0f19 !important; color: #fff !important; border-color: #1f293d !important;
+    }
+    .leaflet-control-zoom a:hover { background-color: #ef4444 !important; }
+    .leaflet-control-attribution { font-size: 9px !important; }
+
+    .user-pulse-marker { position: relative; }
+    .user-pulse-marker::after {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      width: 44px; height: 44px; margin: -22px 0 0 -22px;
+      border-radius: 50%; background: rgba(59,130,246,.35);
+      animation: pulse-ring 2s infinite; pointer-events: none;
+    }
+    @keyframes pulse-ring {
+      0%   { transform: scale(.35); opacity: 1; }
+      100% { transform: scale(2.6);  opacity: 0; }
+    }
+    .glass-panel {
+      background: rgba(11,15,25,.92);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    }
+  </style>
+</head>
+
+<body class="bg-brand-dark text-slate-100 font-sans antialiased min-h-screen flex flex-col pb-16 md:pb-0">
+
+  <!-- Diagnostico de errores -->
+  <div id="errorBox" class="hidden fixed top-0 left-0 right-0 z-[999] bg-red-600 text-white text-xs font-mono px-4 py-3 break-words shadow-2xl">
+    <strong class="block font-bold mb-1">ERROR DE JAVASCRIPT:</strong>
+    <span id="errorText"></span>
+  </div>
+
+  <!-- ================= HEADER ================= -->
+  <header class="sticky top-0 z-[500] glass-panel border-b border-brand-border shadow-2xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-3 cursor-pointer group" onclick="irAMapa()">
+          <div class="p-2.5 bg-gradient-to-br from-brand-red/20 to-brand-darkRed/30 border border-brand-red/40 rounded-xl text-brand-red">
+            <i data-lucide="bus" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <span class="text-2xl font-black tracking-wider text-white">TRANSMI<span class="text-brand-red ml-1">FLOW</span></span>
+            <span class="hidden sm:block text-[10px] text-slate-400 tracking-widest font-bold uppercase">Red de Transporte</span>
+          </div>
+        </div>
+
+        <nav id="navPrincipal" class="hidden md:flex items-center gap-1 bg-brand-card/80 p-1.5 rounded-xl border border-brand-border">
+          <button onclick="irAMapa()" id="nav-estaciones" class="px-4 py-2 text-xs font-bold rounded-lg text-white bg-brand-red flex items-center gap-2">
+            <i data-lucide="map" class="w-4 h-4"></i><span>Mapa</span>
+          </button>
+          <button onclick="irAAertas()" id="nav-alertas" class="px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white flex items-center gap-2">
+            <i data-lucide="bell" class="w-4 h-4"></i><span>Alertas</span>
+          </button>
+          <button onclick="irAReportes()" id="nav-reportes" class="px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white flex items-center gap-2">
+            <i data-lucide="file-text" class="w-4 h-4"></i><span>Reportes</span>
+          </button>
+        </nav>
+
+        <div id="headerAcciones"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= LOGIN ================= -->
+  <section id="vistaAuth" class="flex-grow flex items-center justify-center py-12 px-4">
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-brand-red/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-border w-full max-w-md shadow-2xl space-y-6 relative z-10">
+      <div class="text-center space-y-2">
+        <div class="inline-flex p-3.5 bg-brand-red/10 border border-brand-red/30 rounded-2xl text-brand-red">
+          <i data-lucide="shield-check" class="w-8 h-8"></i>
+        </div>
+        <h2 id="authTitulo" class="text-2xl font-black text-white">Iniciar Sesion</h2>
+        <p class="text-xs text-slate-400">Conectado a PostgreSQL</p>
+      </div>
+
+      <div id="authMensajeError" class="hidden p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-center font-medium"></div>
+
+      <form id="authForm" onsubmit="procesarAuth(event)" class="space-y-4">
+        <div id="campoNombre" class="hidden space-y-1">
+          <label class="block text-xs font-semibold text-slate-300">Nombre Completo</label>
+          <div class="relative">
+            <input type="text" id="inputNombre" placeholder="Tu nombre"
+              class="w-full pl-4 pr-4 py-3 bg-brand-dark/80 border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-sm">
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-300">Correo Electronico</label>
+          <input type="email" id="inputEmail" required placeholder="usuario@correo.com"
+            class="w-full px-4 py-3 bg-brand-dark/80 border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-sm">
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-300">Contrasena</label>
+          <input type="password" id="inputPassword" required placeholder="********"
+            class="w-full px-4 py-3 bg-brand-dark/80 border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-sm">
+        </div>
+
+        <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
+          <span id="txtBtnAuth">Ingresar a la Plataforma</span>
+        </button>
+      </form>
+
+      <div class="text-center text-xs text-slate-400 pt-2 border-t border-brand-border">
+        <span id="txtPreguntaAuth">No tienes cuenta?</span>
+        <button type="button" onclick="alternarModoAuth()" id="btnAlternarAuth" class="text-brand-red font-bold hover:underline ml-1">Registrate aqui</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONTENIDO ================= -->
+  <main id="appContenido" class="hidden flex-grow max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 w-full flex flex-col">
+
+    <!-- MAPA -->
+    <section id="sec-estaciones" class="flex-grow flex flex-col gap-3">
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-3 bg-brand-card p-3 rounded-2xl border border-brand-border">
+        <div class="md:col-span-7 relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+          <input type="text" id="inputBuscar" oninput="buscarEstaciones()" onfocus="buscarEstaciones()"
+            placeholder="Buscar estacion o troncal..."
+            class="w-full pl-10 pr-4 py-2.5 bg-brand-dark border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-xs">
+          <div id="resultadosBusqueda"
+            class="hidden absolute top-full left-0 right-0 mt-2 max-h-80 overflow-y-auto custom-scroll bg-brand-card border border-brand-border rounded-xl z-40 shadow-2xl"></div>
+        </div>
+
+        <div class="md:col-span-3 flex items-center gap-2">
+          <button onclick="seguirMiUbicacion()"
+            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 text-white font-bold rounded-xl shadow-lg text-xs">
+            <i data-lucide="crosshair" class="w-4 h-4 inline"></i> Mi ubicacion
+          </button>
+        </div>
+
+        <div class="md:col-span-2 flex items-center gap-2 text-[11px] text-slate-400">
+          <span class="flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></i>Baja</span>
+          <span class="flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></i>Media</span>
+          <span class="flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></i>Alta</span>
+        </div>
+      </div>
+
+      <div class="px-3.5 py-2 bg-brand-card/70 border border-brand-border rounded-xl text-xs text-slate-300 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" id="dotEstado"></span>
+          <span id="txtEstado" class="font-medium">Buscando tu ubicacion...</span>
+        </div>
+        <span class="text-[11px] text-slate-400 font-mono">GPS: <span id="txtCoordenadas" class="text-slate-200">--.----, --.----</span></span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-grow min-h-[500px]">
+        <div class="lg:col-span-7 h-[380px] sm:h-[500px] lg:h-auto rounded-2xl border border-brand-border overflow-hidden shadow-2xl">
+          <div id="mapa" class="w-full h-full z-10"></div>
+        </div>
+
+        <div class="lg:col-span-5 bg-brand-card rounded-2xl border border-brand-border p-4 flex flex-col h-[380px] sm:h-[500px] lg:h-auto shadow-2xl">
+          <div id="panelLista" class="flex flex-col h-full min-h-0">
+            <div class="flex items-center justify-between pb-3 border-b border-brand-border mb-3">
+              <span id="tituloPanel" class="text-xs font-black uppercase tracking-wider text-white">Estaciones mas cercanas</span>
+              <span id="contador" class="text-[11px] text-slate-400 bg-brand-dark px-2 py-0.5 rounded-md border border-brand-border">0</span>
+            </div>
+            <div id="listaResultado" class="space-y-2.5 overflow-y-auto pr-1 flex-grow custom-scroll">
+              <p class="text-xs text-slate-400 text-center py-6">Cargando estaciones...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALERTAS -->
+    <section id="sec-alertas" class="hidden space-y-6">
+      <h3 class="text-2xl font-black text-white text-center">Alertas de la Red</h3>
+      <div class="max-w-2xl mx-auto space-y-3">
+        <div class="p-4 bg-brand-card border border-amber-500/30 rounded-2xl flex gap-4">
+          <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-400 shrink-0"></i>
+          <div><h4 class="text-white font-bold text-sm">Alta afluencia en Troncal Caracas</h4>
+          <p class="text-xs text-slate-400 mt-1">Mayores tiempos de espera en Marly y Calle 72.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- REPORTES -->
+    <section id="sec-reportes" class="hidden space-y-6">
+      <h3 class="text-2xl font-black text-white text-center">Reportar Ocupacion</h3>
+      <div class="bg-brand-card p-6 rounded-3xl border border-brand-border max-w-xl mx-auto space-y-4">
+        <input type="text" id="repEstacion" placeholder="Nombre de la estacion..." class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-xs">
+        <select id="repNivel" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-xs">
+          <option value="Baja">Baja</option><option value="Media">Media</option><option value="Alta">Alta</option>
+        </select>
+        <button onclick="enviarReporte()" class="w-full py-3 bg-brand-red text-white font-bold rounded-xl text-xs">Enviar Reporte</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Nav movil -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-[500] glass-panel border-t border-brand-border px-6 py-2 flex justify-around">
+    <button onclick="irAMapa()" class="text-brand-red"><i data-lucide="map" class="w-5 h-5"></i></button>
+    <button onclick="irAAertas()" class="text-slate-400"><i data-lucide="bell" class="w-5 h-5"></i></button>
+    <button onclick="irAReportes()" class="text-slate-400"><i data-lucide="file-text" class="w-5 h-5"></i></button>
+  </nav>
+
+  <script>
+    const API_URL = '/api';
+
+    // Diagnostico visible
+    window.onerror = function (msg, archivo, linea) {
+      var caja = document.getElementById('errorBox');
+      var texto = document.getElementById('errorText');
+      if (caja && texto) {
+        texto.textContent = msg + '  (linea ' + linea + ')';
+        caja.classList.remove('hidden');
+      }
+      return false;
+    };
+
+    // ==========================================================
+    // ESTADO
+    // ==========================================================
+    var estaciones = [];      // catalogo completo desde PostgreSQL
+    var userPos = null;       // {lat, lng}
+    var seleccion = null;     // estacion seleccionada en la busqueda
+    var map = null, capaMarcadores = null, marcadorUsuario = null;
+    var circuloCerca = null, lineaRuta = null, idWatch = null;
+    var CANTIDAD_CERCANAS = 5;
+    var COLOR_AGLOMERACION = { 'Baja': '#22c55e', 'Media': '#f59e0b', 'Alta': '#ef4444' };
+
+    // ==========================================================
+    // UTILIDADES
+    // ==========================================================
+    function distanciaKM(lat1, lon1, lat2, lon2) {
+      var R = 6371, rad = Math.PI / 180;
+      var dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+      var a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function nivelTexto(n) { return n || 'Media'; }
+
+    function iconoEstacion(est) {
+      var color = COLOR_AGLOMERACION[nivelTexto(est.aglomeracion)] || COLOR_AGLOMERACION['Media'];
+      return L.divIcon({
+        className: '',
+        html: '<div style="width:16px;height:16px;border-radius:50%;background:' + color +
+              ';border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.6)"></div>',
+        iconSize: [16, 16], iconAnchor: [8, 8]
+      });
+    }
+
+    function iconoUsuario() {
+      return L.divIcon({
+        className: 'user-pulse-marker',
+        html: '<div style="width:18px;height:18px;border-radius:50%;background:#3b82f6;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.6)"></div>',
+        iconSize: [18, 18], iconAnchor: [9, 9]
+      });
+    }
+
+    // ==========================================================
+    // MAPA
+    // ==========================================================
+    function initMap() {
+      if (map) { map.invalidateSize(); return; }
+      map = L.map('mapa', { zoomControl: false }).setView([4.6097, -74.0817], 12);
+      L.control.zoom({ position: 'topright' }).addTo(map);
+
+      // OpenStreetMap: NO requiere API key
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+      }).addTo(map);
+
+      capaMarcadores = L.layerGroup().addTo(map);
+
+      // Los datos pueden haber llegado antes que el mapa: repintar
+      if (estaciones.length > 0) pintar();
+    }
+
+    // ==========================================================
+    // DATOS
+    // ==========================================================
+    function cargarEstaciones() {
+      return fetch(API_URL + '/estaciones')
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          estaciones = data.map(function (e) {
+            return {
+              id: e.id, nombre: e.nombre, troncal: e.troncal,
+              lat: parseFloat(e.lat), lng: parseFloat(e.lng),
+              aglomeracion: nivelTexto(e.aglomeracion),
+              capacidad: e.capacidad != null ? e.capacidad : 0
+            };
+          });
+          pintar();
+        })
+        .catch(function (err) {
+          document.getElementById('listaResultado').innerHTML =
+            '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las estaciones.<br>' +
+            '<span class="text-slate-500">Revisa que el servidor este corriendo (npm start)</span></p>';
+          console.error('Error cargando estaciones:', err);
+        });
+    }
+
+    // ==========================================================
+    // PINTADO
+    // ==========================================================
+    function pintar() {
+      if (!map || estaciones.length === 0) return;
+
+      capaMarcadores.clearLayers();
+      if (circuloCerca) { map.removeLayer(circuloCerca); circuloCerca = null; }
+      if (lineaRuta)    { map.removeLayer(lineaRuta);    lineaRuta = null; }
+
+      if (seleccion) {
+        pintarDetalle();
+      } else {
+        pintarCercanas();
+      }
+      actualizarIconos();
+    }
+
+    // Vista por defecto: ubicacion del usuario + 5 mas cercanas
+    function pintarCercanas() {
+      var lista, titulo, centro;
+
+      if (userPos) {
+        if (marcadorUsuario) map.removeLayer(marcadorUsuario);
+        marcadorUsuario = L.marker([userPos.lat, userPos.lng], {
+          icon: iconoUsuario(), draggable: true, zIndexOffset: 1000
+        }).addTo(map);
+        marcadorUsuario.on('dragend', function (e) {
+          var ll = e.target.getLatLng();
+          userPos = { lat: ll.lat, lng: ll.lng };
+          pintar();
+        });
+
+        centro = [userPos.lat, userPos.lng];
+        lista = estaciones
+          .map(function (e) {
+            return Object.assign({}, e, { dist: distanciaKM(centro[0], centro[1], e.lat, e.lng) });
+          })
+          .sort(function (a, b) { return a.dist - b.dist; })
+          .slice(0, CANTIDAD_CERCANAS);
+
+        titulo = 'Estaciones mas cercanas';
+      } else {
+        centro = [4.6097, -74.0817];
+        lista = estaciones
+          .map(function (e) {
+            return Object.assign({}, e, { dist: distanciaKM(centro[0], centro[1], e.lat, e.lng) });
+          })
+          .sort(function (a, b) { return a.dist - b.dist; })
+          .slice(0, CANTIDAD_CERCANAS);
+        titulo = 'Estaciones (activa tu GPS)';
+      }
+
+      document.getElementById('tituloPanel').textContent = titulo;
+      document.getElementById('contador').textContent = lista.length;
+      document.getElementById('listaResultado').innerHTML = lista.map(tarjetaFila).join('');
+
+      lista.forEach(function (e) {
+        L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
+          .bindPopup(popupEstacion(e))
+          .addTo(capaMarcadores);
+      });
+
+      circuloCerca = L.circle(centro, {
+        radius: 900, color: '#3b82f6', weight: 1.5, opacity: .5,
+        fillColor: '#3b82f6', fillOpacity: .06, dashArray: '5, 5'
+      }).addTo(map);
+
+      var grupo = L.latLngBounds(centro);
+      lista.forEach(function (e) { grupo.extend([e.lat, e.lng]); });
+      map.fitBounds(grupo.pad(0.25), { maxZoom: 15 });
+    }
+
+    // Vista de busqueda: detalle de la estacion + stations cercanas a ELLA
+    function pintarDetalle() {
+      var ref = seleccion;
+      var centro = [ref.lat, ref.lng];
+
+      L.marker([ref.lat, ref.lng], { icon: iconoEstacion(ref), zIndexOffset: 900 })
+        .bindPopup(popupEstacion(ref))
+        .addTo(capaMarcadores);
+
+      var cercanas = estaciones
+        .filter(function (e) { return e.id !== ref.id; })
+        .map(function (e) {
+          return Object.assign({}, e, { dist: distanciaKM(centro[0], centro[1], e.lat, e.lng) });
+        })
+        .sort(function (a, b) { return a.dist - b.dist; })
+        .slice(0, 6);
+
+      cercanas.forEach(function (e) {
+        L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
+          .bindPopup(popupEstacion(e))
+          .addTo(capaMarcadores);
+      });
+
+      circuloCerca = L.circle(centro, {
+        radius: 1000, color: '#ef4444', weight: 1.5, opacity: .5,
+        fillColor: '#ef4444', fillOpacity: .06, dashArray: '5, 5'
+      }).addTo(map);
+
+      document.getElementById('tituloPanel').textContent = 'Estacion seleccionada';
+      document.getElementById('contador').textContent = cercanas.length + ' cercanas';
+
+      document.getElementById('listaResultado').innerHTML =
+        tarjetaDetalle(ref) +
+        '<p class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mt-4 mb-1">' +
+        'Estaciones cercanas a esta</p>' +
+        cercanas.map(tarjetaFila).join('');
+
+      var grupo = L.latLngBounds(centro);
+      cercanas.forEach(function (e) { grupo.extend([e.lat, e.lng]); });
+      map.fitBounds(grupo.pad(0.3), { maxZoom: 15 });
+    }
+
+    function tarjetaDetalle(e) {
+      var color = COLOR_AGLOMERACION[nivelTexto(e.aglomeracion)] || '#f59e0b';
+      return '' +
+        '<div class="p-4 bg-brand-dark/70 rounded-xl border-2" style="border-color:' + color + '">' +
+          '<div class="flex items-start justify-between gap-2">' +
+            '<div>' +
+              '<h4 class="text-white font-black text-sm">' + e.nombre + '</h4>' +
+              '<p class="text-[11px] text-slate-400 mt-0.5">Troncal ' + e.troncal + '</p>' +
+            '</div>' +
+            '<span class="px-2 py-1 rounded-lg text-[10px] font-black text-white shrink-0" style="background:' + color + '">' +
+              nivelTexto(e.aglomeracion).toUpperCase() +
+            '</span>' +
+          '</div>' +
+          '<div class="flex items-center gap-2 mt-3 pt-3 border-t border-brand-border">' +
+            '<i data-lucide="map-pin" class="w-3.5 h-3.5 text-slate-500"></i>' +
+            '<span class="text-[11px] text-slate-400 font-mono">' + e.lat.toFixed(6) + ', ' + e.lng.toFixed(6) + '</span>' +
+          '</div>' +
+          (e.capacidad ? (
+            '<div class="flex items-center gap-2 mt-2">' +
+              '<i data-lucide="bus" class="w-3.5 h-3.5 text-slate-500"></i>' +
+              '<span class="text-[11px] text-slate-400">Capacidad: <b class="text-slate-200">' +
+                Number(e.capacidad).toLocaleString("es-CO") + '</b> pasajeros/hora</span>' +
+            '</div>'
+          ) : '') +
+        '</div>';
+    }
+
+    function tarjetaFila(e) {
+      var color = COLOR_AGLOMERACION[nivelTexto(e.aglomeracion)] || '#f59e0b';
+      return '' +
+        '<div onclick="seleccionarEstacion(' + e.id + ')" ' +
+        '     class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border hover:border-brand-red cursor-pointer flex items-center justify-between gap-3">' +
+          '<div class="flex items-center gap-2.5 min-w-0">' +
+            '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>' +
+            '<div class="min-w-0">' +
+              '<p class="text-white font-bold text-xs truncate">' + e.nombre + '</p>' +
+              '<p class="text-[11px] text-slate-400 truncate">' + e.troncal + ' &bull; ' + e.dist.toFixed(2) + ' km</p>' +
+            '</div>' +
+          '</div>' +
+          '<span class="text-[10px] font-bold px-2 py-1 rounded-lg shrink-0" style="color:' + color + ';background:' + color + '22">' +
+            nivelTexto(e.aglomeracion) +
+          '</span>' +
+        '</div>';
+    }
+
+    function popupEstacion(e) {
+      var color = COLOR_AGLOMERACION[nivelTexto(e.aglomeracion)] || '#f59e0b';
+      return '<div style="min-width:150px">' +
+        '<strong style="font-size:13px">' + e.nombre + '</strong><br>' +
+        '<span style="font-size:11px;color:#666">Troncal ' + e.troncal + '</span><br>' +
+        '<span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:6px;font-size:10px;' +
+        'font-weight:800;color:' + color + ';background:' + color + '22">' +
+          nivelTexto(e.aglomeracion).toUpperCase() +
+        '</span>' +
+        (e.dist !== undefined ? '<br><span style="font-size:11px;color:#666">' + e.dist.toFixed(2) + ' km</span>' : '') +
+      '</div>';
+    }
+
+    function actualizarIconos() {
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // ==========================================================
+    // BUSQUEDA
+    // ==========================================================
+    function buscarEstaciones() {
+      var q = document.getElementById('inputBuscar').value.trim().toLowerCase();
+      var caja = document.getElementById('resultadosBusqueda');
+
+      if (q.length < 2) { caja.classList.add('hidden'); caja.innerHTML = ''; return; }
+
+      var res = estaciones.filter(function (e) {
+        return e.nombre.toLowerCase().indexOf(q) !== -1 ||
+               e.troncal.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 20);
+
+      if (res.length === 0) {
+        caja.innerHTML = '<p class="p-3 text-xs text-slate-400 text-center">Sin resultados para "' + q + '"</p>';
+      } else {
+        caja.innerHTML = res.map(function (e) {
+          var color = COLOR_AGLOMERACION[nivelTexto(e.aglomeracion)] || '#f59e0b';
+          return '<div onclick="seleccionarEstacion(' + e.id + ')" ' +
+            'class="p-2.5 hover:bg-slate-800/60 cursor-pointer flex items-center justify-between gap-2 border-b border-brand-border last:border-0">' +
+              '<div class="min-w-0">' +
+                '<p class="text-white font-bold text-xs truncate">' + e.nombre + '</p>' +
+                '<p class="text-[11px] text-slate-400">Troncal ' + e.troncal + '</p>' +
+              '</div>' +
+              '<span class="text-[10px] font-bold px-2 py-0.5 rounded shrink-0" style="color:' + color + ';background:' + color + '22">' +
+                nivelTexto(e.aglomeracion) +
+              '</span>' +
+            '</div>';
+        }).join('');
+      }
+      caja.classList.remove('hidden');
+    }
+
+    function seleccionarEstacion(id) {
+      var e = estaciones.find(function (x) { return x.id === id; });
+      if (!e) return;
+      seleccion = e;
+      document.getElementById('resultadosBusqueda').classList.add('hidden');
+      document.getElementById('inputBuscar').value = e.nombre;
+      pintar();
+    }
+
+    function volverACerca() {
+      seleccion = null;
+      document.getElementById('inputBuscar').value = '';
+      pintar();
+    }
+
+    // ==========================================================
+    // GPS EN TIEMPO REAL
+    // ==========================================================
+    function iniciarGPS() {
+      if (!navigator.geolocation) {
+        document.getElementById('txtEstado').textContent = 'GPS no disponible en este navegador';
+        return;
+      }
+      if (idWatch !== null) return;
+
+      document.getElementById('txtEstado').textContent = 'Obteniendo ubicacion...';
+
+      idWatch = navigator.geolocation.watchPosition(
+        function (pos) {
+          var nueva = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          var cambio = !userPos || distanciaKM(userPos.lat, userPos.lng, nueva.lat, nueva.lng) > 0.02;
+          userPos = nueva;
+
+          document.getElementById('txtCoordenadas').textContent =
+            userPos.lat.toFixed(5) + ', ' + userPos.lng.toFixed(5);
+          document.getElementById('txtEstado').textContent =
+            'Ubicacion en vivo (precision ' + Math.round(pos.coords.accuracy) + ' m)';
+          document.getElementById('dotEstado').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+
+          if (cambio) pintar();
+        },
+        function (err) {
+          document.getElementById('txtEstado').textContent =
+            err.code === 1 ? 'Permiso de ubicacion denegado' : 'No se pudo obtener la ubicacion';
+          document.getElementById('dotEstado').className = 'w-2.5 h-2.5 rounded-full bg-red-500';
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+      );
+    }
+
+    function seguirMiUbicacion() {
+      seleccion = null;
+      document.getElementById('inputBuscar').value = '';
+      if (userPos && map) {
+        map.setView([userPos.lat, userPos.lng], 14);
+      } else {
+        iniciarGPS();
+      }
+      pintar();
+    }
+
+    // ==========================================================
+    // NAVEGACION
+    // ==========================================================
+    function cambiarSeccion(id) {
+      ['estaciones', 'alertas', 'reportes'].forEach(function (s) {
+        document.getElementById('sec-' + s).classList.toggle('hidden', s !== id);
+      });
+      if (id === 'estaciones') setTimeout(initMap, 80);
+      actualizarIconos();
+    }
+    function irAMapa()      { cambiarSeccion('estaciones'); }
+    function irAAertas()    { cambiarSeccion('alertas'); }
+    function irAReportes()  { cambiarSeccion('reportes'); }
+
+    function enviarReporte() {
+      var est = document.getElementById('repEstacion').value.trim();
+      var niv = document.getElementById('repNivel').value;
+      if (!est) { alert('Escribe el nombre de la estacion'); return; }
+
+      fetch(API_URL + '/reportes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          estacion: est,
+          nivel: niv,
+          usuario: (JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}').email) || 'anonimo'
+        })
+      }).then(function () {
+        alert('Reporte enviado');
+        document.getElementById('repEstacion').value = '';
+      }).catch(function () {
+        alert('No se pudo enviar el reporte');
+      });
+    }
+
+    // ==========================================================
+    // AUTENTICACION
+    // ==========================================================
+    var esRegistro = false;
+
+    function alternarModoAuth() {
+      esRegistro = !esRegistro;
+      document.getElementById('campoNombre').classList.toggle('hidden', !esRegistro);
+      document.getElementById('authTitulo').textContent = esRegistro ? 'Crear Cuenta' : 'Iniciar Sesion';
+      document.getElementById('txtBtnAuth').textContent = esRegistro ? 'Registrarme' : 'Ingresar a la Plataforma';
+      document.getElementById('txtPreguntaAuth').textContent = esRegistro ? 'Ya tienes cuenta?' : 'No tienes cuenta?';
+      document.getElementById('btnAlternarAuth').textContent = esRegistro ? 'Inicia sesion' : 'Registrate aqui';
+      document.getElementById('authMensajeError').classList.add('hidden');
+    }
+
+    function procesarAuth(event) {
+      event.preventDefault();
+      var email    = document.getElementById('inputEmail').value.trim();
+      var password = document.getElementById('inputPassword').value.trim();
+      var nombre   = document.getElementById('inputNombre').value.trim();
+      var msg      = document.getElementById('authMensajeError');
+
+      var endpoint = esRegistro ? '/registro' : '/login';
+      var payload  = esRegistro ? { nombre: nombre, email: email, password: password }
+                              : { email: email, password: password };
+
+      fetch(API_URL + endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) {
+            msg.textContent = res.d.error || 'Error en la autenticacion';
+            msg.classList.remove('hidden');
+            return;
+          }
+          localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
+          verificarAcceso();
+        })
+        .catch(function () {
+          msg.textContent = 'No se pudo conectar con el servidor';
+          msg.classList.remove('hidden');
+        });
+    }
+
+    function verificarAcceso() {
+      var usuario = localStorage.getItem('usuarioTransmiFlowReal');
+      document.getElementById('vistaAuth').classList.toggle('hidden', !!usuario);
+      document.getElementById('appContenido').classList.toggle('hidden', !usuario);
+      document.getElementById('navPrincipal').classList.toggle('hidden', !usuario);
+
+      if (usuario) {
+        var u = JSON.parse(usuario);
+        document.getElementById('headerAcciones').innerHTML =
+          '<div class="flex items-center gap-3">' +
+            '<span class="hidden sm:block text-xs text-white font-bold">' + u.nombre + '</span>' +
+            '<button onclick="cerrarSesion()" class="px-3 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-xs font-bold rounded-xl">Salir</button>' +
+          '</div>';
+        cambiarSeccion('estaciones');
+        cargarEstaciones();
+        iniciarGPS();
+      }
+      actualizarIconos();
+    }
+
+    function cerrarSesion() {
+      localStorage.removeItem('usuarioTransmiFlowReal');
+      if (idWatch !== null) { navigator.geolocation.clearWatch(idWatch); idWatch = null; }
+      verificarAcceso();
+    }
+
+    // ==========================================================
+    // ARRANQUE
+    // ==========================================================
+    window.addEventListener('load', verificarAcceso);
+  </script>
+</body>
+</html>

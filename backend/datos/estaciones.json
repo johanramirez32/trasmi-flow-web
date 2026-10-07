@@ -1,0 +1,1379 @@
+[
+  {
+    "nombre": "21 Ángeles",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.7355081,
+    "lng": -74.0809865,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "7 de Agosto",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6572953,
+    "lng": -74.0776865,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Alcalá – Colegio S. Tomás Dominicos",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7211582,
+    "lng": -74.0514592,
+    "aglomeracion": "Alta",
+    "capacidad": 392
+  },
+  {
+    "nombre": "Alquería",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5942699,
+    "lng": -74.1342699,
+    "aglomeracion": "Baja",
+    "capacidad": 204
+  },
+  {
+    "nombre": "AV. 1 Mayo",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.5769393,
+    "lng": -74.0937094,
+    "aglomeracion": "Alta",
+    "capacidad": 384
+  },
+  {
+    "nombre": "AV. 68",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.6861009,
+    "lng": -74.080769,
+    "aglomeracion": "Alta",
+    "capacidad": 296
+  },
+  {
+    "nombre": "AV. Américas - AV. Boyacá",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6301178,
+    "lng": -74.1342246,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "AV. Boyacá",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.6939327,
+    "lng": -74.0871319,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "AV. Cali",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.7024829,
+    "lng": -74.1002897,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "AV. Chile",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6663526,
+    "lng": -74.0745746,
+    "aglomeracion": "Alta",
+    "capacidad": 344
+  },
+  {
+    "nombre": "AV. ElDorado",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6306684,
+    "lng": -74.0798786,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Avenida Rojas - UNISALESIANA",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6619444,
+    "lng": -74.108772,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Banderas",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6312945,
+    "lng": -74.14577,
+    "aglomeracion": "Alta",
+    "capacidad": 608
+  },
+  {
+    "nombre": "Biblioteca",
+    "troncal": "Portal Tunal",
+    "tipo": "troncal",
+    "lat": 4.5703035,
+    "lng": -74.1303887,
+    "aglomeracion": "Baja",
+    "capacidad": 60
+  },
+  {
+    "nombre": "Biblioteca Tintal",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6379078,
+    "lng": -74.1593525,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Bicentenario",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.5940208,
+    "lng": -74.0818354,
+    "aglomeracion": "Alta",
+    "capacidad": 384
+  },
+  {
+    "nombre": "Bosa",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.596888,
+    "lng": -74.181225,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "CAD",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6234157,
+    "lng": -74.0841812,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "Calle 100 - Marketmedios",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.6839494,
+    "lng": -74.0577123,
+    "aglomeracion": "Alta",
+    "capacidad": 392
+  },
+  {
+    "nombre": "Calle 106 - Maletas Explora",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.6929826,
+    "lng": -74.0561824,
+    "aglomeracion": "Media",
+    "capacidad": 248
+  },
+  {
+    "nombre": "Calle 127",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7046396,
+    "lng": -74.0542252,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Calle 142",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7268501,
+    "lng": -74.0505033,
+    "aglomeracion": "Baja",
+    "capacidad": 180
+  },
+  {
+    "nombre": "Calle 146",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7308911,
+    "lng": -74.0498112,
+    "aglomeracion": "Media",
+    "capacidad": 248
+  },
+  {
+    "nombre": "Calle 161",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7419153,
+    "lng": -74.0480004,
+    "aglomeracion": "Baja",
+    "capacidad": 96
+  },
+  {
+    "nombre": "Calle 187",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7633366,
+    "lng": -74.0444437,
+    "aglomeracion": "Baja",
+    "capacidad": 152
+  },
+  {
+    "nombre": "Calle 19",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6078646,
+    "lng": -74.0768697,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Calle 26 - Atrio",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6166516,
+    "lng": -74.0721585,
+    "aglomeracion": "Baja",
+    "capacidad": 0
+  },
+  {
+    "nombre": "Calle 40 Sur",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5757942,
+    "lng": -74.1200792,
+    "aglomeracion": "Alta",
+    "capacidad": 392
+  },
+  {
+    "nombre": "Calle 45 - American School Way",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6314524,
+    "lng": -74.0678787,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Calle 63",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.648404,
+    "lng": -74.0648705,
+    "aglomeracion": "Baja",
+    "capacidad": 0
+  },
+  {
+    "nombre": "Calle 72 - Areandina",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6582376,
+    "lng": -74.0620679,
+    "aglomeracion": "Baja",
+    "capacidad": 0
+  },
+  {
+    "nombre": "Calle 75 - Zona M",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.670151,
+    "lng": -74.0713049,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "Calle 76 - San Felipe",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6630295,
+    "lng": -74.0612613,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Calle 85",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.6723128,
+    "lng": -74.0596436,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Campín - UAN",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6453976,
+    "lng": -74.0787101,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "CAN",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6468764,
+    "lng": -74.0990465,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Carrera 43 - Comapan",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6227815,
+    "lng": -74.1014379,
+    "aglomeracion": "Baja",
+    "capacidad": 168
+  },
+  {
+    "nombre": "Carrera 47",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.6777558,
+    "lng": -74.0732548,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Carrera 53",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.6818048,
+    "lng": -74.0774214,
+    "aglomeracion": "Baja",
+    "capacidad": 152
+  },
+  {
+    "nombre": "Carrera 90",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.7046665,
+    "lng": -74.1045703,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "CC Paseo Villa del Río - Madelena",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5962809,
+    "lng": -74.1568811,
+    "aglomeracion": "Baja",
+    "capacidad": 204
+  },
+  {
+    "nombre": "CDS - Carrera 32",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6161362,
+    "lng": -74.0939495,
+    "aglomeracion": "Baja",
+    "capacidad": 168
+  },
+  {
+    "nombre": "Centro Memoria",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.620465,
+    "lng": -74.0763206,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Ciudad Jardín - UAN",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.5815425,
+    "lng": -74.0903516,
+    "aglomeracion": "Media",
+    "capacidad": 264
+  },
+  {
+    "nombre": "Ciudad Universitaria - Lotería de Bogotá",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6308754,
+    "lng": -74.0835272,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Cl38A sur - CENTRO MAYOR",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5938094,
+    "lng": -74.1237551,
+    "aglomeracion": "Media",
+    "capacidad": 212
+  },
+  {
+    "nombre": "Comuneros",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.60425,
+    "lng": -74.0998614,
+    "aglomeracion": "Media",
+    "capacidad": 252
+  },
+  {
+    "nombre": "Concejo de Bogotá",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6259874,
+    "lng": -74.0802897,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Consuelo",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5602273,
+    "lng": -74.1238743,
+    "aglomeracion": "Baja",
+    "capacidad": 192
+  },
+  {
+    "nombre": "Corferias",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6343065,
+    "lng": -74.0897009,
+    "aglomeracion": "Media",
+    "capacidad": 252
+  },
+  {
+    "nombre": "Country Sur",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.5714167,
+    "lng": -74.0986341,
+    "aglomeracion": "Media",
+    "capacidad": 264
+  },
+  {
+    "nombre": "Danubio",
+    "troncal": "Portal Usme",
+    "tipo": "troncal",
+    "lat": 4.5436543,
+    "lng": -74.1208516,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "De La Sabana",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6054211,
+    "lng": -74.0818943,
+    "aglomeracion": "Baja",
+    "capacidad": 168
+  },
+  {
+    "nombre": "Distrito Grafiti",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6278501,
+    "lng": -74.1115841,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "El Tiempo – Cámara de Comercio de Bogotá",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6570671,
+    "lng": -74.1056467,
+    "aglomeracion": "Media",
+    "capacidad": 240
+  },
+  {
+    "nombre": "Escuela Militar",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.675535,
+    "lng": -74.0698022,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "Ferias",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.6908859,
+    "lng": -74.0846013,
+    "aglomeracion": "Baja",
+    "capacidad": 152
+  },
+  {
+    "nombre": "Fucha",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5829726,
+    "lng": -74.0994018,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "General Santander",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5935511,
+    "lng": -74.129545,
+    "aglomeracion": "Alta",
+    "capacidad": 404
+  },
+  {
+    "nombre": "Gobernación",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.64283,
+    "lng": -74.0965377,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Granja - Kr 77",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.699151,
+    "lng": -74.0960177,
+    "aglomeracion": "Alta",
+    "capacidad": 392
+  },
+  {
+    "nombre": "Gratamira",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.7274558,
+    "lng": -74.0747233,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "Guatoque - Veraguas",
+    "troncal": "G - NQS Sur (ramal)",
+    "tipo": "troncal",
+    "lat": 4.604171,
+    "lng": -74.0949331,
+    "aglomeracion": "Media",
+    "capacidad": 240
+  },
+  {
+    "nombre": "Héroes - Colmena Seguros",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.668136,
+    "lng": -74.06031,
+    "aglomeracion": "Media",
+    "capacidad": 264
+  },
+  {
+    "nombre": "Hortúa",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5908473,
+    "lng": -74.090246,
+    "aglomeracion": "Baja",
+    "capacidad": 192
+  },
+  {
+    "nombre": "Hospital",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5950505,
+    "lng": -74.0862263,
+    "aglomeracion": "Baja",
+    "capacidad": 96
+  },
+  {
+    "nombre": "Humedal Córdoba",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.7066898,
+    "lng": -74.0711743,
+    "aglomeracion": "Baja",
+    "capacidad": 156
+  },
+  {
+    "nombre": "Islandia",
+    "troncal": "Zona Tibanica",
+    "tipo": "troncal",
+    "lat": 4.6143476,
+    "lng": -74.1937437,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "La Campiña",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.7426543,
+    "lng": -74.0912005,
+    "aglomeracion": "Alta",
+    "capacidad": 352
+  },
+  {
+    "nombre": "La Castellana",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6756112,
+    "lng": -74.0644432,
+    "aglomeracion": "Media",
+    "capacidad": 232
+  },
+  {
+    "nombre": "La Despensa",
+    "troncal": "Zona Leon XIII",
+    "tipo": "troncal",
+    "lat": 4.5945938,
+    "lng": -74.1881122,
+    "aglomeracion": "Media",
+    "capacidad": 224
+  },
+  {
+    "nombre": "Las Aguas - Centro Colombo Americano",
+    "troncal": "J - Eje Ambiental",
+    "tipo": "troncal",
+    "lat": 4.6025798,
+    "lng": -74.0684014,
+    "aglomeracion": "Baja",
+    "capacidad": 120
+  },
+  {
+    "nombre": "Las Nieves",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.6060653,
+    "lng": -74.0743268,
+    "aglomeracion": "Media",
+    "capacidad": 264
+  },
+  {
+    "nombre": "León XIII",
+    "troncal": "Zona Leon XIII",
+    "tipo": "troncal",
+    "lat": 4.5921728,
+    "lng": -74.1931353,
+    "aglomeracion": "Media",
+    "capacidad": 224
+  },
+  {
+    "nombre": "Los Laureles",
+    "troncal": "Zona Tibanica",
+    "tipo": "troncal",
+    "lat": 4.6110914,
+    "lng": -74.2023284,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Mandalay",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6308637,
+    "lng": -74.1412982,
+    "aglomeracion": "Media",
+    "capacidad": 240
+  },
+  {
+    "nombre": "Marsella",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6296772,
+    "lng": -74.1301639,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Mazurén",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7345886,
+    "lng": -74.0492262,
+    "aglomeracion": "Media",
+    "capacidad": 248
+  },
+  {
+    "nombre": "Minuto de Dios",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.6968816,
+    "lng": -74.0919329,
+    "aglomeracion": "Alta",
+    "capacidad": 296
+  },
+  {
+    "nombre": "Modelia",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6750247,
+    "lng": -74.1171471,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Molinos",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5570646,
+    "lng": -74.1218278,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Movistar Arena",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6500399,
+    "lng": -74.0783625,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "Museo del Oro",
+    "troncal": "J - Eje Ambiental",
+    "tipo": "troncal",
+    "lat": 4.601153,
+    "lng": -74.0729084,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "Museo Nacional",
+    "troncal": "M - Carrera Septima",
+    "tipo": "troncal",
+    "lat": 4.6152449,
+    "lng": -74.0692197,
+    "aglomeracion": "Media",
+    "capacidad": 240
+  },
+  {
+    "nombre": "Nariño",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5862847,
+    "lng": -74.0939254,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "Niza - Calle 127",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.7120012,
+    "lng": -74.0723072,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Normandía",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6690087,
+    "lng": -74.11328,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "NQS - Calle 30 S",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5947985,
+    "lng": -74.1178808,
+    "aglomeracion": "Media",
+    "capacidad": 232
+  },
+  {
+    "nombre": "Olaya",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5789152,
+    "lng": -74.1073638,
+    "aglomeracion": "Alta",
+    "capacidad": 296
+  },
+  {
+    "nombre": "Paloquemao",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6169219,
+    "lng": -74.0895534,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "Parque",
+    "troncal": "Portal Tunal",
+    "tipo": "troncal",
+    "lat": 4.5683266,
+    "lng": -74.1354145,
+    "aglomeracion": "Baja",
+    "capacidad": 60
+  },
+  {
+    "nombre": "Patio Bonito",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6331803,
+    "lng": -74.1646143,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Pepe Sierra Universidad UTEL",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.6981269,
+    "lng": -74.0553088,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Perdomo",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5957878,
+    "lng": -74.1649697,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Policarpa",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.5861158,
+    "lng": -74.0870165,
+    "aglomeracion": "Media",
+    "capacidad": 264
+  },
+  {
+    "nombre": "Polo - FINCOMERCIO",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.6701627,
+    "lng": -74.0643387,
+    "aglomeracion": "Alta",
+    "capacidad": 360
+  },
+  {
+    "nombre": "Portal 20 de Julio",
+    "troncal": "L - Carrera Decima",
+    "tipo": "portal",
+    "lat": 4.5657181,
+    "lng": -74.0970084,
+    "aglomeracion": "Alta",
+    "capacidad": 350
+  },
+  {
+    "nombre": "Portal 80",
+    "troncal": "D - Calle 80",
+    "tipo": "portal",
+    "lat": 4.7098295,
+    "lng": -74.1105063,
+    "aglomeracion": "Baja",
+    "capacidad": 165
+  },
+  {
+    "nombre": "Portal Américas",
+    "troncal": "F - Americas",
+    "tipo": "portal",
+    "lat": 4.6293813,
+    "lng": -74.1730585,
+    "aglomeracion": "Alta",
+    "capacidad": 342
+  },
+  {
+    "nombre": "Portal El Dorado – C.C. Nuestro Bogotá",
+    "troncal": "K - Calle 26",
+    "tipo": "portal",
+    "lat": 4.681622,
+    "lng": -74.121398,
+    "aglomeracion": "Media",
+    "capacidad": 216
+  },
+  {
+    "nombre": "Portal Norte – Unicervantes",
+    "troncal": "B - Autopista Norte",
+    "tipo": "portal",
+    "lat": 4.7546229,
+    "lng": -74.0460447,
+    "aglomeracion": "Baja",
+    "capacidad": 210
+  },
+  {
+    "nombre": "Portal Suba",
+    "troncal": "C - Suba",
+    "tipo": "portal",
+    "lat": 4.7468151,
+    "lng": -74.0942789,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Portal Sur - JFK Coop. Financiera",
+    "troncal": "G - NQS Sur",
+    "tipo": "portal",
+    "lat": 4.59694,
+    "lng": -74.1692978,
+    "aglomeracion": "Media",
+    "capacidad": 228
+  },
+  {
+    "nombre": "Portal Tunal",
+    "troncal": "Portal Tunal",
+    "tipo": "portal",
+    "lat": 4.5695715,
+    "lng": -74.1392402,
+    "aglomeracion": "Baja",
+    "capacidad": 152
+  },
+  {
+    "nombre": "Portal Usme",
+    "troncal": "Portal Usme",
+    "tipo": "portal",
+    "lat": 4.5317146,
+    "lng": -74.119391,
+    "aglomeracion": "Baja",
+    "capacidad": 210
+  },
+  {
+    "nombre": "Pradera - Plaza Central",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6285065,
+    "lng": -74.1186771,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Prado",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7145584,
+    "lng": -74.0525583,
+    "aglomeracion": "Media",
+    "capacidad": 248
+  },
+  {
+    "nombre": "Puente Aranda",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6256697,
+    "lng": -74.1046394,
+    "aglomeracion": "Baja",
+    "capacidad": 168
+  },
+  {
+    "nombre": "Puentelargo",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.6934008,
+    "lng": -74.0672087,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Quinta Paredes",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6375035,
+    "lng": -74.0931323,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Quirigua",
+    "troncal": "D - Calle 80",
+    "tipo": "troncal",
+    "lat": 4.7067253,
+    "lng": -74.1087393,
+    "aglomeracion": "Baja",
+    "capacidad": 152
+  },
+  {
+    "nombre": "Quiroga",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5768097,
+    "lng": -74.1143805,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "Restrepo",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5818491,
+    "lng": -74.1014288,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Ricaurte - CL 13",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.613018,
+    "lng": -74.0904765,
+    "aglomeracion": "Alta",
+    "capacidad": 312
+  },
+  {
+    "nombre": "Ricaurte - NQS",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6116838,
+    "lng": -74.093866,
+    "aglomeracion": "Alta",
+    "capacidad": 392
+  },
+  {
+    "nombre": "Rionegro",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.6803511,
+    "lng": -74.0648166,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "Salitre - El Greco",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6508648,
+    "lng": -74.1016488,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "San Bernardo",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.5901956,
+    "lng": -74.0843273,
+    "aglomeracion": "Media",
+    "capacidad": 264
+  },
+  {
+    "nombre": "San Diego",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.6108991,
+    "lng": -74.0715001,
+    "aglomeracion": "Alta",
+    "capacidad": 288
+  },
+  {
+    "nombre": "San Facon Carrera 22",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6097352,
+    "lng": -74.0867948,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "San Martín",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.6763897,
+    "lng": -74.0671767,
+    "aglomeracion": "Baja",
+    "capacidad": 192
+  },
+  {
+    "nombre": "San Mateo - CC Unisur",
+    "troncal": "Zona Leon XIII",
+    "tipo": "troncal",
+    "lat": 4.5859606,
+    "lng": -74.2054497,
+    "aglomeracion": "Alta",
+    "capacidad": 424
+  },
+  {
+    "nombre": "San Victorino",
+    "troncal": "L - Carrera Decima",
+    "tipo": "troncal",
+    "lat": 4.6010294,
+    "lng": -74.0774224,
+    "aglomeracion": "Alta",
+    "capacidad": 384
+  },
+  {
+    "nombre": "Santa Isabel",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.601675,
+    "lng": -74.1026176,
+    "aglomeracion": "Media",
+    "capacidad": 240
+  },
+  {
+    "nombre": "Santa Lucía",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5709685,
+    "lng": -74.1247087,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "SENA",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5973705,
+    "lng": -74.1106426,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Sevillana",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5951073,
+    "lng": -74.1474103,
+    "aglomeracion": "Baja",
+    "capacidad": 204
+  },
+  {
+    "nombre": "Socorro",
+    "troncal": "H - Caracas Sur",
+    "tipo": "troncal",
+    "lat": 4.5646533,
+    "lng": -74.1255839,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Suba - AV. Boyacá",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.7212672,
+    "lng": -74.0747116,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "Suba - Calle 100",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.6869683,
+    "lng": -74.0644428,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Suba - Calle 116",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.6992411,
+    "lng": -74.0698439,
+    "aglomeracion": "Baja",
+    "capacidad": 200
+  },
+  {
+    "nombre": "Suba - Calle 95",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.6846946,
+    "lng": -74.0632183,
+    "aglomeracion": "Baja",
+    "capacidad": 144
+  },
+  {
+    "nombre": "Suba - TV. 91",
+    "troncal": "C - Suba",
+    "tipo": "troncal",
+    "lat": 4.7389368,
+    "lng": -74.0869923,
+    "aglomeracion": "Media",
+    "capacidad": 264
+  },
+  {
+    "nombre": "Temporal AV. 39",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6268972,
+    "lng": -74.0686968,
+    "aglomeracion": "Alta",
+    "capacidad": 312
+  },
+  {
+    "nombre": "Temporal AV. Jiménez - Inter Eléctricas",
+    "troncal": "J - Eje Ambiental",
+    "tipo": "troncal",
+    "lat": 4.6030533,
+    "lng": -74.0790928,
+    "aglomeracion": "Media",
+    "capacidad": 272
+  },
+  {
+    "nombre": "Temporal AV. Jiménez - Inter Eléctricas",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6028669,
+    "lng": -74.08041,
+    "aglomeracion": "Alta",
+    "capacidad": 288
+  },
+  {
+    "nombre": "Temporal Calle 22",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6100199,
+    "lng": -74.0755414,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Temporal Calle 34",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6215755,
+    "lng": -74.0697192,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Temporal Calle 57",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6429816,
+    "lng": -74.0658283,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Temporal Flores – Areandina",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.654903,
+    "lng": -74.0630091,
+    "aglomeracion": "Baja",
+    "capacidad": 192
+  },
+  {
+    "nombre": "Temporal Marly",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.6375591,
+    "lng": -74.066788,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Tercer Milenio",
+    "troncal": "A - Caracas",
+    "tipo": "troncal",
+    "lat": 4.598135,
+    "lng": -74.0838363,
+    "aglomeracion": "Alta",
+    "capacidad": 320
+  },
+  {
+    "nombre": "Terminal",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.7688188,
+    "lng": -74.0435726,
+    "aglomeracion": "Baja",
+    "capacidad": 152
+  },
+  {
+    "nombre": "Terreros - Hospital Cardio Vascular",
+    "troncal": "Zona Leon XIII",
+    "tipo": "troncal",
+    "lat": 4.5889627,
+    "lng": -74.1995226,
+    "aglomeracion": "Alta",
+    "capacidad": 356
+  },
+  {
+    "nombre": "Tibanica - Primavera",
+    "troncal": "Zona Tibanica",
+    "tipo": "troncal",
+    "lat": 4.606727,
+    "lng": -74.206053,
+    "aglomeracion": "Alta",
+    "capacidad": 304
+  },
+  {
+    "nombre": "Toberin - Foundever",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.746185,
+    "lng": -74.0472549,
+    "aglomeracion": "Alta",
+    "capacidad": 552
+  },
+  {
+    "nombre": "Transversal 86",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6341947,
+    "lng": -74.1520678,
+    "aglomeracion": "Media",
+    "capacidad": 240
+  },
+  {
+    "nombre": "Tygua - San José",
+    "troncal": "G - NQS Sur (ramal)",
+    "tipo": "troncal",
+    "lat": 4.5997872,
+    "lng": -74.0887614,
+    "aglomeracion": "Media",
+    "capacidad": 228
+  },
+  {
+    "nombre": "Universidad Nacional",
+    "troncal": "E - NQS Central",
+    "tipo": "troncal",
+    "lat": 4.6371211,
+    "lng": -74.0793262,
+    "aglomeracion": "Alta",
+    "capacidad": 412
+  },
+  {
+    "nombre": "Universidades – CityU",
+    "troncal": "K - Calle 26",
+    "tipo": "troncal",
+    "lat": 4.6046462,
+    "lng": -74.0673159,
+    "aglomeracion": "Media",
+    "capacidad": 260
+  },
+  {
+    "nombre": "Venecia",
+    "troncal": "G - NQS Sur",
+    "tipo": "troncal",
+    "lat": 4.5955628,
+    "lng": -74.1426492,
+    "aglomeracion": "Baja",
+    "capacidad": 204
+  },
+  {
+    "nombre": "Virrey",
+    "troncal": "B - Autopista Norte",
+    "tipo": "troncal",
+    "lat": 4.6759974,
+    "lng": -74.0590195,
+    "aglomeracion": "Alta",
+    "capacidad": 352
+  },
+  {
+    "nombre": "Zona Industrial",
+    "troncal": "F - Americas",
+    "tipo": "troncal",
+    "lat": 4.6203253,
+    "lng": -74.0986861,
+    "aglomeracion": "Baja",
+    "capacidad": 168
+  }
+]

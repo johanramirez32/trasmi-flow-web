@@ -1,0 +1,13 @@
+# Dependencias (se reinstalan solas en el servidor)
+node_modules/
+
+# Credenciales: NUNCA se suben al repositorio
+.env
+.env.*
+!.env.example
+
+# Archivos sueltos
+*.zip
+npm-debug.log*
+.DS_Store
+Thumbs.db
