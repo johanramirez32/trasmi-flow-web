@@ -2,7 +2,7 @@
 <html lang="es" class="dark scroll-smooth">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>TransmiFlow - Sistema Inteligente de Transporte</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
@@ -27,6 +27,31 @@
   </script>
 
   <style>
+    /* ---- Tipografia que escala con el tamano de pantalla ---- */
+    html { -webkit-text-size-adjust: 100%; }
+    body { overflow-x: hidden; }
+
+    /* ---- Zonas seguras en celulares con muesca ---- */
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+    /* ---- Botones: area tactil minima de 44px ---- */
+    button, a, select { touch-action: manipulation; }
+    button { -webkit-tap-highlight-color: transparent; }
+
+    /* ---- Inputs de 16px en movil: si son mas pequenos, iOS hace zoom solo ---- */
+    @media (max-width: 640px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
+
+    /* ---- Altura del mapa segun el dispositivo ---- */
+    .altura-mapa {
+      height: 62vh;
+      min-height: 320px;
+      max-height: 78vh;
+    }
+    @media (min-width: 640px)  { .altura-mapa { height: 68vh; min-height: 420px; } }
+    @media (min-width: 1024px) { .altura-mapa { height: calc(100vh - 300px); min-height: 460px; } }
+
     .custom-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
     .custom-scroll::-webkit-scrollbar-track { background: rgba(3,7,18,.3); border-radius: 10px; }
     .custom-scroll::-webkit-scrollbar-thumb { background: #374151; border-radius: 10px; }
@@ -34,6 +59,7 @@
 
     .leaflet-control-zoom a {
       background-color: #0b0f19 !important; color: #fff !important; border-color: #1f293d !important;
+      width: 36px !important; height: 36px !important; line-height: 36px !important; font-size: 18px !important;
     }
     .leaflet-control-zoom a:hover { background-color: #ef4444 !important; }
     .leaflet-control-attribution { font-size: 9px !important; }
@@ -53,6 +79,11 @@
       background: rgba(11,15,25,.92);
       backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
     }
+
+    /* ---- Ocultar barras de navegacion cuando no hay sesion ----
+       Clase aparte de "hidden" para no mezclar con el breakpoint responsive */
+    #navPrincipal.sin-sesion,
+    #navMovil.sin-sesion { display: none !important; }
   </style>
 </head>
 
@@ -67,18 +98,18 @@
   <!-- ================= HEADER ================= -->
   <header class="sticky top-0 z-[500] glass-panel border-b border-brand-border shadow-2xl">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        <div class="flex items-center gap-3 cursor-pointer group" onclick="irAMapa()">
-          <div class="p-2.5 bg-gradient-to-br from-brand-red/20 to-brand-darkRed/30 border border-brand-red/40 rounded-xl text-brand-red">
-            <i data-lucide="bus" class="w-6 h-6"></i>
+      <div class="flex items-center justify-between gap-2 h-14 sm:h-16">
+        <div class="flex items-center gap-2 sm:gap-3 cursor-pointer group min-w-0" onclick="irAMapa()">
+          <div class="p-2 sm:p-2.5 bg-gradient-to-br from-brand-red/20 to-brand-darkRed/30 border border-brand-red/40 rounded-xl text-brand-red shrink-0">
+            <i data-lucide="bus" class="w-5 h-5 sm:w-6 sm:h-6"></i>
           </div>
-          <div>
-            <span class="text-2xl font-black tracking-wider text-white">TRANSMI<span class="text-brand-red ml-1">FLOW</span></span>
-            <span class="hidden sm:block text-[10px] text-slate-400 tracking-widest font-bold uppercase">Red de Transporte</span>
+          <div class="min-w-0">
+            <span class="block text-lg sm:text-2xl font-black tracking-wider text-white leading-none">TRANSMI<span class="text-brand-red ml-1">FLOW</span></span>
+            <span class="hidden sm:block text-[10px] text-slate-400 tracking-widest font-bold uppercase mt-0.5">Red de Transporte</span>
           </div>
         </div>
 
-        <nav id="navPrincipal" class="hidden md:flex items-center gap-1 bg-brand-card/80 p-1.5 rounded-xl border border-brand-border">
+        <nav id="navPrincipal" class="hidden md:flex items-center gap-1 bg-brand-card/80 p-1.5 rounded-xl border border-brand-border shrink-0">
           <button onclick="irAMapa()" id="nav-estaciones" class="px-4 py-2 text-xs font-bold rounded-lg text-white bg-brand-red flex items-center gap-2">
             <i data-lucide="map" class="w-4 h-4"></i><span>Mapa</span>
           </button>
@@ -90,7 +121,7 @@
           </button>
         </nav>
 
-        <div id="headerAcciones"></div>
+        <div id="headerAcciones" class="shrink-0"></div>
       </div>
     </div>
   </header>
@@ -152,46 +183,46 @@
 
       <div class="grid grid-cols-1 md:grid-cols-12 gap-3 bg-brand-card p-3 rounded-2xl border border-brand-border">
         <div class="md:col-span-7 relative">
-          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400"></i>
+          <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-4 text-slate-400"></i>
           <input type="text" id="inputBuscar" oninput="buscarEstaciones()" onfocus="buscarEstaciones()"
             placeholder="Buscar estacion o troncal..."
-            class="w-full pl-10 pr-4 py-2.5 bg-brand-dark border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-xs">
+            class="w-full pl-10 pr-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-sm sm:text-sm">
           <div id="resultadosBusqueda"
-            class="hidden absolute top-full left-0 right-0 mt-2 max-h-80 overflow-y-auto custom-scroll bg-brand-card border border-brand-border rounded-xl z-40 shadow-2xl"></div>
+            class="hidden absolute top-full left-0 right-0 mt-2 max-h-[60vh] overflow-y-auto custom-scroll bg-brand-card border border-brand-border rounded-xl z-40 shadow-2xl"></div>
         </div>
 
         <div class="md:col-span-3 flex items-center gap-2">
           <button onclick="seguirMiUbicacion()"
-            class="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 text-white font-bold rounded-xl shadow-lg text-xs">
+            class="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90 text-white font-bold rounded-xl shadow-lg text-sm">
             <i data-lucide="crosshair" class="w-4 h-4 inline"></i> Mi ubicacion
           </button>
         </div>
 
-        <div class="md:col-span-2 flex items-center gap-2 text-[11px] text-slate-400">
-          <span class="flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></i>Baja</span>
-          <span class="flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></i>Media</span>
-          <span class="flex items-center gap-1"><i class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></i>Alta</span>
+        <div class="md:col-span-2 flex items-center justify-start md:justify-end gap-3 text-xs text-slate-400">
+          <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></i>Baja</span>
+          <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></i>Media</span>
+          <span class="flex items-center gap-1.5"><i class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></i>Alta</span>
         </div>
       </div>
 
-      <div class="px-3.5 py-2 bg-brand-card/70 border border-brand-border rounded-xl text-xs text-slate-300 flex items-center justify-between">
+      <div class="px-3.5 py-2.5 bg-brand-card/70 border border-brand-border rounded-xl text-xs sm:text-sm text-slate-300 flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2.5">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" id="dotEstado"></span>
+          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse shrink-0" id="dotEstado"></span>
           <span id="txtEstado" class="font-medium">Buscando tu ubicacion...</span>
         </div>
         <span class="text-[11px] text-slate-400 font-mono">GPS: <span id="txtCoordenadas" class="text-slate-200">--.----, --.----</span></span>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-grow min-h-[500px]">
-        <div class="lg:col-span-7 h-[380px] sm:h-[500px] lg:h-auto rounded-2xl border border-brand-border overflow-hidden shadow-2xl">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-grow">
+        <div class="lg:col-span-7 altura-mapa rounded-2xl border border-brand-border overflow-hidden shadow-2xl">
           <div id="mapa" class="w-full h-full z-10"></div>
         </div>
 
-        <div class="lg:col-span-5 bg-brand-card rounded-2xl border border-brand-border p-4 flex flex-col h-[380px] sm:h-[500px] lg:h-auto shadow-2xl">
+        <div class="lg:col-span-5 bg-brand-card rounded-2xl border border-brand-border p-4 flex flex-col altura-mapa shadow-2xl">
           <div id="panelLista" class="flex flex-col h-full min-h-0">
-            <div class="flex items-center justify-between pb-3 border-b border-brand-border mb-3">
-              <span id="tituloPanel" class="text-xs font-black uppercase tracking-wider text-white">Estaciones mas cercanas</span>
-              <span id="contador" class="text-[11px] text-slate-400 bg-brand-dark px-2 py-0.5 rounded-md border border-brand-border">0</span>
+            <div class="flex items-center justify-between pb-3 border-b border-brand-border mb-3 gap-2">
+              <span id="tituloPanel" class="text-xs sm:text-sm font-black uppercase tracking-wider text-white">Estaciones mas cercanas</span>
+              <span id="contador" class="text-[11px] text-slate-400 bg-brand-dark px-2 py-0.5 rounded-md border border-brand-border shrink-0">0</span>
             </div>
             <div id="listaResultado" class="space-y-2.5 overflow-y-auto pr-1 flex-grow custom-scroll">
               <p class="text-xs text-slate-400 text-center py-6">Cargando estaciones...</p>
@@ -202,35 +233,81 @@
     </section>
 
     <!-- ALERTAS -->
-    <section id="sec-alertas" class="hidden space-y-6">
-      <h3 class="text-2xl font-black text-white text-center">Alertas de la Red</h3>
-      <div class="max-w-2xl mx-auto space-y-3">
-        <div class="p-4 bg-brand-card border border-amber-500/30 rounded-2xl flex gap-4">
-          <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-400 shrink-0"></i>
-          <div><h4 class="text-white font-bold text-sm">Alta afluencia en Troncal Caracas</h4>
-          <p class="text-xs text-slate-400 mt-1">Mayores tiempos de espera en Marly y Calle 72.</p></div>
-        </div>
+    <section id="sec-alertas" class="hidden space-y-4">
+      <h3 class="text-xl sm:text-2xl font-black text-white text-center">Alertas de la Red</h3>
+      <p class="text-center text-xs text-slate-400 -mt-2">
+        Generadas con los reportes enviados en las ultimas 24 horas
+      </p>
+      <div id="listaAlertas" class="max-w-2xl mx-auto space-y-3">
+        <p class="text-xs text-slate-400 text-center py-6">Cargando alertas...</p>
+      </div>
+      <div class="max-w-2xl mx-auto">
+        <button onclick="cargarAlertas()"
+          class="w-full py-2.5 bg-brand-card border border-brand-border text-slate-300 font-bold rounded-xl text-xs hover:border-brand-red">
+          Actualizar alertas
+        </button>
       </div>
     </section>
 
     <!-- REPORTES -->
-    <section id="sec-reportes" class="hidden space-y-6">
-      <h3 class="text-2xl font-black text-white text-center">Reportar Ocupacion</h3>
-      <div class="bg-brand-card p-6 rounded-3xl border border-brand-border max-w-xl mx-auto space-y-4">
-        <input type="text" id="repEstacion" placeholder="Nombre de la estacion..." class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-xs">
-        <select id="repNivel" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-xs">
-          <option value="Baja">Baja</option><option value="Media">Media</option><option value="Alta">Alta</option>
-        </select>
-        <button onclick="enviarReporte()" class="w-full py-3 bg-brand-red text-white font-bold rounded-xl text-xs">Enviar Reporte</button>
+    <section id="sec-reportes" class="hidden space-y-4">
+      <h3 class="text-xl sm:text-2xl font-black text-white text-center">Reportar Ocupacion</h3>
+
+      <div class="bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border max-w-xl mx-auto space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nombre de la estacion</label>
+          <input type="text" id="repEstacion" oninput="sugerirEstaciones()" onfocus="sugerirEstaciones()" placeholder="Ej: Universidad Nacional"
+            class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm focus:outline-none focus:border-brand-red" autocomplete="off">
+          <div id="repSugerencias" class="hidden mt-2 max-h-48 overflow-y-auto custom-scroll bg-brand-dark border border-brand-border rounded-xl"></div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nivel de ocupacion</label>
+          <select id="repNivel" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+            <option value="Baja">Baja - hayibus disponibles</option>
+            <option value="Media">Media - algo de espera</option>
+            <option value="Alta">Alta - mucha fila</option>
+          </select>
+        </div>
+
+        <button id="btnEnviarReporte" onclick="enviarReporte()"
+          class="w-full py-3.5 bg-brand-red text-white font-bold rounded-xl text-sm disabled:opacity-50">
+          Enviar Reporte
+        </button>
+
+        <p id="repMensaje" class="hidden text-center text-xs font-medium py-1"></p>
+      </div>
+
+      <!-- Reportes enviados: se actualizan solos -->
+      <div class="max-w-xl mx-auto">
+        <div class="flex items-center justify-between mb-3 gap-2">
+          <span class="text-xs font-black uppercase tracking-wider text-white">Ultimos reportes</span>
+          <div class="flex items-center gap-2">
+            <span id="repContador" class="text-[11px] text-slate-400 bg-brand-card px-2 py-0.5 rounded-md border border-brand-border">0</span>
+            <button onclick="cargarReportes()" title="Actualizar"
+              class="p-1.5 bg-brand-card border border-brand-border rounded-md text-slate-300 hover:text-brand-red">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+        <div id="listaReportes" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+          <p class="text-xs text-slate-400 text-center py-6">Cargando reportes...</p>
+        </div>
       </div>
     </section>
   </main>
 
   <!-- Nav movil -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 z-[500] glass-panel border-t border-brand-border px-6 py-2 flex justify-around">
-    <button onclick="irAMapa()" class="text-brand-red"><i data-lucide="map" class="w-5 h-5"></i></button>
-    <button onclick="irAAertas()" class="text-slate-400"><i data-lucide="bell" class="w-5 h-5"></i></button>
-    <button onclick="irAReportes()" class="text-slate-400"><i data-lucide="file-text" class="w-5 h-5"></i></button>
+  <nav id="navMovil" class="md:hidden fixed bottom-0 left-0 right-0 z-[500] glass-panel border-t border-brand-border px-2 pt-1.5 pb-1.5 safe-bottom flex justify-around">
+    <button onclick="irAMapa()" id="mnav-estaciones" class="flex flex-col items-center gap-0.5 px-4 py-1 text-brand-red min-w-[64px]">
+      <i data-lucide="map" class="w-5 h-5"></i><span class="text-[10px] font-bold">Mapa</span>
+    </button>
+    <button onclick="irAAertas()" id="mnav-alertas" class="flex flex-col items-center gap-0.5 px-4 py-1 text-slate-400 min-w-[64px]">
+      <i data-lucide="bell" class="w-5 h-5"></i><span class="text-[10px] font-semibold">Alertas</span>
+    </button>
+    <button onclick="irAReportes()" id="mnav-reportes" class="flex flex-col items-center gap-0.5 px-4 py-1 text-slate-400 min-w-[64px]">
+      <i data-lucide="file-text" class="w-5 h-5"></i><span class="text-[10px] font-semibold">Reportes</span>
+    </button>
   </nav>
 
   <script>
@@ -257,6 +334,32 @@
     var circuloCerca = null, lineaRuta = null, idWatch = null;
     var CANTIDAD_CERCANAS = 5;
     var COLOR_AGLOMERACION = { 'Baja': '#22c55e', 'Media': '#f59e0b', 'Alta': '#ef4444' };
+
+    // ==========================================================
+    // UTILIDADES
+    // ==========================================================
+    /** Escapa texto para insertarlo con innerHTML sin romper el HTML */
+    function escHtml(texto) {
+      return String(texto == null ? '' : texto)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    /** "hace 3 min", "hace 2 h", "ayer" */
+    function tiempoRelativo(fecha) {
+      if (!fecha) return 'hace un momento';
+      var d = new Date(fecha);
+      if (isNaN(d.getTime())) return 'hace un momento';
+
+      var segundos = Math.floor((Date.now() - d.getTime()) / 1000);
+      if (segundos < 60)    return 'hace un momento';
+      if (segundos < 3600)  return 'hace ' + Math.floor(segundos / 60) + ' min';
+      if (segundos < 86400) return 'hace ' + Math.floor(segundos / 3600) + ' h';
+      if (segundos < 172800) return 'ayer';
+
+      return d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short' }) +
+             ' ' + d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
 
     // ==========================================================
     // UTILIDADES
@@ -617,31 +720,223 @@
         document.getElementById('sec-' + s).classList.toggle('hidden', s !== id);
       });
       if (id === 'estaciones') setTimeout(initMap, 80);
+      if (id === 'reportes')  cargarReportes();
+      if (id === 'alertas')   cargarAlertas();
       actualizarIconos();
     }
     function irAMapa()      { cambiarSeccion('estaciones'); }
     function irAAertas()    { cambiarSeccion('alertas'); }
     function irAReportes()  { cambiarSeccion('reportes'); }
 
+    // ==========================================================
+    // REPORTES  (enviar, listar y refrescar)
+    // ==========================================================
+    var COLOR_NIVEL = { 'Baja': '#22c55e', 'Media': '#f59e0b', 'Alta': '#ef4444' };
+
+    function mostrarMensajeReporte(texto, tipo) {
+      var caja = document.getElementById('repMensaje');
+      if (!caja) return;
+      var colores = {
+        ok:     'text-emerald-400',
+        error:  'text-red-400',
+        espera: 'text-slate-400'
+      };
+      caja.className = 'text-center text-xs font-medium py-1 ' + (colores[tipo] || colores.espera);
+      caja.textContent = texto;
+      caja.classList.remove('hidden');
+    }
+
+    /** Pinta la lista de reportes */
+    function pintarReportes(lista) {
+      var cont = document.getElementById('listaReportes');
+      var num  = document.getElementById('repContador');
+      if (!cont) return;
+
+      window.__reportesCache = lista;
+
+      if (num) num.textContent = lista.length;
+
+      if (!lista.length) {
+        cont.innerHTML =
+          '<p class="text-xs text-slate-400 text-center py-6">' +
+          'Todavia no hay reportes.<br>Envia el primero desde el formulario.</p>';
+        return;
+      }
+
+      cont.innerHTML = lista.map(function (r) {
+        var color = COLOR_NIVEL[r.nivel] || '#94a3b8';
+        var cuando = tiempoRelativo(r.creado_en);
+        var quien = r.usuario ? escHtml(r.usuario.split('@')[0]) : 'anonimo';
+        return '<div class="flex items-center gap-3 p-3 bg-brand-card border border-brand-border ' +
+               'rounded-xl hover:border-brand-red/50 transition-colors">' +
+                 '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>' +
+                 '<div class="min-w-0 flex-grow">' +
+                   '<p class="text-white font-semibold text-xs sm:text-sm truncate">' + escHtml(r.estacion) + '</p>' +
+                   '<p class="text-[11px] text-slate-400 truncate">' + quien + ' &middot; ' + cuando + '</p>' +
+                 '</div>' +
+                 '<span class="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0" ' +
+                       'style="background:' + color + '22;color:' + color + '">' + escHtml(r.nivel) + '</span>' +
+               '</div>';
+      }).join('');
+    }
+
+    /** Carga los reportes desde el servidor */
+    function cargarReportes() {
+      return fetch(API_URL + '/reportes?limite=25')
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(pintarReportes)
+        .catch(function (err) {
+          var cont = document.getElementById('listaReportes');
+          if (cont) {
+            cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">' +
+              'No se pudieron cargar los reportes.<br>' +
+              '<span class="text-slate-500">' + escHtml(err.message) + '</span></p>';
+          }
+        });
+    }
+
+    /** Envia un reporte y refresca la lista al instante */
     function enviarReporte() {
-      var est = document.getElementById('repEstacion').value.trim();
-      var niv = document.getElementById('repNivel').value;
-      if (!est) { alert('Escribe el nombre de la estacion'); return; }
+      var campo   = document.getElementById('repEstacion');
+      var nivel   = document.getElementById('repNivel');
+      var boton   = document.getElementById('btnEnviarReporte');
+      var sug     = document.getElementById('repSugerencias');
+
+      var est = campo.value.trim();
+      if (!est) {
+        mostrarMensajeReporte('Escribe el nombre de la estacion', 'error');
+        campo.focus();
+        return;
+      }
+
+      boton.disabled = true;
+      boton.textContent = 'Enviando...';
+      mostrarMensajeReporte('Enviando reporte...', 'espera');
+
+      var usuario = {};
+      try { usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}'); }
+      catch (e) { usuario = {}; }
 
       fetch(API_URL + '/reportes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estacion: est,
-          nivel: niv,
-          usuario: (JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}').email) || 'anonimo'
+          nivel: nivel.value,
+          usuario: usuario.email || 'anonimo'
         })
-      }).then(function () {
-        alert('Reporte enviado');
-        document.getElementById('repEstacion').value = '';
-      }).catch(function () {
-        alert('No se pudo enviar el reporte');
-      });
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error('El servidor respondio ' + r.status);
+          return r.json();
+        })
+        .then(function (respuesta) {
+          // El servidor devuelve el reporte recien creado: lo mostramos al instante
+          var cache = (window.__reportesCache || []).filter(function (r) {
+            return r.id !== respuesta.reporte.id;
+          });
+          pintarReportes([respuesta.reporte].concat(cache).slice(0, 25));
+
+          campo.value = '';
+          if (sug) sug.classList.add('hidden');
+          mostrarMensajeReporte('Reporte enviado. Gracias por tu aporte.', 'ok');
+          actualizarIconos();
+
+          // Confirmamos contra el servidor (orden real y estado guardado)
+          cargarReportes();
+        })
+        .catch(function (err) {
+          mostrarMensajeReporte('No se pudo enviar: ' + err.message, 'error');
+        })
+        .finally(function () {
+          boton.disabled = false;
+          boton.textContent = 'Enviar Reporte';
+        });
+    }
+
+    /** Autocompletado de estaciones al escribir */
+    function sugerirEstaciones() {
+      var texto = document.getElementById('repEstacion').value.trim();
+      var caja  = document.getElementById('repSugerencias');
+      if (!caja) return;
+
+      if (texto.length < 2) { caja.classList.add('hidden'); return; }
+
+      var coincidencias = estaciones.filter(function (e) {
+        return e.nombre.toLowerCase().indexOf(texto.toLowerCase()) !== -1;
+      }).slice(0, 6);
+
+      if (!coincidencias.length) { caja.classList.add('hidden'); return; }
+
+      caja.innerHTML = coincidencias.map(function (e) {
+        return '<button type="button" onclick="elegirSugerencia(\'' +
+          e.nombre.replace(/'/g, "\\'") + '\')" ' +
+          'class="w-full text-left px-3 py-2.5 text-xs text-white hover:bg-brand-red/20 border-b border-brand-border last:border-0">' +
+          escHtml(e.nombre) + ' <span class="text-slate-500">- ' + escHtml(e.troncal) + '</span></button>';
+      }).join('');
+      caja.classList.remove('hidden');
+    }
+
+    function elegirSugerencia(nombre) {
+      document.getElementById('repEstacion').value = nombre;
+      document.getElementById('repSugerencias').classList.add('hidden');
+    }
+
+    // ==========================================================
+    // ALERTAS (se construyen con los reportes de las ultimas 24h)
+    // ==========================================================
+    function cargarAlertas() {
+      var cont = document.getElementById('listaAlertas');
+      if (!cont) return;
+
+      return fetch(API_URL + '/niveles?horas=24')
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (niveles) {
+          var altas = niveles.filter(function (n) { return n.nivel === 'Alta'; });
+          var medias = niveles.filter(function (n) { return n.nivel === 'Media'; });
+
+          if (!altas.length && !medias.length) {
+            cont.innerHTML =
+              '<div class="p-5 bg-brand-card border border-emerald-500/30 rounded-2xl flex gap-3 items-start">' +
+              '<i data-lucide="check-circle" class="w-6 h-6 text-emerald-400 shrink-0"></i>' +
+              '<div><h4 class="text-white font-bold text-sm">Sin alertas en este momento</h4>' +
+              '<p class="text-xs text-slate-400 mt-1">Ninguna estacion reporta ocupacion alta en las ultimas 24 horas.</p></div></div>';
+            actualizarIconos();
+            return;
+          }
+
+          function tarjeta(n, color, icono, titulo) {
+            return '<div class="p-4 bg-brand-card border rounded-2xl flex gap-3 items-start" style="border-color:' + color + '55">' +
+              '<i data-lucide="' + icono + '" class="w-6 h-6 shrink-0" style="color:' + color + '"></i>' +
+              '<div class="min-w-0">' +
+                '<h4 class="text-white font-bold text-sm break-words">' + titulo + '</h4>' +
+                '<p class="text-xs text-slate-400 mt-1 break-words">' +
+                  escHtml(n.estacion) + ' - ' + tiempoRelativo(n.creado_en) +
+                  (n.usuario ? ' por ' + escHtml(n.usuario.split('@')[0]) : '') +
+                '</p>' +
+              '</div></div>';
+          }
+
+          var html = altas.map(function (n) {
+            return tarjeta(n, '#ef4444', 'alert-triangle', 'Alta afluencia');
+          }).join('') + medias.map(function (n) {
+            return tarjeta(n, '#f59e0b', 'alert-circle', 'Ocupacion moderada');
+          }).join('');
+
+          cont.innerHTML = html;
+          actualizarIconos();
+        })
+        .catch(function (err) {
+          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">' +
+            'No se pudieron cargar las alertas.<br>' +
+            '<span class="text-slate-500">' + escHtml(err.message) + '</span></p>';
+        });
     }
 
     // ==========================================================
@@ -695,14 +990,15 @@
       var usuario = localStorage.getItem('usuarioTransmiFlowReal');
       document.getElementById('vistaAuth').classList.toggle('hidden', !!usuario);
       document.getElementById('appContenido').classList.toggle('hidden', !usuario);
-      document.getElementById('navPrincipal').classList.toggle('hidden', !usuario);
+      document.getElementById('navPrincipal').classList.toggle('sin-sesion', !usuario);
+      document.getElementById('navMovil').classList.toggle('sin-sesion', !usuario);
 
       if (usuario) {
         var u = JSON.parse(usuario);
         document.getElementById('headerAcciones').innerHTML =
-          '<div class="flex items-center gap-3">' +
-            '<span class="hidden sm:block text-xs text-white font-bold">' + u.nombre + '</span>' +
-            '<button onclick="cerrarSesion()" class="px-3 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-xs font-bold rounded-xl">Salir</button>' +
+          '<div class="flex items-center gap-2 sm:gap-3">' +
+            '<span class="hidden sm:block text-xs text-white font-bold truncate max-w-[120px] lg:max-w-none">' + escHtml(u.nombre) + '</span>' +
+            '<button onclick="cerrarSesion()" class="px-2.5 sm:px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-xs font-bold rounded-xl">Salir</button>' +
           '</div>';
         cambiarSeccion('estaciones');
         cargarEstaciones();

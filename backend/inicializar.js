@@ -119,7 +119,8 @@ async function inicializar(pool, intentos = 5) {
     } catch (err) {
       if (i === intentos) throw err;
       const espera = i * 2000;
-      console.log('   Base de datos no disponible, reintento en ' + espera / 1000 + 's...');
+      console.log('   No se pudo conectar (' + err.message + ')');
+      console.log('   Reintento ' + i + ' de ' + intentos + ' en ' + espera / 1000 + 's...');
       await new Promise(r => setTimeout(r, espera));
     }
   }
