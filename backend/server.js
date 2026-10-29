@@ -39,7 +39,7 @@ app.use('/api/health',     require('./routes/healthRouter'));
 app.use('/api/estaciones', require('./routes/estacionesRouter'));
 app.use('/api/niveles',    require('./routes/nivelesRouter'));
 app.use('/api/reportes',   require('./routes/reportesRouter'));
-app.use('/api/auth',       require('./routes/authRouter'));
+app.use('/api',            require('./routes/authRouter'));
 
 const pool = getPool();
 
