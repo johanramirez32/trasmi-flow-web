@@ -129,7 +129,7 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (!data || !data.routes || !data.routes.length) return;
-          var coords = data.routes[0].geometry.coordinates;
+          var coords = data.routes[0].geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
           if (lineaRuta) { map.removeLayer(lineaRuta); lineaRuta = null; }
           lineaRuta = L.polyline(coords, { color: '#3b82f6', weight: 5, opacity: 0.8 }).addTo(map);
         })
