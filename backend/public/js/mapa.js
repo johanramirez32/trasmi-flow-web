@@ -256,14 +256,38 @@
       cont.style.position = 'relative';
     }
 
-    /** Va a la estacion mas cercana al usuario y la muestra como seleccionada */
+    /** Muestra las 3 estaciones mas cercanas al usuario con su distancia y nivel */
     function irANearesta() {
       if (!estaciones || !estaciones.length) return;
-      var centro = userPos || [4.6097, -74.0817];
-      var ref = estaciones
+      var centro = userPos ? [userPos.lat, userPos.lng] : [4.6097, -74.0817];
+      var lista = estaciones
         .map(function (e) { return Object.assign({}, e, { dist: distanciaKM(centro[0], centro[1], e.lat, e.lng) }); })
-        .sort(function (a, b) { return a.dist - b.dist; })[0];
-      if (!ref) return;
-      seleccion = ref;
-      pintar();
+        .sort(function (a, b) { return a.dist - b.dist; })
+        .slice(0, 3);
+
+      var tarjetas = [];
+      for (var i = 0; i < lista.length; i++) {
+        var e = lista[i];
+        var color = COLOR_AGLOMERACION[nivelTexto(e.aglomeracion)] || '#f59e0b';
+        var metros = Math.round(e.dist * 1000);
+        tarjetas.push(
+          '<div onclick="seleccionarEstacion(' + e.id + ')" class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border hover:border-brand-red cursor-pointer flex items-center justify-between gap-3" style="border-color:' + color + '">' +
+            '<div class="min-w-0 flex items-center gap-2.5">' +
+              '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>' +
+              '<div class="min-w-0">' +
+                '<p class="text-white font-bold text-xs truncate">' + (i + 1) + '. ' + e.nombre + '</p>' +
+                '<p class="text-[11px] text-slate-400 truncate">' + e.troncal + ' &bull; ' + metros + ' m</p>' +
+              '</div>' +
+            '</div>' +
+            '<span class="text-[10px] font-bold px-2 py-1 rounded-lg shrink-0" style="color:' + color + ';background:' + color + '22">' + nivelTexto(e.aglomeracion) + '</span>' +
+          '</div>'
+        );
+      }
+      var html = tarjetas.join('');
+
+      document.getElementById('tituloPanel').textContent = 'Tus 3 estaciones mas cercanas';
+      document.getElementById('contador').textContent = lista.length;
+      document.getElementById('listaResultado').innerHTML = html;
+
+      if (userPos && map) { map.setView([userPos.lat, userPos.lng], 14); }
     }
