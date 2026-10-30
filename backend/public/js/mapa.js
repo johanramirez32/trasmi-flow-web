@@ -122,6 +122,20 @@
       map.fitBounds(grupo.pad(0.25), { maxZoom: 15 });
     }
 
+    // Trae la ruta por OSRM y la dibuja en el mapa como linea azul
+    function dibujarRuta(lat1, lng1, lat2, lng2) {
+      if (!map) return;
+      return fetch('https://router.project-osrm.org/route/v1/driving/' + lng1 + ',' + lat1 + ';' + lng2 + ',' + lat2 + '?overview=full&geometries=geojson')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.routes || !data.routes.length) return;
+          var coords = data.routes[0].geometry.coordinates;
+          if (lineaRuta) { map.removeLayer(lineaRuta); lineaRuta = null; }
+          lineaRuta = L.polyline(coords, { color: '#3b82f6', weight: 5, opacity: 0.8 }).addTo(map);
+        })
+        .catch(function (err) { console.error('Error dibujando ruta:', err); });
+    }
+
     // Vista de busqueda: detalle de la estacion + stations cercanas a ELLA
     function pintarDetalle() {
       var ref = seleccion;
@@ -130,6 +144,9 @@
       L.marker([ref.lat, ref.lng], { icon: iconoEstacion(ref), zIndexOffset: 900 })
         .bindPopup(popupEstacion(ref))
         .addTo(capaMarcadores);
+
+      // Ruta en linea azul desde la ubicacion del usuario hasta la estacion
+      if (userPos) { dibujarRuta(userPos.lat, userPos.lng, ref.lat, ref.lng); }
 
       var cercanas = estaciones
         .filter(function (e) { return e.id !== ref.id; })
