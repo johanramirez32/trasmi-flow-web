@@ -16,6 +16,9 @@
 
       // Los datos pueden haber llegado antes que el mapa: repintar
       if (estaciones.length > 0) pintar();
+
+      // Boton dentro del mapa: ir a la estacion mas cercana al usuario
+      agregarBotonMapa();
     }
 
     // ==========================================================
@@ -221,4 +224,46 @@
 
     function actualizarIconos() {
       if (window.lucide) lucide.createIcons();
+    }
+
+    // ==========================================================
+    // BOTON DENTRO DEL MAPA: ir a la estacion mas cercana
+    // ==========================================================
+    function agregarBotonMapa() {
+      var cont = document.getElementById('mapa');
+      if (!cont) return;
+      if (document.getElementById('btnMapaCerca')) return;
+      var btn = document.createElement('button');
+      btn.id = 'btnMapaCerca';
+      btn.type = 'button';
+      btn.innerHTML = '🎯 Mi estación más cercana';
+      btn.title = 'Ir a la estación más cercana a tu ubicación';
+      btn.style.position = 'absolute';
+      btn.style.bottom = '20px';
+      btn.style.right = '20px';
+      btn.style.zIndex = '1000';
+      btn.style.display = 'block';
+      btn.style.background = '#dc2626';
+      btn.style.color = '#fff';
+      btn.style.border = 'none';
+      btn.style.borderRadius = '8px';
+      btn.style.padding = '8px 10px';
+      btn.style.fontSize = '12px';
+      btn.style.fontWeight = 'bold';
+      btn.style.cursor = 'pointer';
+      btn.onclick = function (e) { if (e) { e.preventDefault(); e.stopPropagation(); } irANearesta(); };
+      cont.appendChild(btn);
+      cont.style.position = 'relative';
+    }
+
+    /** Va a la estacion mas cercana al usuario y la muestra como seleccionada */
+    function irANearesta() {
+      if (!estaciones || !estaciones.length) return;
+      var centro = userPos || [4.6097, -74.0817];
+      var ref = estaciones
+        .map(function (e) { return Object.assign({}, e, { dist: distanciaKM(centro[0], centro[1], e.lat, e.lng) }); })
+        .sort(function (a, b) { return a.dist - b.dist; })[0];
+      if (!ref) return;
+      seleccion = ref;
+      pintar();
     }
