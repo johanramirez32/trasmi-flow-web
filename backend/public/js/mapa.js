@@ -306,5 +306,8 @@
       document.getElementById('contador').textContent = lista.length;
       document.getElementById('listaResultado').innerHTML = html;
 
+      // Ruta en linea azul desde la ubicacion del usuario hasta la estacion final
+      if (userPos && map && lista.length) { dibujarRuta(userPos.lat, userPos.lng, lista[0].lat, lista[0].lng); }
+
       if (userPos && map) { map.setView([userPos.lat, userPos.lng], 14); }
     }
