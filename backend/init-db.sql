@@ -37,3 +37,8 @@ CREATE INDEX IF NOT EXISTS idx_reportes_estacion ON reportes(estacion);
 
 -- Verificacion
 SELECT COUNT(*) AS total_estaciones FROM estaciones;
+
+-- ============================================================
+-- Rol del usuario: 'usuario' (ciudadano) o 'operario'
+-- ============================================================
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol VARCHAR(20) DEFAULT 'usuario';

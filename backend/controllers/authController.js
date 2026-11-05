@@ -9,7 +9,7 @@ const { getPool } = require('../db');
 const pool = getPool();
 
 async function registrarUsuario(req, res) {
-  const { nombre, email, password } = req.body;
+  const { nombre, email, password, rol } = req.body;
 
   if (!nombre || !email || !password) {
     return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
@@ -22,9 +22,10 @@ async function registrarUsuario(req, res) {
     }
 
     const hash = await bcrypt.hash(password, 10);
+    const rolFinal = rol || 'usuario';
     const nuevo = await pool.query(
-      'INSERT INTO usuarios (nombre, email, password) VALUES ($1, $2, $3) RETURNING id, nombre, email',
-      [nombre, email, hash]
+      'INSERT INTO usuarios (nombre, email, password, rol) VALUES ($1, $2, $3, $4) RETURNING id, nombre, email, rol',
+      [nombre, email, hash, rolFinal]
     );
 
     res.status(201).json({ mensaje: 'Usuario registrado con exito', usuario: nuevo.rows[0] });
@@ -56,7 +57,7 @@ async function iniciarSesion(req, res) {
 
     res.json({
       mensaje: 'Inicio de sesion exitoso',
-      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email },
+      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol || 'usuario' },
     });
   } catch (err) {
     console.error(err);

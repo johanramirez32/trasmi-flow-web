@@ -248,7 +248,7 @@
       var msg      = document.getElementById('authMensajeError');
 
       var endpoint = esRegistro ? '/registro' : '/login';
-      var payload  = esRegistro ? { nombre: nombre, email: email, password: password }
+      var payload  = esRegistro ? { nombre: nombre, email: email, password: password, rol: 'usuario' }
                               : { email: email, password: password };
 
       fetch(API_URL + endpoint, {
@@ -284,6 +284,7 @@
         document.getElementById('headerAcciones').innerHTML =
           '<div class="flex items-center gap-2 sm:gap-3">' +
             '<span class="hidden sm:block text-xs text-white font-bold truncate max-w-[120px] lg:max-w-none">' + escHtml(u.nombre) + '</span>' +
+            '<span class="px-2.5 sm:px-3 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-xl uppercase">' + escHtml(u.rol || 'usuario') + '</span>' +
             '<button onclick="cerrarSesion()" class="px-2.5 sm:px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-xs font-bold rounded-xl">Salir</button>' +
           '</div>';
         cambiarSeccion('estaciones');
