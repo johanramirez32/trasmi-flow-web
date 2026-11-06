@@ -233,6 +233,7 @@
     function alternarModoAuth() {
       esRegistro = !esRegistro;
       document.getElementById('campoNombre').classList.toggle('hidden', !esRegistro);
+      document.getElementById('campoRol').classList.toggle('hidden', !esRegistro);
       document.getElementById('authTitulo').textContent = esRegistro ? 'Crear Cuenta' : 'Iniciar Sesion';
       document.getElementById('txtBtnAuth').textContent = esRegistro ? 'Registrarme' : 'Ingresar a la Plataforma';
       document.getElementById('txtPreguntaAuth').textContent = esRegistro ? 'Ya tienes cuenta?' : 'No tienes cuenta?';
@@ -248,7 +249,7 @@
       var msg      = document.getElementById('authMensajeError');
 
       var endpoint = esRegistro ? '/registro' : '/login';
-      var payload  = esRegistro ? { nombre: nombre, email: email, password: password, rol: 'usuario' }
+      var payload  = esRegistro ? { nombre: nombre, email: email, password: password, rol: document.getElementById('inputRol').value }
                               : { email: email, password: password };
 
       fetch(API_URL + endpoint, {

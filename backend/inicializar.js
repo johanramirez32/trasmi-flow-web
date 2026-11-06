@@ -26,8 +26,11 @@ const ESQUEMA = [
      nombre     VARCHAR(100) NOT NULL,
      email      VARCHAR(150) UNIQUE NOT NULL,
      password   VARCHAR(255) NOT NULL,
+     rol        VARCHAR(20) DEFAULT 'usuario',
      creado_en  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    )`,
+
+  `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol VARCHAR(20) DEFAULT 'usuario'`,
 
   // tipo / latitud / longitud se conservan por compatibilidad
   // con el esquema previo del proyecto
@@ -51,6 +54,38 @@ const ESQUEMA = [
      usuario    VARCHAR(150),
      creado_en  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    )`,
+
+  // Modulo Operario: despachos de buses
+  `CREATE TABLE IF NOT EXISTS despachos (
+     id         SERIAL PRIMARY KEY,
+     estacion  VARCHAR(120) NOT NULL,
+     bus        VARCHAR(20) NOT NULL,
+     operador  VARCHAR(150) NOT NULL,
+     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_despachos_estacion ON despachos(estacion)`,
+
+  // Modulo Operario: rutas del sistema
+  `CREATE TABLE IF NOT EXISTS rutas (
+     id         SERIAL PRIMARY KEY,
+     numero    VARCHAR(20) NOT NULL,
+     nombre    VARCHAR(160) NOT NULL,
+     troncal   VARCHAR(120) NOT NULL,
+     activo    BOOLEAN DEFAULT TRUE,
+     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_rutas_troncal ON rutas(troncal)`,
+
+  // Modulo Operario: camaras de seguridad
+  `CREATE TABLE IF NOT EXISTS camaras (
+     id         SERIAL PRIMARY KEY,
+     estacion  VARCHAR(120) NOT NULL,
+     nombre    VARCHAR(160) NOT NULL,
+     latitud   NUMERIC(10,7),
+     longitud NUMERIC(10,7),
+     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_camaras_estacion ON camaras(estacion)`,
 
   // Columnas extra por si la tabla ya existia con otra forma
   `ALTER TABLE estaciones ADD COLUMN IF NOT EXISTS tipo         VARCHAR(60)`,

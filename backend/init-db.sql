@@ -42,3 +42,35 @@ SELECT COUNT(*) AS total_estaciones FROM estaciones;
 -- Rol del usuario: 'usuario' (ciudadano) o 'operario'
 -- ============================================================
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol VARCHAR(20) DEFAULT 'usuario';
+
+-- ============================================================
+-- Modulo Operario: despachos de buses, rutas y camaras
+-- ============================================================
+CREATE TABLE IF NOT EXISTS despachos (
+  id         SERIAL PRIMARY KEY,
+  estacion  VARCHAR(120) NOT NULL,
+  bus        VARCHAR(20) NOT NULL,
+  operador  VARCHAR(150) NOT NULL,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_despachos_estacion ON despachos(estacion);
+
+CREATE TABLE IF NOT EXISTS rutas (
+  id         SERIAL PRIMARY KEY,
+  numero    VARCHAR(20) NOT NULL,
+  nombre    VARCHAR(160) NOT NULL,
+  troncal   VARCHAR(120) NOT NULL,
+  activo    BOOLEAN DEFAULT TRUE,
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_rutas_troncal ON rutas(troncal);
+
+CREATE TABLE IF NOT EXISTS camaras (
+  id         SERIAL PRIMARY KEY,
+  estacion  VARCHAR(120) NOT NULL,
+  nombre    VARCHAR(160) NOT NULL,
+  latitud   NUMERIC(10,7),
+  longitud NUMERIC(10,7),
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_camaras_estacion ON camaras(estacion);

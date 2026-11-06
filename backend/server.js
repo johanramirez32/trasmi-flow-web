@@ -16,6 +16,12 @@
  *   POST /api/reportes
  *   POST /api/registro
  *   POST /api/login
+ *   GET  /api/rutas
+ *   GET  /api/rutas/estacion/:nombre
+ *   GET  /api/camaras
+ *   GET  /api/camaras/estacion/:nombre
+ *   POST /api/despacho
+ *   GET  /api/despachos
  */
 require('dotenv').config();
 const express = require('express');
@@ -40,6 +46,10 @@ app.use('/api/estaciones', require('./routes/estacionesRouter'));
 app.use('/api/niveles',    require('./routes/nivelesRouter'));
 app.use('/api/reportes',   require('./routes/reportesRouter'));
 app.use('/api',            require('./routes/authRouter'));
+
+app.use('/api/despachos', require('./routes/despachosRouter'));
+app.use('/api/rutas',     require('./routes/rutasRouter'));
+app.use('/api/camaras',   require('./routes/camarasRouter'));
 
 const pool = getPool();
 
