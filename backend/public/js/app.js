@@ -2,17 +2,19 @@
     // NAVEGACION
     // ==========================================================
     function cambiarSeccion(id) {
-      ['estaciones', 'alertas', 'reportes'].forEach(function (s) {
+      ['estaciones', 'alertas', 'reportes', 'operadores'].forEach(function (s) {
         document.getElementById('sec-' + s).classList.toggle('hidden', s !== id);
       });
       if (id === 'estaciones') setTimeout(initMap, 80);
       if (id === 'reportes')  cargarReportes();
       if (id === 'alertas')   cargarAlertas();
+      if (id === 'operadores') { cargarOperadorSelects(); }
       actualizarIconos();
     }
     function irAMapa()      { cambiarSeccion('estaciones'); }
     function irAAertas()    { cambiarSeccion('alertas'); }
     function irAReportes()  { cambiarSeccion('reportes'); }
+    function irAOperadores() { cambiarSeccion('operadores'); }
 
     // ==========================================================
     // REPORTES  (enviar, listar y refrescar)
@@ -288,9 +290,33 @@
             '<span class="px-2.5 sm:px-3 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-xl uppercase">' + escHtml(u.rol || 'usuario') + '</span>' +
             '<button onclick="cerrarSesion()" class="px-2.5 sm:px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-xs font-bold rounded-xl">Salir</button>' +
           '</div>';
-        cambiarSeccion('estaciones');
+        var esOperario = (u.rol === 'operario');
+        if (esOperario) { cambiarSeccion('operadores'); }
+        else { cambiarSeccion('estaciones'); }
+
+        var btnOpDesktop = document.getElementById('nav-operadores');
+        var btnOpMovil = document.getElementById('mnav-operadores');
+        var btnMapa = document.getElementById('nav-estaciones');
+        var btnAlertas = document.getElementById('nav-alertas');
+        var btnReportes = document.getElementById('nav-reportes');
+        var btnMapaMovil = document.getElementById('mnav-estaciones');
+        var btnAlertasMovil = document.getElementById('mnav-alertas');
+        var btnReportesMovil = document.getElementById('mnav-reportes');
+
+        // Solo el operario tiene acceso al apartado de Operario
+        if (btnOpDesktop) { btnOpDesktop.classList.toggle('hidden', !esOperario); }
+        if (btnOpMovil) { btnOpMovil.classList.toggle('hidden', !esOperario); }
+
+        // El usuario ciudadano solo ve sus apartados
+        if (btnMapa) { btnMapa.classList.toggle('hidden', esOperario); }
+        if (btnAlertas) { btnAlertas.classList.toggle('hidden', esOperario); }
+        if (btnReportes) { btnReportes.classList.toggle('hidden', esOperario); }
+        if (btnMapaMovil) { btnMapaMovil.classList.toggle('hidden', esOperario); }
+        if (btnAlertasMovil) { btnAlertasMovil.classList.toggle('hidden', esOperario); }
+        if (btnReportesMovil) { btnReportesMovil.classList.toggle('hidden', esOperario); }
+
         cargarEstaciones();
-        iniciarGPS();
+        if (!esOperario) { iniciarGPS(); }
       }
       actualizarIconos();
     }

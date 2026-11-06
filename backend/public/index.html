@@ -119,6 +119,9 @@
           <button onclick="irAReportes()" id="nav-reportes" class="px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white flex items-center gap-2">
             <i data-lucide="file-text" class="w-4 h-4"></i><span>Reportes</span>
           </button>
+          <button onclick="irAOperadores()" id="nav-operadores" class="hidden px-4 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white flex items-center gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4"></i><span>Operador</span>
+          </button>
         </nav>
 
         <div id="headerAcciones" class="shrink-0"></div>
@@ -303,6 +306,80 @@
         </div>
       </div>
     </section>
+
+    <!-- OPERADORES (PANEL ADMINISTRATIVO) -->
+    <section id="sec-operadores" class="hidden space-y-4">
+      <h3 class="text-xl sm:text-2xl font-black text-white text-center">Panel Operativo</h3>
+      <p class="text-center text-xs text-slate-400 -mt-2">
+        Gestion del sistema: reportes, aglomeracion, despachos, rutas y camaras de seguridad
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        <button onclick="cambiarVistaOperador('reportes')" id="opBtnReportes"
+          class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-brand-red">Reportes en tiempo real</button>
+        <button onclick="cambiarVistaOperador('aglom')" id="opBtnAglomeracion"
+          class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Aglomeracion</button>
+        <button onclick="cambiarVistaOperador('despacho')" id="opBtnDespacho"
+          class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Despacho de bus</button>
+        <button onclick="cambiarVistaOperador('rutas')" id="opBtnRutas"
+          class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Rutas</button>
+        <button onclick="cambiarVistaOperador('camaras')" id="opBtnCamaras"
+          class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Camaras</button>
+      </div>
+
+      <div class="max-w-5xl mx-auto">
+        <!-- Reportes en tiempo real -->
+        <div id="opPanelReportes">
+          <div class="bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
+            <span class="text-xs font-black uppercase tracking-wider text-white">Reportes en tiempo real (agrupados por estacion)</span>
+            <div id="opListaReportes" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+              <p class="text-xs text-slate-400 text-center py-6">Cargando reportes...</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="opPanelAglomeracion" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
+          <span class="text-xs font-black uppercase tracking-wider text-white">Nivel de aglomeracion por estacion y bus</span>
+          <div id="opListaAglomeracion" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+            <p class="text-xs text-slate-400 text-center py-6">Cargando...</p>
+          </div>
+        </div>
+
+        <div id="opPanelDespacho" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-4">
+          <span class="text-xs font-black uppercase tracking-wider text-white">Despacho de bus</span>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <select id="opSelectEstacion" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+              <option value="">Selecciona estacion</option>
+            </select>
+            <input id="opInputBus" placeholder="Numero de bus (Ej: B12)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+            <button onclick="enviarDespacho()" class="px-4 py-3 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
+              Despachar
+            </button>
+          </div>
+          <p id="opMensajeDespacho" class="hidden text-center text-xs font-medium py-1"></p>
+        </div>
+
+        <div id="opPanelRutas" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
+          <span class="text-xs font-black uppercase tracking-wider text-white">Rutas fisicas y virtuales</span>
+          <select id="opSelectRutas" onchange="cargarOperadorRutas(this.value)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+            <option value="">Selecciona estacion</option>
+          </select>
+          <div id="opListaRutas" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+            <p class="text-xs text-slate-400 text-center py-6">Cargando rutas...</p>
+          </div>
+        </div>
+
+        <div id="opPanelCamaras" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
+          <span class="text-xs font-black uppercase tracking-wider text-white">Camaras de seguridad</span>
+          <select id="opSelectCamaras" onchange="cargarOperadorCamaras(this.value)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+            <option value="">Selecciona estacion</option>
+          </select>
+          <div id="opListaCamaras" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+            <p class="text-xs text-slate-400 text-center py-6">Cargando camaras...</p>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 
   <!-- Nav movil -->
@@ -316,11 +393,15 @@
     <button onclick="irAReportes()" id="mnav-reportes" class="flex flex-col items-center gap-0.5 px-4 py-1 text-slate-400 min-w-[64px]">
       <i data-lucide="file-text" class="w-5 h-5"></i><span class="text-[10px] font-semibold">Reportes</span>
     </button>
+    <button onclick="irAOperadores()" id="mnav-operadores" class="hidden flex flex-col items-center gap-0.5 px-4 py-1 text-slate-400 min-w-[64px]">
+      <i data-lucide="shield-check" class="w-5 h-5"></i><span class="text-[10px] font-semibold">Operador</span>
+    </button>
   </nav>
 
   <script src="/js/estado.js"></script>
   <script src="/js/mapa.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/app.js"></script>
+  <script src="/js/operador.js"></script>
 </body>
 </html>

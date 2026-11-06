@@ -1,0 +1,7 @@
+[
+  { "codigo": "B12", "nombre": "Portal Américas - Portal Norte", "color_hex": "#0055A5" },
+  { "codigo": "B11", "nombre": "Portal Américas - Autopista Norte", "color_hex": "#0055A5" },
+  { "codigo": "C01", "nombre": "Suba - Chapinero", "color_hex": "#EF7D00" },
+  { "codigo": "C02", "nombre": "Suba - Calle 40", "color_hex": "#EF7D00" },
+  { "codigo": "D01", "nombre": "Calle 80 - Autopista Norte", "color_hex": "#00A0E9" }
+]

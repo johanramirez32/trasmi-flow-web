@@ -8,14 +8,14 @@
  *   1. Crea las tablas que faltan (no toca las que ya existen)
  *   2. Crea los indices
  *   3. Si la tabla de estaciones esta vacia, carga las 153 del JSON
- *
- * Asi el proyecto funciona igual en tu PC (con pgAdmin) y en la nube,
- * donde no hay pgAdmin.
+ *      Si las tablas de rutas / camaras estan vacias, cargan sus datos
  */
 const fs = require('fs');
 const path = require('path');
 
 const ARCHIVO_ESTACIONES = path.join(__dirname, 'datos', 'estaciones.json');
+const ARCHIVO_RUTAS = path.join(__dirname, 'datos', 'rutas.json');
+const ARCHIVO_CAMARAS = path.join(__dirname, 'datos', 'camaras.json');
 
 // ---------------------------------------------------------------
 // Esquema
@@ -65,16 +65,22 @@ const ESQUEMA = [
    )`,
   `CREATE INDEX IF NOT EXISTS idx_despachos_estacion ON despachos(estacion)`,
 
-  // Modulo Operario: rutas del sistema
+  // Modulo Operario: rutas del sistema (linea + estaciones que la sirven)
   `CREATE TABLE IF NOT EXISTS rutas (
      id         SERIAL PRIMARY KEY,
-     numero    VARCHAR(20) NOT NULL,
-     nombre    VARCHAR(160) NOT NULL,
-     troncal   VARCHAR(120) NOT NULL,
-     activo    BOOLEAN DEFAULT TRUE,
-     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+     codigo     VARCHAR(20) NOT NULL,
+     nombre     VARCHAR(160) NOT NULL,
+     color_hex  VARCHAR(10)
    )`,
-  `CREATE INDEX IF NOT EXISTS idx_rutas_troncal ON rutas(troncal)`,
+  `CREATE INDEX IF NOT EXISTS idx_rutas_codigo ON rutas(codigo)`,
+  `CREATE TABLE IF NOT EXISTS ruta_estaciones (
+     id         SERIAL PRIMARY KEY,
+     ruta_id    INTEGER NOT NULL,
+     estacion_id INTEGER NOT NULL,
+     orden      INTEGER DEFAULT 0
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_ruta_estaciones_ruta ON ruta_estaciones(ruta_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_ruta_estaciones_estacion ON ruta_estaciones(estacion_id)`,
 
   // Modulo Operario: camaras de seguridad
   `CREATE TABLE IF NOT EXISTS camaras (
@@ -143,6 +149,74 @@ async function sembrarSiEstaVacia(pool) {
   }
 }
 
+async function sembrarRutas(pool) {
+  const actual = await pool.query('SELECT COUNT(*) AS n FROM rutas');
+  if (parseInt(actual.rows[0].n, 10) > 0) {
+    console.log('   Rutas ya cargadas: ' + actual.rows[0].n);
+    return;
+  }
+
+  if (!fs.existsSync(ARCHIVO_RUTAS)) {
+    console.warn('   No se encontro datos/rutas.json: la tabla rutas queda vacia.');
+    return;
+  }
+
+  const datos = JSON.parse(fs.readFileSync(ARCHIVO_RUTAS, 'utf8'));
+  const cliente = await pool.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    for (const r of datos) {
+      const ex = await cliente.query('SELECT id FROM rutas WHERE codigo = $1', [r.codigo]);
+      if (ex.rows.length > 0) continue;
+      await cliente.query(
+        'INSERT INTO rutas (codigo, nombre, color_hex) VALUES ($1, $2, $3)',
+        [r.codigo, r.nombre, r.color_hex || '#3b82f6']
+      );
+    }
+    await cliente.query('COMMIT');
+    console.log('   Cargadas ' + datos.length + ' rutas desde datos/rutas.json');
+  } catch (e) {
+    await cliente.query('ROLLBACK');
+    throw e;
+  } finally {
+    cliente.release();
+  }
+}
+
+async function sembrarCamaras(pool) {
+  const actual = await pool.query('SELECT COUNT(*) AS n FROM camaras');
+  if (parseInt(actual.rows[0].n, 10) > 0) {
+    console.log('   Camaras ya cargadas: ' + actual.rows[0].n);
+    return;
+  }
+
+  if (!fs.existsSync(ARCHIVO_CAMARAS)) {
+    console.warn('   No se encontro datos/camaras.json: la tabla camaras queda vacia.');
+    return;
+  }
+
+  const datos = JSON.parse(fs.readFileSync(ARCHIVO_CAMARAS, 'utf8'));
+  const cliente = await pool.connect();
+
+  try {
+    await cliente.query('BEGIN');
+    for (const c of datos) {
+      await cliente.query(
+        'INSERT INTO camaras (estacion, nombre) VALUES ($1, $2)',
+        [c.estacion, c.nombre]
+      );
+    }
+    await cliente.query('COMMIT');
+    console.log('   Cargadas ' + datos.length + ' camaras desde datos/camaras.json');
+  } catch (e) {
+    await cliente.query('ROLLBACK');
+    throw e;
+  } finally {
+    cliente.release();
+  }
+}
+
 // ---------------------------------------------------------------
 // Proceso completo
 // ---------------------------------------------------------------
@@ -164,6 +238,8 @@ async function inicializar(pool, intentos = 5) {
     await pool.query(sql);
   }
   await sembrarSiEstaVacia(pool);
+  await sembrarRutas(pool);
+  await sembrarCamaras(pool);
 }
 
 module.exports = { inicializar };
