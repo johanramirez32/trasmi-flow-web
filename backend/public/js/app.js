@@ -7,7 +7,7 @@
       });
       if (id === 'estaciones') setTimeout(initMap, 80);
       if (id === 'reportes')  cargarReportes();
-      if (id === 'alertas')   cargarAlertas();
+      if (id === 'alertas')   { cargarAlertas(); cargarNotificaciones(); }
       if (id === 'operadores') { cargarOperadorSelects(); }
       actualizarIconos();
     }
@@ -227,6 +227,35 @@
         });
     }
 
+    /** Notificaciones del usuario (reportes atendidos por el operario) */
+    function cargarNotificaciones() {
+      var cont = document.getElementById('listaNotificaciones');
+      if (!cont) { return Promise.resolve(); }
+
+      var usuario = {};
+      try { usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}'); } catch (e) { usuario = {}; }
+
+      return fetch(API_URL + '/notificaciones?usuario=' + encodeURIComponent(usuario.email || ''))
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+          var notis = data.notificaciones || [];
+          if (!notis.length) {
+            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Sin notificaciones.</p>';
+            return;
+          }
+          cont.innerHTML = notis.map(function (n) {
+            return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl flex gap-3 items-start">' +
+              '<span class="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style="background:#8b5cf6"></span>' +
+              '<div><p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(n.mensaje) + '</p>' +
+              '<p class="text-[11px] text-slate-400 mt-0.5">' + escHtml(n.tipo) + '</p></div>' +
+            '</div>';
+          }).join('');
+        })
+        .catch(function (err) {
+          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las notificaciones.<br>' + escHtml(err.message) + '</p>';
+        });
+    }
+
     // ==========================================================
     // AUTENTICACION
     // ==========================================================
@@ -258,6 +287,40 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) {
+            msg.textContent = res.d.error || 'Error en la autenticacion';
+            msg.classList.remove('hidden');
+            return;
+          }
+          localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
+          verificarAcceso();
+        })
+        .catch(function () {
+          msg.textContent = 'No se pudo conectar con el servidor';
+          msg.classList.remove('hidden');
+        });
+    }
+
+    function procesarAuthOperador(event) {
+      event.preventDefault();
+      var email    = document.getElementById('opInputEmail').value.trim();
+      var password = document.getElementById('opInputPassword').value.trim();
+      var codigo   = document.getElementById('opInputCodigo').value.trim();
+      var msg      = document.getElementById('authMensajeErrorOperador');
+
+      if (!email || !password || !codigo) {
+        msg.textContent = 'Completa correo, contrasena y codigo de autenticacion.';
+        msg.classList.remove('hidden');
+        return;
+      }
+
+      fetch(API_URL + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password, codigo: codigo })
       })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
         .then(function (res) {

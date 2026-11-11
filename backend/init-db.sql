@@ -42,6 +42,7 @@ SELECT COUNT(*) AS total_estaciones FROM estaciones;
 -- Rol del usuario: 'usuario' (ciudadano) o 'operario'
 -- ============================================================
 ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol VARCHAR(20) DEFAULT 'usuario';
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS codigo_operador VARCHAR(20);
 
 -- ============================================================
 -- Modulo Operario: despachos de buses, rutas y camaras
@@ -74,3 +75,13 @@ CREATE TABLE IF NOT EXISTS camaras (
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_camaras_estacion ON camaras(estacion);
+
+-- Notificaciones: operario atendio reporte
+CREATE TABLE IF NOT EXISTS notificaciones (
+  id         SERIAL PRIMARY KEY,
+  usuario   VARCHAR(150) NOT NULL,
+  mensaje   VARCHAR(255) NOT NULL,
+  tipo        VARCHAR(30) DEFAULT 'operador',
+  creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario ON notificaciones(usuario);

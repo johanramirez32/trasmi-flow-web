@@ -7,6 +7,21 @@ const { getPool } = require('../db');
 
 const pool = getPool();
 
+async function notificarReportesAtendidos(pool, estacion, bus) {
+  const r = await pool.query(
+    `SELECT DISTINCT usuario FROM reportes WHERE LOWER(estacion) = LOWER($1) AND creado_en > NOW() - INTERVAL '24 hours'`,
+    [estacion]
+  );
+
+  for (const row of r.rows) {
+    if (!row.usuario) continue;
+    await pool.query(
+      'INSERT INTO notificaciones (usuario, mensaje, tipo) VALUES ($1, $2, $3)',
+      [row.usuario, 'Tu reporte en ' + estacion + ' fue atendido por el operario (bus ' + bus + ').', 'operador']
+    );
+  }
+}
+
 async function registrarDespacho(req, res) {
   const { estacion, bus, operador } = req.body;
 
@@ -19,6 +34,9 @@ async function registrarDespacho(req, res) {
       'INSERT INTO despachos (estacion, bus, operador) VALUES ($1, $2, $3) RETURNING *',
       [estacion, bus, operador]
     );
+
+    // Al despachar un bus, notificamos a los usuarios que reportaron esa estacion
+    await notificarReportesAtendidos(pool, estacion, bus);
 
     res.status(201).json({ mensaje: 'Despacho de bus registrado con exito', despacho: r.rows[0] });
   } catch (err) {

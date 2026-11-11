@@ -27,10 +27,12 @@ const ESQUEMA = [
      email      VARCHAR(150) UNIQUE NOT NULL,
      password   VARCHAR(255) NOT NULL,
      rol        VARCHAR(20) DEFAULT 'usuario',
+     codigo_operador VARCHAR(20),
      creado_en  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    )`,
 
   `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS rol VARCHAR(20) DEFAULT 'usuario'`,
+  `ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS codigo_operador VARCHAR(20)`,
 
   // tipo / latitud / longitud se conservan por compatibilidad
   // con el esquema previo del proyecto
@@ -92,6 +94,16 @@ const ESQUEMA = [
      creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    )`,
   `CREATE INDEX IF NOT EXISTS idx_camaras_estacion ON camaras(estacion)`,
+
+  // Notificaciones: operario atendio un reporte
+  `CREATE TABLE IF NOT EXISTS notificaciones (
+     id         SERIAL PRIMARY KEY,
+     usuario   VARCHAR(150) NOT NULL,
+     mensaje   VARCHAR(255) NOT NULL,
+     tipo       VARCHAR(30) DEFAULT 'operador',
+     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario ON notificaciones(usuario)`,
 
   // Columnas extra por si la tabla ya existia con otra forma
   `ALTER TABLE estaciones ADD COLUMN IF NOT EXISTS tipo         VARCHAR(60)`,

@@ -130,11 +130,11 @@
   </header>
 
   <!-- ================= LOGIN ================= -->
-  <section id="vistaAuth" class="flex-grow flex items-center justify-center py-12 px-4">
+  <section id="vistaAuth" class="flex-grow flex flex-col md:flex-row items-center justify-center gap-6 py-12 px-4">
     <div class="absolute -top-40 -left-40 w-96 h-96 bg-brand-red/10 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
-    <div class="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-border w-full max-w-md shadow-2xl space-y-6 relative z-10">
+    <div id="authPanelUsuario" class="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-border w-full max-w-md shadow-2xl space-y-6 relative z-10">
       <div class="text-center space-y-2">
         <div class="inline-flex p-3.5 bg-brand-red/10 border border-brand-red/30 rounded-2xl text-brand-red">
           <i data-lucide="shield-check" class="w-8 h-8"></i>
@@ -184,7 +184,45 @@
         <button type="button" onclick="alternarModoAuth()" id="btnAlternarAuth" class="text-brand-red font-bold hover:underline ml-1">Registrate aqui</button>
       </div>
     </div>
-  </section>
+  </div>
+
+  <!-- OPERADOR: formulario independiente (correo + contrasena + codigo de autenticacion) -->
+  <div id="authPanelOperador" class="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-border w-full max-w-md shadow-2xl space-y-6 relative z-10">
+    <div class="text-center space-y-2">
+      <div class="inline-flex p-3.5 bg-brand-red/10 border border-brand-red/30 rounded-2xl text-brand-red">
+        <i data-lucide="shield-check" class="w-8 h-8"></i>
+      </div>
+      <h2 id="authTituloOperador" class="text-2xl font-black text-white">Acceso Operador</h2>
+      <p class="text-xs text-slate-400">Gestion del sistema de transporte</p>
+    </div>
+
+    <div id="authMensajeErrorOperador" class="hidden p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-xl text-center font-medium"></div>
+
+    <form id="authFormOperador" onsubmit="procesarAuthOperador(event)" class="space-y-4">
+      <div class="space-y-1">
+        <label class="block text-xs font-semibold text-slate-300">Correo Electronico</label>
+        <input type="email" id="opInputEmail" required placeholder="operador@correo.com"
+          class="w-full px-4 py-3 bg-brand-dark/80 border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-sm">
+      </div>
+
+      <div class="space-y-1">
+        <label class="block text-xs font-semibold text-slate-300">Contrasena</label>
+        <input type="password" id="opInputPassword" required placeholder="********"
+          class="w-full px-4 py-3 bg-brand-dark/80 border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-sm">
+      </div>
+
+      <div class="space-y-1">
+        <label class="block text-xs font-semibold text-slate-300">Codigo de autenticacion</label>
+        <input type="text" id="opInputCodigo" required placeholder="Codigo de acceso"
+          class="w-full px-4 py-3 bg-brand-dark/80 border border-brand-border rounded-xl text-white placeholder-slate-500 focus:outline-none focus:border-brand-red text-sm">
+      </div>
+
+      <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
+        <span id="txtBtnAuthOperador">Ingresar al Panel Operativo</span>
+      </button>
+    </form>
+  </div>
+</section>
 
   <!-- ================= CONTENIDO ================= -->
   <main id="appContenido" class="hidden flex-grow max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 w-full flex flex-col">
@@ -251,6 +289,10 @@
       </p>
       <div id="listaAlertas" class="max-w-2xl mx-auto space-y-3">
         <p class="text-xs text-slate-400 text-center py-6">Cargando alertas...</p>
+      </div>
+
+      <div id="listaNotificaciones" class="max-w-2xl mx-auto space-y-3">
+        <p class="text-xs text-slate-400 text-center py-6">Cargando notificaciones...</p>
       </div>
       <div class="max-w-2xl mx-auto">
         <button onclick="cargarAlertas()"

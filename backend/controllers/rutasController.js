@@ -1,5 +1,5 @@
 /**
- * Controller de rutas: consulta rutas y las estaciones que las sirven.
+ * Controller de rutas: consulta rutas y sus estaciones (inicio, fin, paradas).
  * GET /api/rutas
  * GET /api/rutas/estacion/:nombre
  */
@@ -10,23 +10,29 @@ const pool = getPool();
 async function listarRutas(req, res) {
   try {
     const r = await pool.query('SELECT * FROM rutas ORDER BY codigo');
-    const rutas = r.rows.map(function (ruta) {
-      return Object.assign({}, ruta, { estaciones: [] });
-    });
+    const rutas = [];
 
-    if (rutas.length > 0) {
-      const ids = rutas.map(function (x) { return x.id; });
-      const e = await pool.query(
-        'SELECT re.ruta_id, re.orden, e.id AS estacion_id, e.nombre AS estacion_nombre ' +
+    for (const ruta of r.rows) {
+      const est = await pool.query(
+        'SELECT re.orden, e.id AS estacion_id, e.nombre AS estacion_nombre, e.lat AS estacion_lat, e.lng AS estacion_lng ' +
         'FROM ruta_estaciones re JOIN estaciones e ON e.id = re.estacion_id ' +
-        'WHERE re.ruta_id = ANY($1::int[]) ORDER BY re.ruta_id, re.orden',
-        [ids]
+        'WHERE re.ruta_id = $1 ORDER BY re.orden',
+        [ruta.id]
       );
-      e.rows.forEach(function (row) {
-        const ruta = rutas.find(function (x) { return x.id === row.ruta_id; });
-        if (ruta) {
-          ruta.estaciones.push({ id: row.estacion_id, nombre: row.estacion_nombre });
-        }
+      rutas.push({
+        id: ruta.id,
+        codigo: ruta.codigo,
+        nombre: ruta.nombre,
+        color_hex: ruta.color_hex,
+        estaciones: est.rows.map(function (x) {
+          return {
+            id: x.estacion_id,
+            nombre: x.estacion_nombre,
+            lat: x.estacion_lat != null ? parseFloat(x.estacion_lat) : null,
+            lng: x.estacion_lng != null ? parseFloat(x.estacion_lng) : null,
+            orden: x.orden
+          };
+        })
       });
     }
 
@@ -46,13 +52,36 @@ async function listarRutasEstacion(req, res) {
     let rutas = [];
 
     if (estacion) {
-      const r = await pool.query(
+      const rr = await pool.query(
         'SELECT r.id, r.codigo, r.nombre, r.color_hex FROM rutas r ' +
         'JOIN ruta_estaciones re ON re.ruta_id = r.id ' +
-        'WHERE re.estacion_id = $1 ORDER BY re.orden',
+        'WHERE re.estacion_id = $1 ORDER BY r.codigo',
         [estacion.id]
       );
-      rutas = r.rows;
+
+      for (const ruta of rr.rows) {
+        const est2 = await pool.query(
+          'SELECT re.orden, e.id AS estacion_id, e.nombre AS estacion_nombre, e.lat AS estacion_lat, e.lng AS estacion_lng ' +
+          'FROM ruta_estaciones re JOIN estaciones e ON e.id = re.estacion_id ' +
+          'WHERE re.ruta_id = $1 ORDER BY re.orden',
+          [ruta.id]
+        );
+        rutas.push({
+          id: ruta.id,
+          codigo: ruta.codigo,
+          nombre: ruta.nombre,
+          color_hex: ruta.color_hex,
+          estaciones: est2.rows.map(function (x) {
+            return {
+              id: x.estacion_id,
+              nombre: x.estacion_nombre,
+              lat: x.estacion_lat != null ? parseFloat(x.estacion_lat) : null,
+              lng: x.estacion_lng != null ? parseFloat(x.estacion_lng) : null,
+              orden: x.orden
+            };
+          })
+        });
+      }
     }
 
     res.json({ estacion: estacion ? estacion.nombre : nombre, rutas: rutas });

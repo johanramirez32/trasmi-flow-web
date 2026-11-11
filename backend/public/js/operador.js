@@ -176,19 +176,25 @@
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (data) {
           var rutas = data.rutas || [];
+          window.__rutasOperador = rutas;
           if (!rutas.length) {
             cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No hay rutas registradas para esta estacion.</p>';
             return;
           }
           cont.innerHTML = rutas.map(function (r) {
             var color = r.color_hex || '#3b82f6';
-            var estacionesTxt = (r.estaciones || []).map(function (e) { return escHtml(e.nombre); }).join(', ');
+            var ests = r.estaciones || [];
+            var inicio = ests.length ? ests[0].nombre : '-';
+            var fin = ests.length ? ests[ests.length - 1].nombre : '-';
+            var paradas = ests.map(function (e) { return e.nombre; });
             return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
               '<div class="flex items-center justify-between gap-2">' +
                 '<p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(r.codigo) + ' - ' + escHtml(r.nombre) + '</p>' +
                 '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:' + color + '22;color:' + color + '">' + escHtml(r.codigo) + '</span>' +
               '</div>' +
-              '<p class="text-[11px] text-slate-400 mt-1">Estaciones: ' + escHtml(estacionesTxt || '-') + '</p>' +
+              '<p class="text-[11px] text-slate-400 mt-1">Inicio: ' + escHtml(inicio) + ' &nbsp;|&nbsp; Fin: ' + escHtml(fin) + '</p>' +
+              '<p class="text-[11px] text-slate-400 mt-0.5">Paradas: ' + escHtml(paradas.join(', ') || '-') + '</p>' +
+              '<button onclick="verRutaEnMapa(' + r.id + ')" class="mt-2 w-full px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Ver ruta en el mapa</button>' +
             '</div>';
           }).join('');
         })
@@ -223,4 +229,24 @@
         .catch(function (err) {
           cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las camaras.<br>' + escHtml(err.message) + '</p>';
         });
+    }
+
+    /** Dibuja en el mapa la ruta seleccionada (inicio -> fin con paradas) */
+    function verRutaEnMapa(rutaId) {
+      if (!map) { return; }
+      var rutas = window.__rutasOperador || [];
+      var ruta = null;
+      for (var i = 0; i < rutas.length; i++) { if (rutas[i].id === rutaId) { ruta = rutas[i]; break; } }
+      if (!ruta || !ruta.estaciones || !ruta.estaciones.length) { return; }
+
+      var coords = [];
+      ruta.estaciones.forEach(function (e) {
+        if (e.lat != null && e.lng != null) { coords.push([e.lat, e.lng]); }
+      });
+
+      if (coords.length < 2) { return; }
+
+      if (lineaRuta) { map.removeLayer(lineaRuta); lineaRuta = null; }
+      lineaRuta = L.polyline(coords, { color: '#8b5cf6', weight: 5, opacity: 0.8 }).addTo(map);
+      map.fitBounds(coords, { padding: [40, 40] });
     }

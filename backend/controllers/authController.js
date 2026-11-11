@@ -9,7 +9,7 @@ const { getPool } = require('../db');
 const pool = getPool();
 
 async function registrarUsuario(req, res) {
-  const { nombre, email, password, rol } = req.body;
+  const { nombre, email, password, rol, codigo_operador } = req.body;
 
   if (!nombre || !email || !password) {
     return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
@@ -23,9 +23,10 @@ async function registrarUsuario(req, res) {
 
     const hash = await bcrypt.hash(password, 10);
     const rolFinal = rol || 'usuario';
+    const codigoFinal = rolFinal === 'operario' ? (codigo_operador || ('OP' + Math.floor(1000 + Math.random() * 9000))) : null;
     const nuevo = await pool.query(
-      'INSERT INTO usuarios (nombre, email, password, rol) VALUES ($1, $2, $3, $4) RETURNING id, nombre, email, rol',
-      [nombre, email, hash, rolFinal]
+      'INSERT INTO usuarios (nombre, email, password, rol, codigo_operador) VALUES ($1, $2, $3, $4, $5) RETURNING id, nombre, email, rol, codigo_operador',
+      [nombre, email, hash, rolFinal, codigoFinal]
     );
 
     res.status(201).json({ mensaje: 'Usuario registrado con exito', usuario: nuevo.rows[0] });
@@ -36,7 +37,7 @@ async function registrarUsuario(req, res) {
 }
 
 async function iniciarSesion(req, res) {
-  const { email, password } = req.body;
+  const { email, password, codigo } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Ingresa correo y contrasena.' });
@@ -55,9 +56,18 @@ async function iniciarSesion(req, res) {
       return res.status(400).json({ error: 'Contrasena incorrecta.' });
     }
 
+    const rol = usuario.rol || 'usuario';
+
+    // El operario requiere un codigo de autenticacion
+    if (rol === 'operario') {
+      if (!codigo || !usuario.codigo_operador || codigo !== usuario.codigo_operador) {
+        return res.status(401).json({ error: 'Codigo de autenticacion incorrecto.' });
+      }
+    }
+
     res.json({
-      mensaje: 'Inicio de sesion exitoso',
-      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol || 'usuario' },
+      mensaje: 'Inicio de sesion exito',
+      usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: rol, codigo_operador: usuario.codigo_operador },
     });
   } catch (err) {
     console.error(err);
