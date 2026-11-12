@@ -403,11 +403,48 @@
 
         <div id="opPanelRutas" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
           <span class="text-xs font-black uppercase tracking-wider text-white">Rutas fisicas y virtuales</span>
-          <select id="opSelectRutas" onchange="cargarOperadorRutas(this.value)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
-            <option value="">Selecciona estacion</option>
-          </select>
-          <div id="opListaRutas" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
-            <p class="text-xs text-slate-400 text-center py-6">Cargando rutas...</p>
+
+          <!-- BUSQUEDA RAPIDA: ESTACION O BUS -->
+          <div class="bg-brand-dark p-3 rounded-xl border border-brand-border space-y-2">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Buscar estacion o bus</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <select id="opInputBuscarEstacion" onchange="var s = document.getElementById('opSelectRutas'); if (s) { s.value = this.value; } cargarOperadorRutas(this.value);" class="w-full px-4 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+                <option value="">Buscar estacion...</option>
+              </select>
+              <select id="opInputBuscarBus" onchange="var b = document.getElementById('opInputBus'); if (b) { b.value = this.value; } cargarOperadorBuses();" class="w-full px-4 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+                <option value="">Buscar bus (despachar)...</option>
+              </select>
+            </div>
+            <button onclick="enviarDespacho()" class="w-full px-4 py-3 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
+              Despachar bus a estacion seleccionada
+            </button>
+          </div>
+
+          <!-- DOS PANELES: IZQUIERDA estaciones | DERECHA buses disponibles -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div class="bg-brand-dark/40 p-3 rounded-xl border border-brand-border space-y-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Estaciones (aglom + reportes)</span>
+              <div id="opListaEstacionesPanel" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+                <p class="text-xs text-slate-400 text-center py-6">Cargando estaciones...</p>
+              </div>
+            </div>
+            <div class="bg-brand-dark/40 p-3 rounded-xl border border-brand-border space-y-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Buses disponibles</span>
+              <div id="opListaBusesPanel" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+                <p class="text-xs text-slate-400 text-center py-6">Cargando buses...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- RUTAS DE LA ESTACION -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rutas de la estacion</label>
+            <select id="opSelectRutas" onchange="cargarOperadorRutas(this.value)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+              <option value="">Selecciona estacion</option>
+            </select>
+            <div id="opListaRutas" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+              <p class="text-xs text-slate-400 text-center py-6">Cargando rutas...</p>
+            </div>
           </div>
         </div>
 
