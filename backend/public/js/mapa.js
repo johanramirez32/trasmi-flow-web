@@ -142,16 +142,38 @@
       var cont = document.getElementById('userMensajeRuta');
       var destino = (document.getElementById('userInputDestino') || {}).value || '';
       if (!destino) { if (cont) { cont.textContent = 'Escribe el destino de tu ruta.'; cont.classList.remove('hidden'); } return; }
+      destino = destino.trim();
       fetch(API_URL + '/estaciones')
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (lista) {
-          var d = (lista || []).filter(function (e) { return e.nombre === destino; })[0];
+          var q = destino.toLowerCase();
+          var d = (lista || []).filter(function (e) { return (e.nombre || '').toLowerCase() === q; })[0];
           var o = seleccion;
           var lat1 = o ? o.lat : (userPos ? userPos.lat : 4.6097);
           var lng1 = o ? o.lng : (userPos ? userPos.lng : -74.0817);
           if (!d) { if (cont) { cont.textContent = 'No se encontro el destino: ' + destino; cont.classList.remove('hidden'); } return; }
           if (typeof dibujarRuta === 'function') { dibujarRuta(lat1, lng1, d.lat, d.lng); }
-          if (cont) { cont.textContent = 'Ruta dibujada: ' + (o ? o.nombre + ' -> ' : '') + destino; cont.classList.remove('hidden'); }
+
+          // Buscar que rutas de Transmilenio sirven para llegar al destino
+          return fetch(API_URL + '/rutas/oficiales')
+            .then(function (r2) { return r2.ok ? r2.json() : Promise.reject(new Error('HTTP ' + r2.status)); })
+            .then(function (data2) {
+              var lineas = data2.rutas || [];
+              var nm = destino.toLowerCase();
+              var encontradas = [];
+              for (var i = 0; i < lineas.length; i++) {
+                var ls = lineas[i].estaciones || [];
+                for (var k = 0; k < ls.length; k++) {
+                  var stopNombre = (ls[k].nombre || '').toLowerCase();
+                  if (stopNombre && (stopNombre.indexOf(nm) !== -1 || nm.indexOf(stopNombre) !== -1)) { encontradas.push(lineas[i]); break; }
+                }
+              }
+              var info = 'Ruta dibujada: ' + (o ? o.nombre + ' -> ' : '') + destino + '.';
+              if (encontradas.length) {
+                info += ' Rutas Transmilenio que sirven para llegar: ' + encontradas.map(function (x) { return x.codigo; }).join(', ') + '.';
+              }
+              if (cont) { cont.textContent = info; cont.classList.remove('hidden'); }
+            });
         })
         .catch(function (err) { if (cont) { cont.textContent = 'No se pudo dibujar la ruta: ' + err.message; cont.classList.remove('hidden'); } });
     }
