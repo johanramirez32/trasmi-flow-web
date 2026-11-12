@@ -109,6 +109,7 @@
       lista.forEach(function (e) {
         L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
           .bindPopup(popupEstacion(e))
+          .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(e); } })
           .addTo(capaMarcadores);
       });
 
@@ -143,6 +144,7 @@
 
       L.marker([ref.lat, ref.lng], { icon: iconoEstacion(ref), zIndexOffset: 900 })
         .bindPopup(popupEstacion(ref))
+        .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(ref); } })
         .addTo(capaMarcadores);
 
       // Ruta en linea azul desde la ubicacion del usuario hasta la estacion
@@ -159,6 +161,7 @@
       cercanas.forEach(function (e) {
         L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
           .bindPopup(popupEstacion(e))
+          .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(e); } })
           .addTo(capaMarcadores);
       });
 

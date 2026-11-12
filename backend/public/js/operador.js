@@ -38,6 +38,66 @@
       if (vista === 'despacho') { cargarOperadorSelects(); }
     }
 
+    /** Estacion clickeada en el mapa (marcador): carga sus rutas y muestra el apartado de planificacion */
+    function seleccionarEstacionMapa(e) {
+      e = e || {};
+      var nombre = e.nombre || '';
+      window.__estacionMapaSeleccionada = nombre;
+
+      var opSec = document.getElementById('sec-operadores');
+      var esOperador = !!(opSec && !opSec.classList.contains('hidden'));
+
+      if (esOperador) {
+        var sel = document.getElementById('opSelectRutas');
+        if (sel) { sel.value = nombre; }
+        if (typeof cargarOperadorRutas === 'function') { cargarOperadorRutas(nombre); }
+        if (typeof cambiarVistaOperador === 'function') { cambiarVistaOperador('rutas'); }
+        return;
+      }
+
+      // Vista ciudadana: seleccionar la estacion en el mapa
+      if (typeof seleccionarEstacion === 'function') {
+        var est = (estaciones || []).filter(function (x) { return x.nombre === nombre; })[0];
+        if (est) { seleccionarEstacion(est.id); }
+      }
+    }
+
+    /** Estacion elegida en el panel operativo: carga sus rutas */
+    function seleccionarEstacionOperador(nombre) {
+      nombre = nombre || '';
+      var sel = document.getElementById('opSelectRutas');
+      if (sel) { sel.value = nombre; }
+      if (typeof cargarOperadorRutas === 'function') { cargarOperadorRutas(nombre); }
+    }
+
+    /** Dibuja la ruta (origen -> destino) elegida por el operativo */
+    function verRutaOperador() {
+      var cont = document.getElementById('opMensajeRuta');
+      var origenEl = document.getElementById('opSelectRutas');
+      var origen = origenEl ? (origenEl.value || '') : '';
+      var destinoEl = document.getElementById('opInputDestino');
+      var destino = destinoEl ? (destinoEl.value || '').trim() : '';
+
+      if (!origen) { if (cont) { cont.textContent = 'Selecciona una estacion de origen.'; cont.classList.remove('hidden'); } return; }
+      if (!destino) { if (cont) { cont.textContent = 'Escribe o selecciona el destino de la ruta.'; cont.classList.remove('hidden'); } return; }
+
+      fetch(API_URL + '/estaciones')
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (lista) {
+          var o = (lista || []).filter(function (e) { return e.nombre === origen; })[0];
+          var d = (lista || []).filter(function (e) { return e.nombre === destino; })[0];
+          if (!o || !d) {
+            if (cont) { cont.textContent = 'No se encontraron coordenadas para la estacion de origen o destino.'; cont.classList.remove('hidden'); }
+            return;
+          }
+          if (typeof dibujarRuta === 'function') { dibujarRuta(o.lat, o.lng, d.lat, d.lng); }
+          if (cont) { cont.textContent = 'Ruta dibujada: ' + origen + ' -> ' + destino; cont.classList.remove('hidden'); }
+        })
+        .catch(function (err) {
+          if (cont) { cont.textContent = 'No se pudo dibujar la ruta: ' + err.message; cont.classList.remove('hidden'); }
+        });
+    }
+
     function cargarOperadorSelects() {
       return fetch(API_URL + '/estaciones')
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })

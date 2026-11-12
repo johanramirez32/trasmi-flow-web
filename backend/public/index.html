@@ -446,6 +446,18 @@
               <p class="text-xs text-slate-400 text-center py-6">Cargando rutas...</p>
             </div>
           </div>
+
+          <!-- DESTINO DE LA RUTA -->
+          <div class="space-y-2 pt-2 border-t border-brand-border">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Destino de la ruta</label>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <input id="opInputDestino" placeholder="Destino (Ej: Portal Américas)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+              <button onclick="verRutaOperador()" class="px-4 py-3 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
+                Ver ruta (origen → destino)
+              </button>
+            </div>
+            <p id="opMensajeRuta" class="hidden text-center text-xs font-medium py-1"></p>
+          </div>
         </div>
 
         <div id="opPanelCamaras" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
