@@ -254,6 +254,70 @@
         .catch(function (err) {
           cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las notificaciones.<br>' + escHtml(err.message) + '</p>';
         });
+        actualizarNotifBadge();
+    }
+
+    /** Refresca el contador de notificaciones (campana) y llena el panel */
+    function actualizarNotifBadge() {
+      var badge = document.getElementById('notifBadge');
+      var panel = document.getElementById('panelNotificaciones');
+      if (!badge) { return; }
+
+      var usuario = {};
+      try { usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}'); } catch (e) { usuario = {}; }
+
+      fetch(API_URL + '/notificaciones?usuario=' + encodeURIComponent(usuario.email || ''))
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+          var notis = data.notificaciones || [];
+          var noLeidas = notis.filter(function (n) { return !n.leido; }).length;
+
+          if (noLeidas > 0) { badge.textContent = noLeidas; badge.classList.remove('hidden'); }
+          else { badge.textContent = '0'; badge.classList.add('hidden'); }
+
+          var cont = document.getElementById('listaNotifPanel');
+          if (!cont) { return; }
+          if (!notis.length) { cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-4">Sin notificaciones.</p>'; return; }
+          cont.innerHTML = notis.map(function (n) {
+            var leido = n.leido ? 'opacity-60' : '';
+            return '<button onclick="abrirNotificacion(' + n.id + ')" class="w-full text-left p-2 rounded-lg hover:bg-brand-card ' + leido + '">' +
+              '<p class="text-white font-semibold text-[11px]">' + escHtml(n.mensaje) + '</p>' +
+              '<p class="text-[10px] text-slate-400 mt-0.5">' + escHtml(n.tipo) + '</p>' +
+            '</button>';
+          }).join('');
+        })
+        .catch(function (err) {
+          var cont = document.getElementById('listaNotifPanel');
+          if (cont) { cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-4">Sin notificaciones.</p>'; }
+        });
+    }
+
+    /** Alterna el panel de notificaciones */
+    function togglePanelNotificaciones() {
+      var panel = document.getElementById('panelNotificaciones');
+      if (!panel) { return; }
+      var estabaAbierto = !panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !estabaAbierto);
+      if (!estabaAbierto) { marcarNotificacionesLeidas(); actualizarNotifBadge(); }
+    }
+
+    /** Marca todas las notificaciones del usuario como leidas */
+    function marcarNotificacionesLeidas() {
+      var usuario = {};
+      try { usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}'); } catch (e) { usuario = {}; }
+      fetch(API_URL + '/notificaciones/leer?usuario=' + encodeURIComponent(usuario.email || ''), { method: 'POST' })
+        .then(function (r) { return r.json(); })
+        .catch(function (err) { /* noop */ });
+      var badge = document.getElementById('notifBadge');
+      if (badge) { badge.textContent = '0'; badge.classList.add('hidden'); }
+    }
+
+    /** Abre una notificacion: la marca como leida y va a la seccion de alertas */
+    function abrirNotificacion(id) {
+      marcarNotificacionesLeidas();
+      var panel = document.getElementById('panelNotificaciones');
+      if (panel) { panel.classList.add('hidden'); }
+      cambiarSeccion('alertas');
     }
 
     // ==========================================================
@@ -349,6 +413,19 @@
         var u = JSON.parse(usuario);
         document.getElementById('headerAcciones').innerHTML =
           '<div class="flex items-center gap-2 sm:gap-3">' +
+            '<div class="relative shrink-0">' +
+              '<button id="btnNotificaciones" onclick="togglePanelNotificaciones()" class="relative p-2.5 bg-brand-dark border border-brand-border text-slate-300 text-xs font-bold rounded-xl hover:border-brand-red">' +
+                '<i data-lucide="bell" class="w-4 h-4"></i>' +
+                '<span id="notifBadge" class="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-0.5 flex items-center justify-center bg-brand-red text-white text-[10px] font-black rounded-full hidden">0</span>' +
+              '</button>' +
+              '<div id="panelNotificaciones" class="hidden absolute right-0 mt-2 w-80 bg-brand-card border border-brand-border rounded-xl shadow-2xl z-[600] max-h-80 overflow-y-auto">' +
+                '<div class="flex items-center justify-between px-3 py-2.5 border-b border-brand-border">' +
+                  '<p class="text-xs font-black text-white">Notificaciones</p>' +
+                  '<button onclick="marcarNotificacionesLeidas()" class="text-[10px] text-brand-red font-bold">Marcar leidas</button>' +
+                '</div>' +
+                '<div id="listaNotifPanel" class="p-2 max-h-64 overflow-y-auto"><p class="text-[11px] text-slate-400 text-center py-4">Sin notificaciones.</p></div>' +
+              '</div>' +
+            '</div>' +
             '<span class="hidden sm:block text-xs text-white font-bold truncate max-w-[120px] lg:max-w-none">' + escHtml(u.nombre) + '</span>' +
             '<span class="px-2.5 sm:px-3 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-xl uppercase">' + escHtml(u.rol || 'usuario') + '</span>' +
             '<button onclick="cerrarSesion()" class="px-2.5 sm:px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-xs font-bold rounded-xl">Salir</button>' +

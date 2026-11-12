@@ -101,6 +101,7 @@ const ESQUEMA = [
      usuario   VARCHAR(150) NOT NULL,
      mensaje   VARCHAR(255) NOT NULL,
      tipo       VARCHAR(30) DEFAULT 'operador',
+     leido      BOOLEAN DEFAULT FALSE,
      creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    )`,
   `CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario ON notificaciones(usuario)`,
@@ -114,6 +115,7 @@ const ESQUEMA = [
   `ALTER TABLE estaciones ADD COLUMN IF NOT EXISTS capacidad    INTEGER DEFAULT 0`,
   `ALTER TABLE estaciones ADD COLUMN IF NOT EXISTS lat          NUMERIC(10,7)`,
   `ALTER TABLE estaciones ADD COLUMN IF NOT EXISTS lng          NUMERIC(10,7)`,
+  `ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS leido BOOLEAN DEFAULT FALSE`,
 
   // Indices
   `CREATE INDEX IF NOT EXISTS idx_usuarios_email       ON usuarios(email)`,

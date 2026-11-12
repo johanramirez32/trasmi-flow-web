@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS notificaciones (
   usuario   VARCHAR(150) NOT NULL,
   mensaje   VARCHAR(255) NOT NULL,
   tipo        VARCHAR(30) DEFAULT 'operador',
+  leido      BOOLEAN DEFAULT FALSE,
   creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_notificaciones_usuario ON notificaciones(usuario);
