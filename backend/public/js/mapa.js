@@ -137,7 +137,76 @@
         .catch(function (err) { console.error('Error dibujando ruta:', err); });
     }
 
-    // Vista de busqueda: detalle de la estacion + stations cercanas a ELLA
+    /** Usuario: dibuja la ruta desde la estacion seleccionada (o su ubicacion) hasta el destino */
+    function verRutaUsuario() {
+      var cont = document.getElementById('userMensajeRuta');
+      var destino = (document.getElementById('userInputDestino') || {}).value || '';
+      if (!destino) { if (cont) { cont.textContent = 'Escribe el destino de tu ruta.'; cont.classList.remove('hidden'); } return; }
+      fetch(API_URL + '/estaciones')
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (lista) {
+          var d = (lista || []).filter(function (e) { return e.nombre === destino; })[0];
+          var o = seleccion;
+          var lat1 = o ? o.lat : (userPos ? userPos.lat : 4.6097);
+          var lng1 = o ? o.lng : (userPos ? userPos.lng : -74.0817);
+          if (!d) { if (cont) { cont.textContent = 'No se encontro el destino: ' + destino; cont.classList.remove('hidden'); } return; }
+          if (typeof dibujarRuta === 'function') { dibujarRuta(lat1, lng1, d.lat, d.lng); }
+          if (cont) { cont.textContent = 'Ruta dibujada: ' + (o ? o.nombre + ' -> ' : '') + destino; cont.classList.remove('hidden'); }
+        })
+        .catch(function (err) { if (cont) { cont.textContent = 'No se pudo dibujar la ruta: ' + err.message; cont.classList.remove('hidden'); } });
+    }
+
+    /** Usuario: dibuja en el mapa la ruta desde la estacion origen hasta el fin de la ruta elegida */
+    function verRutaUsuarioEnEstacion(rutaId) {
+      if (!map) { return; }
+      var rutas = window.__rutasUsuarioCache || [];
+      var ruta = null;
+      for (var i = 0; i < rutas.length; i++) { if (rutas[i].id === rutaId) { ruta = rutas[i]; break; } }
+      if (!ruta || !ruta.estaciones || !ruta.estaciones.length) { return; }
+      var o = seleccion;
+      var lat1 = o ? o.lat : (userPos ? userPos.lat : 4.6097);
+      var lng1 = o ? o.lng : (userPos ? userPos.lng : -74.0817);
+      var ultima = ruta.estaciones[ruta.estaciones.length - 1];
+      var lat2 = ultima.lat != null ? ultima.lat : ultima.latitud;
+      var lng2 = ultima.lng != null ? ultima.lng : ultima.longitud;
+      if (lat2 == null || lng2 == null) { return; }
+      if (typeof dibujarRuta === 'function') { dibujarRuta(lat1, lng1, lat2, lng2); }
+    }
+
+    // ==========================================================
+    // RUTAS DE LA ESTACION SELECCIONADA (VISTA USUARIO)
+    // ==========================================================
+    /** Renderiza la lista de rutas que sirven a una estacion seleccionada */
+    function htmlRutasEstacion(rutas, nombre) {
+      var arr = rutas || [];
+      var html = '<div class="mt-4 pt-3 border-t border-brand-border">' +
+        '<p class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2">Rutas de Transmilenio que pasan por esta estacion</p>';
+      if (!arr.length) {
+        html += '<p class="text-xs text-slate-400 text-center py-4">No hay rutas registradas para esta estacion.</p>';
+      }
+      arr.forEach(function (r) {
+        var color = r.color_hex || '#3b82f6';
+        var ests = r.estaciones || [];
+        var inicio = ests.length ? ests[0].nombre : '-';
+        var fin = ests.length ? ests[ests.length - 1].nombre : '-';
+        var paradas = ests.map(function (e) { return e.nombre; });
+        html += '<div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border mb-2">' +
+          '<div class="flex items-center justify-between gap-2">' +
+            '<p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(r.codigo) + ' - ' + escHtml(r.nombre) + '</p>' +
+            '<span class="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0" style="background:' + color + '22;color:' + color + '">' + escHtml(r.codigo) + '</span>' +
+          '</div>' +
+          '<p class="text-[11px] text-slate-400 mt-1">Inicio: ' + escHtml(inicio) + ' &nbsp;|&nbsp; Fin: ' + escHtml(fin) + '</p>' +
+          '<p class="text-[11px] text-slate-400 mt-0.5">Paradas: ' + escHtml(paradas.join(', ') || '-') + '</p>' +
+          '<button onclick="verRutaUsuarioEnEstacion(' + r.id + ')" class="mt-2 w-full px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Ver ruta en el mapa</button>' +
+        '</div>';
+      });
+      html += '</div>';
+      return html;
+    }
+
+    // ==========================================================
+    // VISTA DE BUSQUEDA: detalle de la estacion + stations cercanas a ELLA
+    // ==========================================================
     function pintarDetalle() {
       var ref = seleccion;
       var centro = [ref.lat, ref.lng];
@@ -173,11 +242,26 @@
       document.getElementById('tituloPanel').textContent = 'Estacion seleccionada';
       document.getElementById('contador').textContent = cercanas.length + ' cercanas';
 
-      document.getElementById('listaResultado').innerHTML =
-        tarjetaDetalle(ref) +
+      var htmlDetalle = tarjetaDetalle(ref) +
         '<p class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mt-4 mb-1">' +
         'Estaciones cercanas a esta</p>' +
         cercanas.map(tarjetaFila).join('');
+      document.getElementById('listaResultado').innerHTML = htmlDetalle;
+
+      // Rutas de Transmilenio que sirven a la estacion seleccionada (base de datos -> oficial)
+      fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(ref.nombre))
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
+        .then(function (data) { return { rutas: data.rutas || [] }; })
+        .then(function (res) {
+          if (seleccion !== ref) { return; }
+          window.__rutasUsuarioCache = res.rutas || [];
+          document.getElementById('listaResultado').innerHTML = htmlDetalle + htmlRutasEstacion(res.rutas, ref.nombre);
+        })
+        .catch(function () {
+          if (seleccion !== ref) { return; }
+          window.__rutasUsuarioCache = null;
+          document.getElementById('listaResultado').innerHTML = htmlDetalle + htmlRutasEstacion(null, ref.nombre);
+        });
 
       var grupo = L.latLngBounds(centro);
       cercanas.forEach(function (e) { grupo.extend([e.lat, e.lng]); });
