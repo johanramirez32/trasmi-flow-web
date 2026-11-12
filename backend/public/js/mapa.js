@@ -254,8 +254,36 @@
         .then(function (data) { return { rutas: data.rutas || [] }; })
         .then(function (res) {
           if (seleccion !== ref) { return; }
-          window.__rutasUsuarioCache = res.rutas || [];
-          document.getElementById('listaResultado').innerHTML = htmlDetalle + htmlRutasEstacion(res.rutas, ref.nombre);
+          var rutas = res.rutas || [];
+          if (rutas.length) {
+            window.__rutasUsuarioCache = rutas;
+            document.getElementById('listaResultado').innerHTML = htmlDetalle + htmlRutasEstacion(rutas, ref.nombre);
+            return;
+          }
+          // Sin rutas en la base de datos: usar los datos oficiales de Transmilenio
+          return fetch(API_URL + '/rutas/oficiales')
+            .then(function (r2) { return r2.ok ? r2.json() : Promise.reject(new Error('HTTP ' + r2.status)); })
+            .then(function (dataO) {
+              var lineas = dataO.rutas || [];
+              var linea = null;
+              var nm = (ref.nombre || '').toLowerCase();
+              for (var i = 0; i < lineas.length; i++) {
+                var ls = lineas[i].estaciones || [];
+                var pertenece = false;
+                for (var k = 0; k < ls.length; k++) {
+                  var stopNombre = (ls[k].nombre || '').toLowerCase();
+                  if (stopNombre && nm && (stopNombre.indexOf(nm) !== -1 || nm.indexOf(stopNombre) !== -1)) { pertenece = true; break; }
+                }
+                if (pertenece) { linea = lineas[i]; break; }
+              }
+              window.__rutasUsuarioCache = linea ? [linea] : null;
+              document.getElementById('listaResultado').innerHTML = htmlDetalle + htmlRutasEstacion(linea ? [linea] : [], ref.nombre);
+            })
+            .catch(function () {
+              if (seleccion !== ref) { return; }
+              window.__rutasUsuarioCache = null;
+              document.getElementById('listaResultado').innerHTML = htmlDetalle + htmlRutasEstacion(null, ref.nombre);
+            });
         })
         .catch(function () {
           if (seleccion !== ref) { return; }
