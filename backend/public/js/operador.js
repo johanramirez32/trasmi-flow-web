@@ -70,6 +70,20 @@
       if (typeof cargarOperadorRutas === 'function') { cargarOperadorRutas(nombre); }
     }
 
+    /** Busca una estacion por nombre tolerando acentos y mayusculas */
+    function buscarEstacionPorNombre(lista, nombre) {
+      var n = typeof normTexto === 'function' ? normTexto(nombre) : String(nombre || '').toLowerCase();
+      if (!n) return null;
+      var exacto = null, prefijo = null, contiene = null;
+      (lista || []).forEach(function (e) {
+        var m = typeof normTexto === 'function' ? normTexto(e.nombre) : String(e.nombre || '').toLowerCase();
+        if (m === n) { exacto = e; return; }
+        if (!prefijo && (m.indexOf(n) === 0 || n.indexOf(m) === 0)) { prefijo = e; }
+        if (!contiene && (m.indexOf(n) !== -1 || n.indexOf(m) !== -1)) { contiene = e; }
+      });
+      return exacto || prefijo || contiene;
+    }
+
     /** Dibuja la ruta (origen -> destino) elegida por el operativo */
     function verRutaOperador() {
       var cont = document.getElementById('opMensajeRuta');
@@ -84,14 +98,31 @@
       fetch(API_URL + '/estaciones')
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (lista) {
-          var o = (lista || []).filter(function (e) { return e.nombre === origen; })[0];
-          var d = (lista || []).filter(function (e) { return e.nombre === destino; })[0];
+          var o = buscarEstacionPorNombre(lista, origen);
+          var d = buscarEstacionPorNombre(lista, destino);
           if (!o || !d) {
             if (cont) { cont.textContent = 'No se encontraron coordenadas para la estacion de origen o destino.'; cont.classList.remove('hidden'); }
             return;
           }
           if (typeof dibujarRuta === 'function') { dibujarRuta(o.lat, o.lng, d.lat, d.lng); }
-          if (cont) { cont.textContent = 'Ruta dibujada: ' + origen + ' -> ' + destino; cont.classList.remove('hidden'); }
+
+          // Lineas de Transmilenio que conectan las dos estaciones
+          var url = API_URL + '/rutas/plan?origen=' + encodeURIComponent(o.nombre) +
+                    '&destino=' + encodeURIComponent(d.nombre);
+          return fetch(url)
+            .then(function (r2) { return r2.ok ? r2.json() : Promise.resolve(null); })
+            .then(function (p) {
+              var texto = 'Ruta dibujada: ' + o.nombre + ' -> ' + d.nombre;
+              if (p && p.rutas && p.rutas.length) {
+                texto += '. Lineas directas: ' + p.rutas.map(function (x) { return x.codigo; }).join(', ') + '.';
+              } else if (p && p.otras && p.otras.length) {
+                texto +='. Lineas que llegan al destino: ' + p.otras.map(function (x) { return x.codigo; }).join(', ') + '.';
+              }
+              if (cont) { cont.textContent = texto; cont.classList.remove('hidden'); }
+            })
+            .catch(function () {
+              if (cont) { cont.textContent = 'Ruta dibujada: ' + o.nombre + ' -> ' + d.nombre; cont.classList.remove('hidden'); }
+            });
         })
         .catch(function (err) {
           if (cont) { cont.textContent = 'No se pudo dibujar la ruta: ' + err.message; cont.classList.remove('hidden'); }
@@ -351,49 +382,23 @@
           var rutas = data.rutas || [];
           window.__rutasOperador = rutas;
           if (!rutas.length) {
-            // Fallback: datos oficiales de Transmilenio (servicio ArcGIS)
-            return fetch(API_URL + '/rutas/oficiales')
-              .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-              .then(function (dataO) {
-                var lineas = dataO.rutas || [];
-                var linea = null;
-                for (var i = 0; i < lineas.length; i++) {
-                  var ls = lineas[i].estaciones || [];
-                  for (var j = 0; j < ls.length; j++) {
-                    if (ls[j].nombre && ls[j].nombre.toLowerCase() === (estacion || '').toLowerCase()) { linea = lineas[i]; break; }
-                  }
-                  if (linea) { break; }
-                }
-                if (!linea) {
-                  cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No hay rutas registradas para esta estacion.</p>';
-                  return;
-                }
-                cont.innerHTML = '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
-                  '<div class="flex items-center justify-between gap-2">' +
-                    '<p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(linea.codigo) + ' - ' + escHtml(linea.nombre) + '</p>' +
-                    '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:#3b82f622;color:#3b82f6">' + escHtml(linea.codigo) + '</span>' +
-                  '</div>' +
-                  '<p class="text-[11px] text-slate-400 mt-1">Inicio: ' + escHtml(linea.origen) + ' &nbsp;|&nbsp; Fin: ' + escHtml(linea.destino) + '</p>' +
-                  '<p class="text-[11px] text-slate-400 mt-0.5">Paradas: ' + escHtml((linea.estaciones || []).map(function (e) { return e.nombre; }).join(', ') || '-') + '</p>' +
-                  '<button onclick="verRutaEnMapaOficial(' + JSON.stringify(linea) + ')" class="mt-2 w-full px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Ver ruta en el mapa</button>' +
-                '</div>';
-                return;
-              });
+            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No hay rutas registradas para esta estacion.</p>';
+            return;
           }
           if (rutas.length) {
             cont.innerHTML = rutas.map(function (r) {
               var color = r.color_hex || '#3b82f6';
-            var ests = r.estaciones || [];
-            var inicio = ests.length ? ests[0].nombre : '-';
-            var fin = ests.length ? ests[ests.length - 1].nombre : '-';
-            var paradas = ests.map(function (e) { return e.nombre; });
-            return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
+              var ests = r.estaciones || [];
+              var inicio = r.origen || (ests.length ? ests[0].nombre : '-');
+              var fin = r.destino || (ests.length ? ests[ests.length - 1].nombre : '-');
+              return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
               '<div class="flex items-center justify-between gap-2">' +
-                '<p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(r.codigo) + ' - ' + escHtml(r.nombre) + '</p>' +
-                '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:' + color + '22;color:' + color + '">' + escHtml(r.codigo) + '</span>' +
+                '<p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(r.codigo) + '</p>' +
+                '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:' + color + '22;color:' + color + '">' +
+                  escHtml(r.nombre || r.codigo) + '</span>' +
               '</div>' +
               '<p class="text-[11px] text-slate-400 mt-1">Inicio: ' + escHtml(inicio) + ' &nbsp;|&nbsp; Fin: ' + escHtml(fin) + '</p>' +
-              '<p class="text-[11px] text-slate-400 mt-0.5">Paradas: ' + escHtml(paradas.join(', ') || '-') + '</p>' +
+              '<p class="text-[11px] text-slate-400 mt-0.5">Paradas: ' + ests.length + '</p>' +
               '<button onclick="verRutaEnMapa(' + r.id + ')" class="mt-2 w-full px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Ver ruta en el mapa</button>' +
             '</div>';
             }).join('');
@@ -438,13 +443,20 @@
       var rutas = window.__rutasOperador || [];
       var ruta = null;
       for (var i = 0; i < rutas.length; i++) { if (rutas[i].id === rutaId) { ruta = rutas[i]; break; } }
-      if (!ruta || !ruta.estaciones || !ruta.estaciones.length) { return; }
+      if (!ruta) { return; }
+
+      // El corredor oficial de la ruta (con sus paradas) es lo que se dibuja
+      if (typeof dibujarCorredorTransmilenio === 'function') {
+        dibujarCorredorTransmilenio(ruta);
+        return;
+      }
 
       var coords = [];
-      ruta.estaciones.forEach(function (e) {
-        if (e.lat != null && e.lng != null) { coords.push([e.lat, e.lng]); }
+      (ruta.estaciones || []).forEach(function (e) {
+        var la = e.lat != null ? e.lat : e.latitud;
+        var lo = e.lng != null ? e.lng : e.longitud;
+        if (la != null && lo != null) { coords.push([la, lo]); }
       });
-
       if (coords.length < 2) { return; }
 
       if (lineaRuta) { map.removeLayer(lineaRuta); lineaRuta = null; }
@@ -456,6 +468,10 @@
     function verRutaEnMapaOficial(linea) {
       if (!map) { return; }
       if (!linea || !linea.coordenadas || !linea.coordenadas.length) { return; }
+      if (typeof dibujarCorredorTransmilenio === 'function') {
+        dibujarCorredorTransmilenio(linea);
+        return;
+      }
       var coords = linea.coordenadas.filter(function (c) { return c && c[0] != null && c[1] != null; });
       if (coords.length < 2) { return; }
       if (lineaRuta) { map.removeLayer(lineaRuta); lineaRuta = null; }

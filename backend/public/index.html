@@ -284,12 +284,17 @@
       <div class="bg-brand-card p-3 rounded-2xl border border-brand-border space-y-2">
         <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Planifica tu ruta</span>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-          <input id="userInputDestino" placeholder="Tu destino en Transmilenio (Ej: Portal Américas)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+          <div>
+            <input id="userInputDestino" list="listaDestinos" autocomplete="off" placeholder="Tu destino en Transmilenio (Ej: Portal Américas)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+            <datalist id="listaDestinos"></datalist>
+            <p class="text-[10px] text-slate-500 mt-1">Origen: la estacion que elijas en el mapa o la mas cercana a tu ubicacion.</p>
+          </div>
           <button onclick="verRutaUsuario()" class="px-4 py-3 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
             Ver ruta
           </button>
         </div>
         <p id="userMensajeRuta" class="hidden text-center text-xs font-medium py-1"></p>
+        <div id="userListaRutas" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll"></div>
       </div>
     </section>
 

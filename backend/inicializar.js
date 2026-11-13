@@ -75,6 +75,10 @@ const ESQUEMA = [
      color_hex  VARCHAR(10)
    )`,
   `CREATE INDEX IF NOT EXISTS idx_rutas_codigo ON rutas(codigo)`,
+  // Trazo de la ruta (misma estructura que usa el mapa del panel de usuario)
+  `ALTER TABLE rutas ADD COLUMN IF NOT EXISTS coordenadas JSONB`,
+  `ALTER TABLE rutas ADD COLUMN IF NOT EXISTS origen VARCHAR(160)`,
+  `ALTER TABLE rutas ADD COLUMN IF NOT EXISTS destino VARCHAR(160)`,
   `CREATE TABLE IF NOT EXISTS ruta_estaciones (
      id         SERIAL PRIMARY KEY,
      ruta_id    INTEGER NOT NULL,
@@ -231,6 +235,107 @@ async function sembrarCamaras(pool) {
   }
 }
 
+/**
+ * Sincroniza las rutas oficiales de Transmilenio (servicio ArcGIS) con las
+ * tablas rutas / ruta_estaciones de la base de datos.
+ *
+ * Asi el sistema guarda las rutas con sus paradas y el usuario puede verlas
+ * aunque el servicio externo no este disponible. Es idempotente: si ya estan
+ * sincronizadas no vuelve a escribir nada.
+ */
+async function sincronizarRutasOficiales(pool) {
+  try {
+    const oficial = require('./controllers/rutasOficialesController');
+    const data = await oficial.obtenerDatos();
+    if (!data || !data.rutas || !data.rutas.length) {
+      console.log('   No hay rutas oficiales para sincronizar');
+      return;
+    }
+
+    // Estaciones de la base de datos indexadas por nombre normalizado
+    const estDB = await pool.query('SELECT id, nombre FROM estaciones');
+    const porNombre = {};
+    estDB.rows.forEach(function (e) {
+      porNombre[oficial.norm(e.nombre)] = e.id;
+    });
+
+    const codigos = Array.from(new Set(data.rutas.map(function (r) { return r.codigo; })));
+    const ya = await pool.query(
+      'SELECT COUNT(*)::int n FROM rutas WHERE codigo = ANY($1) AND coordenadas IS NOT NULL AND origen IS NOT NULL', [codigos]);
+    const paradas = await pool.query(
+      'SELECT COUNT(*)::int n FROM ruta_estaciones re JOIN rutas r ON r.id = re.ruta_id WHERE r.codigo = ANY($1)',
+      [codigos]
+    );
+    if (ya.rows[0].n === codigos.length && paradas.rows[0].n > 0) {
+      console.log('   Rutas oficiales ya sincronizadas: ' + ya.rows[0].n);
+      return;
+    }
+
+    const cliente = await pool.connect();
+    let rutasNuevas = 0;
+    let paradasNuevas = 0;
+    try {
+      await cliente.query('BEGIN');
+
+      for (const r of data.rutas) {
+        const ex = await cliente.query('SELECT id FROM rutas WHERE codigo = $1 LIMIT 1', [r.codigo]);
+        const nombreRuta = r.nombre + ' - ' + r.origen + ' → ' + r.destino;
+        const trazo = JSON.stringify(r.coordenadas || []);
+        let rutaId;
+        if (ex.rows.length) {
+          rutaId = ex.rows[0].id;
+          await cliente.query(
+            'UPDATE rutas SET nombre = $1, color_hex = $2, coordenadas = $3::jsonb, origen = $4, destino = $5 WHERE id = $6',
+            [nombreRuta, r.color_hex || '#3b82f6', trazo, r.origen || '', r.destino || '', rutaId]);
+        } else {
+          const ins = await cliente.query(
+            'INSERT INTO rutas (codigo, nombre, color_hex, coordenadas, origen, destino) ' +
+            'VALUES ($1, $2, $3, $4::jsonb, $5, $6) RETURNING id',
+            [r.codigo, nombreRuta, r.color_hex || '#3b82f6', trazo, r.origen || '', r.destino || '']
+          );
+          rutaId = ins.rows[0].id;
+          rutasNuevas++;
+        }
+
+        await cliente.query('DELETE FROM ruta_estaciones WHERE ruta_id = $1', [rutaId]);
+
+        const rutasId = [];
+        const estacionesId = [];
+        const ordenes = [];
+        let orden = 0;
+        for (const p of r.estaciones) {
+          const estId = porNombre[oficial.norm(p.nombre)];
+          if (!estId) continue;
+          orden++;
+          rutasId.push(rutaId);
+          estacionesId.push(estId);
+          ordenes.push(orden);
+        }
+        if (rutasId.length) {
+          await cliente.query(
+            'INSERT INTO ruta_estaciones (ruta_id, estacion_id, orden) ' +
+            'SELECT * FROM unnest($1::int[], $2::int[], $3::int[])',
+            [rutasId, estacionesId, ordenes]
+          );
+          paradasNuevas += rutasId.length;
+        }
+      }
+
+      await cliente.query('COMMIT');
+      console.log('   Rutas oficiales sincronizadas: ' + data.rutas.length +
+        ' (' + rutasNuevas + ' nuevas, ' + paradasNuevas + ' paradas)');
+    } catch (e) {
+      await cliente.query('ROLLBACK');
+      throw e;
+    } finally {
+      cliente.release();
+    }
+  } catch (err) {
+    // Nunca debe impedir que la aplicacion arranque
+    console.warn('   No se pudieron sincronizar las rutas oficiales: ' + err.message);
+  }
+}
+
 // ---------------------------------------------------------------
 // Proceso completo
 // ---------------------------------------------------------------
@@ -254,6 +359,7 @@ async function inicializar(pool, intentos = 5) {
   await sembrarSiEstaVacia(pool);
   await sembrarRutas(pool);
   await sembrarCamaras(pool);
+  await sincronizarRutasOficiales(pool);
 }
 
 module.exports = { inicializar };

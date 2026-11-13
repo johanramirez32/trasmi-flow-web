@@ -18,6 +18,10 @@
  *   POST /api/login
  *   GET  /api/rutas
  *   GET  /api/rutas/estacion/:nombre
+ *   GET  /api/rutas/oficiales
+ *   GET  /api/rutas/oficiales/estaciones
+ *   GET  /api/rutas/oficiales/estacion/:nombre
+ *   GET  /api/rutas/oficiales/plan?origen=...&destino=...
  *   GET  /api/camaras
  *   GET  /api/camaras/estacion/:nombre
  *   POST /api/despacho
