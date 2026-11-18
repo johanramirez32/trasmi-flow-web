@@ -158,16 +158,128 @@
         .replace(/[^a-z0-9]/g, '');
     }
 
-    /** La estacion mas cercana al usuario (sirve de origen si no hay ninguna elegida) */
-    function estacionMasCercana() {
+    /** La estacion mas cercana a una posicion (o a la ubicacion del usuario) */
+    function estacionCercanaA(lat, lng) {
       if (!estaciones || !estaciones.length) return null;
-      if (!userPos) return null;
       var mejor = null, mejorDist = Infinity;
       estaciones.forEach(function (e) {
-        var d = distanciaKM(userPos.lat, userPos.lng, e.lat, e.lng);
+        var d = distanciaKM(lat, lng, e.lat, e.lng);
         if (d < mejorDist) { mejorDist = d; mejor = e; }
       });
       return mejor;
+    }
+
+    /**
+     * Estacion de inicio del viaje: SIEMPRE la mas cercana a la ubicacion real
+     * del usuario (GPS). Si aun no hay GPS se usa la estacion elegida en el mapa.
+     */
+    function estacionMasCercana() {
+      if (!estaciones || !estaciones.length) return null;
+      if (userPos) { return estacionCercanaA(userPos.lat, userPos.lng); }
+      return seleccion || estacionCercanaA(4.6097, -74.0817);
+    }
+
+    /** Proyeccion de una parada sobre el corredor (segmento + posicion) */
+    function proyectoEnCorredor(coords, parada) {
+      var KX = 111320 * Math.cos(4.6097 * Math.PI / 180);
+      var KY = 110540;
+      var la = parada.lat != null ? parada.lat : parada.latitud;
+      var lo = parada.lng != null ? parada.lng : parada.longitud;
+      var mejor = { i: 0, t: 0, dist: Infinity };
+      if (la == null || lo == null) { return mejor; }
+      var px = lo * KX, py = la * KY;
+
+      for (var i = 0; i < coords.length - 1; i++) {
+        var a = coords[i], b = coords[i + 1];
+        var ax = a[1] * KX, ay = a[0] * KY;
+        var bx = b[1] * KX, by = b[0] * KY;
+        var dx = bx - ax, dy = by - ay;
+        var l2 = dx * dx + dy * dy;
+        var t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+        if (t < 0) { t = 0; } else if (t > 1) { t = 1; }
+        var cx = ax + t * dx, cy = ay + t * dy;
+        var d = Math.sqrt((px - cx) * (px - cx) + (py - cy) * (py - cy));
+        if (d < mejor.dist) { mejor = { i: i, t: t, dist: d }; }
+      }
+      return mejor;
+    }
+
+    function coordsDeParada(p) {
+      return [p.lat != null ? p.lat : p.latitud, p.lng != null ? p.lng : p.longitud];
+    }
+
+    /** Indice de la parada mas cercana a una estacion (cuando la ruta no la trae) */
+    function indiceParadaCercana(paradas, est) {
+      if (!est || !paradas || !paradas.length) return -1;
+      var la = est.lat != null ? est.lat : est.latitud;
+      var lo = est.lng != null ? est.lng : est.longitud;
+      if (la == null || lo == null) return -1;
+      var mejor = -1, mejorDist = Infinity;
+      for (var i = 0; i < paradas.length; i++) {
+        var p = paradas[i];
+        var pla = p.lat != null ? p.lat : p.latitud;
+        var plo = p.lng != null ? p.lng : p.longitud;
+        if (pla == null || plo == null) continue;
+        var d = distanciaKM(la, lo, pla, plo);
+        if (d < mejorDist) { mejorDist = d; mejor = i; }
+      }
+      return mejor;
+    }
+
+    /**
+     * Recorta el corredor de la linea para dibujar SOLO el tramo entre la
+     * estacion de inicio y la estacion de destino del usuario.
+     */
+    function recortarCorredor(ruta, origen, destino) {
+      var coords = (ruta && ruta.coordenadas) ? ruta.coordenadas : [];
+      if (coords.length < 2) { return coords; }
+
+      var paradas = ruta.estaciones || [];
+      var iO = ruta.indice_origen;
+      var iD = ruta.indice_destino;
+      if (iO == null || iO < 0) { iO = indiceParadaCercana(paradas, origen); }
+      if (iD == null || iD < 0) { iD = indiceParadaCercana(paradas, destino); }
+      if (iO < 0 || iD < 0 || iO >= paradas.length || iD >= paradas.length) { return coords; }
+
+      var pa = proyectoEnCorredor(coords, paradas[iO]);
+      var pb = proyectoEnCorredor(coords, paradas[iD]);
+      var adelante = (pa.i < pb.i) || (pa.i === pb.i && pa.t <= pb.t);
+
+      var ini = adelante ? pa.i : pb.i;
+      var fin = adelante ? pb.i : pa.i;
+      var pIni = adelante ? paradas[iO] : paradas[iD];
+      var pFin = adelante ? paradas[iD] : paradas[iO];
+
+      // El trazo empieza y termina exactamente en las dos estaciones marcadas
+      var tramo = [coordsDeParada(pIni)];
+      for (var k = ini + 1; k <= fin; k++) { tramo.push(coords[k]); }
+      tramo.push(coordsDeParada(pFin));
+      return tramo;
+    }
+
+    /** Deja el mapa limpio: solo el viaje que se va a trazar */
+    function limpiarMapaParaViaje() {
+      if (!map) { return; }
+      if (capaMarcadores) { capaMarcadores.clearLayers(); }
+      if (marcadorUsuario) { map.removeLayer(marcadorUsuario); marcadorUsuario = null; }
+      if (circuloCerca) { map.removeLayer(circuloCerca); circuloCerca = null; }
+      if (lineaRuta) { map.removeLayer(lineaRuta); lineaRuta = null; }
+      if (lineaRutaTM) { map.removeLayer(lineaRutaTM); lineaRutaTM = null; }
+      if (capaParadasTM) { map.removeLayer(capaParadasTM); capaParadasTM = null; }
+      if (capaPlan) { map.removeLayer(capaPlan); capaPlan = null; }
+    }
+
+    /** Traza SOLO la ruta entre el inicio y el destino, con dos marcadores */
+    function trazarViaje(ruta, origen, destino) {
+      if (!map || !ruta) { return false; }
+      var coords = recortarCorredor(ruta, origen, destino);
+      if (coords.length < 2) { return false; }
+
+      limpiarMapaParaViaje();
+      lineaRutaTM = L.polyline(coords, { color: '#8b5cf6', weight: 6, opacity: 0.9 }).addTo(map);
+      marcarPlan(origen, destino);
+      map.fitBounds(coords, { padding: [50, 50] });
+      return true;
     }
 
     /**
@@ -234,10 +346,9 @@
       }
     }
 
-    /** Usuario: planifica y dibuja la ruta de una estacion a otra */
+    /** Usuario: traza el viaje desde la estacion mas cercana hasta su destino */
     function verRutaUsuario() {
       var cont = document.getElementById('userMensajeRuta');
-      var listaCont = document.getElementById('userListaRutas');
       var destinoEl = document.getElementById('userInputDestino');
       var destino = destinoEl ? (destinoEl.value || '').trim() : '';
 
@@ -246,14 +357,23 @@
         return;
       }
 
-      // Origen: la estacion seleccionada o, si no hay, la mas cercana al GPS
-      var origen = seleccion || estacionMasCercana();
-      var origenNombre = origen ? origen.nombre : '';
+      // Inicio del viaje: la estacion mas cercana a la ubicacion del usuario
+      if (!estaciones || !estaciones.length) {
+        if (cont) { cont.textContent = 'Cargando estaciones, intenta de nuevo en un momento.'; cont.classList.remove('hidden'); }
+        return;
+      }
+      var origen = estacionMasCercana();
+      if (!origen) {
+        if (cont) { cont.textContent = 'Activa tu ubicacion para identificar la estacion de inicio.'; cont.classList.remove('hidden'); }
+        return;
+      }
+      if (normTexto(origen.nombre) === normTexto(destino)) {
+        if (cont) { cont.textContent = 'El destino es el mismo punto de inicio: ' + origen.nombre + '.'; cont.classList.remove('hidden'); }
+        return;
+      }
 
-      var url = API_URL + '/rutas/plan?origen=' + encodeURIComponent(origenNombre) +
+      var url = API_URL + '/rutas/plan?origen=' + encodeURIComponent(origen.nombre) +
                 '&destino=' + encodeURIComponent(destino);
-
-      if (listaCont) { listaCont.innerHTML = ''; }
 
       fetch(url)
         .then(function (r) {
@@ -265,78 +385,32 @@
           var datos = res.d;
           var directas = datos.rutas || [];
           var otras = datos.otras || [];
-          window.__rutasPlanCache = directas.concat(otras);
-
-          marcarPlan(datos.origen, datos.destino);
-
-          // Dibujamos la mejor ruta directa; si no hay, la primera que llega al destino
-          var aDibujar = directas.length ? directas[0] : (otras.length ? otras[0] : null);
-          if (aDibujar) {
-            dibujarCorredorTransmilenio({
-              coordenadas: aDibujar.coordenadas,
-              estaciones: aDibujar.estaciones,
-              color_hex: '#8b5cf6'
-            });
-            // Camino por la calle hasta la estacion de origen
-            if (userPos && origen) {
-              dibujarRuta(userPos.lat, userPos.lng, origen.lat, origen.lng);
-            }
-          }
-
+          var ruta = directas.length ? directas[0] : (otras.length ? otras[0] : null);
           var destinoReal = datos.destino ? datos.destino.nombre : destino;
-          var mensaje = '';
-          if (directas.length) {
-            mensaje = 'Ruta directa de ' + (datos.origen ? datos.origen.nombre : 'tu ubicacion') +
-                      ' a ' + destinoReal + ': ' + directas.map(function (x) { return x.codigo; }).join(', ') + '.';
-          } else if (otras.length) {
-            mensaje = 'No hay linea directa a ' + destinoReal + '. Llegas en ' +
-                      otras.map(function (x) { return x.codigo; }).join(', ') + ' (puedes hacer transferencia).';
-          } else {
-            mensaje = 'No se encontraron rutas de Transmilenio hacia ' + destinoReal + '.';
-          }
-          if (cont) { cont.textContent = mensaje; cont.classList.remove('hidden'); }
+          var origenReal = datos.origen ? datos.origen : { nombre: origen.nombre, latitud: origen.lat, longitud: origen.lng };
 
-          // Lista de rutas para que el usuario elija cual ver
-          var todas = window.__rutasPlanCache.slice(0, 12);
-          if (listaCont && todas.length) {
-            var html = '<p class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2">' +
-                       'Rutas que te sirven (' + todas.length + ')</p>';
-            todas.forEach(function (r) {
-              var directa = directas.indexOf(r) !== -1;
-              html += '<div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border mb-2">' +
-                '<div class="flex items-center justify-between gap-2">' +
-                  '<p class="text-white font-semibold text-xs">' + escHtml(r.codigo) +
-                    (directa ? ' <span class="text-[10px] font-black text-emerald-400">DIRECTA</span>' : '') + '</p>' +
-                  '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:#8b5cf622;color:#a78bfa">' +
-                    escHtml(r.nombre || r.codigo) + '</span>' +
-                '</div>' +
-                '<p class="text-[11px] text-slate-400 mt-1">' + escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</p>' +
-                '<p class="text-[11px] text-slate-400 mt-0.5">Paradas: ' + (r.paradas ? r.paradas.length : 0) + '</p>' +
-                '<button onclick="verRutaDelPlan(' + r.id + ')" class="mt-2 w-full px-3 py-2 bg-brand-dark border ' +
-                  'border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Ver ruta en el mapa</button>' +
-              '</div>';
-            });
-            listaCont.innerHTML = html;
+          if (!ruta) {
+            limpiarMapaParaViaje();
+            if (cont) {
+              cont.textContent = 'No se encontro una ruta de Transmilenio desde ' + origen.nombre + ' hasta ' + destinoReal + '.';
+              cont.classList.remove('hidden');
+            }
+            return;
           }
+
+          var ok = trazarViaje(ruta, origenReal, datos.destino);
+          if (!ok) {
+            if (cont) { cont.textContent = 'La ruta no se pudo trazar en el mapa.'; cont.classList.remove('hidden'); }
+            return;
+          }
+
+          var mensaje = origen.nombre + ' → ' + destinoReal + ' · Linea ' + ruta.codigo;
+          if (!directas.length) { mensaje += ' (sin linea directa)'; }
+          if (cont) { cont.textContent = mensaje; cont.classList.remove('hidden'); }
         })
         .catch(function (err) {
-          if (cont) { cont.textContent = 'No se pudo dibujar la ruta: ' + err.message; cont.classList.remove('hidden'); }
+          if (cont) { cont.textContent = 'No se pudo trazar la ruta: ' + err.message; cont.classList.remove('hidden'); }
         });
-    }
-
-    /** Dibuja una ruta concreta del plan (elegida por el usuario) */
-    function verRutaDelPlan(rutaId) {
-      var rutas = window.__rutasPlanCache || [];
-      for (var i = 0; i < rutas.length; i++) {
-        if (rutas[i].id === rutaId) {
-          dibujarCorredorTransmilenio({
-            coordenadas: rutas[i].coordenadas,
-            estaciones: rutas[i].estaciones,
-            color_hex: '#8b5cf6'
-          });
-          return;
-        }
-      }
     }
 
     /** Usuario: dibuja en el mapa la ruta de Transmilenio elegida */
