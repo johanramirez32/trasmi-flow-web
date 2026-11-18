@@ -273,6 +273,7 @@
               <span id="tituloPanel" class="text-xs sm:text-sm font-black uppercase tracking-wider text-white">Estaciones mas cercanas</span>
               <span id="contador" class="text-[11px] text-slate-400 bg-brand-dark px-2 py-0.5 rounded-md border border-brand-border shrink-0">0</span>
             </div>
+            <div id="userItinerario" class="hidden space-y-2 max-h-[240px] overflow-y-auto custom-scroll pr-1 mb-3"></div>
             <div id="listaResultado" class="space-y-2.5 overflow-y-auto pr-1 flex-grow custom-scroll">
               <p class="text-xs text-slate-400 text-center py-6">Cargando estaciones...</p>
             </div>
@@ -280,14 +281,20 @@
         </div>
       </div>
 
-      <!-- DESTINO DE LA RUTA (PLANIFICACION USUARIO) -->
+      <!-- VIAJE DEL USUARIO -->
       <div class="bg-brand-card p-3 rounded-2xl border border-brand-border space-y-2">
-        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Planifica tu ruta</span>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Planifica tu viaje</span>
+          <div class="flex gap-2">
+            <button onclick="iniciarGPS()" class="px-2.5 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">Usar mi ubicación</button>
+            <button onclick="activarModoUbicacion()" class="px-2.5 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">Marcar en el mapa</button>
+          </div>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <input id="userInputDestino" list="listaDestinos" autocomplete="off" placeholder="Tu destino en Transmilenio (Ej: Portal Américas)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+            <input id="userInputDestino" list="listaDestinos" autocomplete="off" placeholder="Busca tu estación de destino" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
             <datalist id="listaDestinos"></datalist>
-            <p class="text-[10px] text-slate-500 mt-1">El origen es la estacion mas cercana a tu ubicacion (GPS).</p>
+            <p class="text-[10px] text-slate-500 mt-1">Elige inicio y destino con los botones de la lista de estaciones cercanas, o escribe aquí el destino.</p>
           </div>
           <button onclick="verRutaUsuario()" class="px-4 py-3 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
             Trazar viaje

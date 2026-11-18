@@ -32,6 +32,7 @@
     function seleccionarEstacion(id) {
       var e = estaciones.find(function (x) { return x.id === id; });
       if (!e) return;
+      if (typeof salirModoViaje === 'function') { salirModoViaje(); }
       seleccion = e;
       document.getElementById('resultadosBusqueda').classList.add('hidden');
       document.getElementById('inputBuscar').value = e.nombre;
@@ -47,36 +48,71 @@
     // ==========================================================
     // GPS EN TIEMPO REAL
     // ==========================================================
+    /** Pinta el estado de la ubicacion en la barra superior */
+    function ponerEstadoGPS(texto, color) {
+      var txt = document.getElementById('txtEstado');
+      var dot = document.getElementById('dotEstado');
+      if (txt) { txt.textContent = texto; }
+      if (dot) { dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 bg-' + (color || 'amber') + '-500'; }
+    }
+
     function iniciarGPS() {
       if (!navigator.geolocation) {
-        document.getElementById('txtEstado').textContent = 'GPS no disponible en este navegador';
+        ponerEstadoGPS('Este navegador no tiene GPS. Marca tu ubicación en el mapa.', 'red');
         return;
       }
-      if (idWatch !== null) return;
+      var opciones = { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 };
+      ponerEstadoGPS('Obteniendo tu ubicación real...', 'amber');
 
-      document.getElementById('txtEstado').textContent = 'Obteniendo ubicacion...';
+      // Solucion rapida
+      navigator.geolocation.getCurrentPosition(aplicarPosicion, errorGPS, opciones);
 
-      idWatch = navigator.geolocation.watchPosition(
-        function (pos) {
-          var nueva = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          var cambio = !userPos || distanciaKM(userPos.lat, userPos.lng, nueva.lat, nueva.lng) > 0.02;
-          userPos = nueva;
+      // Seguimiento continuo en tiempo real
+      if (idWatch === null) {
+        idWatch = navigator.geolocation.watchPosition(aplicarPosicion, errorGPS, opciones);
+      }
+    }
 
-          document.getElementById('txtCoordenadas').textContent =
-            userPos.lat.toFixed(5) + ', ' + userPos.lng.toFixed(5);
-          document.getElementById('txtEstado').textContent =
-            'Ubicacion en vivo (precision ' + Math.round(pos.coords.accuracy) + ' m)';
-          document.getElementById('dotEstado').className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
+    function aplicarPosicion(pos) {
+      var nueva = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      var cambio = !userPos || distanciaKM(userPos.lat, userPos.lng, nueva.lat, nueva.lng) > 0.01;
+      userPos = nueva;
+      gpsActivo = true;
 
-          if (cambio) pintar();
-        },
-        function (err) {
-          document.getElementById('txtEstado').textContent =
-            err.code === 1 ? 'Permiso de ubicacion denegado' : 'No se pudo obtener la ubicacion';
-          document.getElementById('dotEstado').className = 'w-2.5 h-2.5 rounded-full bg-red-500';
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
-      );
+      var coords = document.getElementById('txtCoordenadas');
+      if (coords) { coords.textContent = userPos.lat.toFixed(5) + ', ' + userPos.lng.toFixed(5); }
+      ponerEstadoGPS('Ubicación en vivo (precisión ' + Math.round(pos.coords.accuracy) + ' m)', 'emerald');
+
+      if (typeof alCambiarUbicacion === 'function') { alCambiarUbicacion(); }
+      if (cambio) { pintar(); }
+    }
+
+    function errorGPS(err) {
+      var msg = err && err.code === 1
+        ? 'Permiso de ubicación denegado. Marca tu punto en el mapa.'
+        : 'No se pudo obtener tu ubicación. Marca tu punto en el mapa.';
+      ponerEstadoGPS(msg, 'red');
+    }
+
+    /** El siguiente clic sobre el mapa fija la ubicacion del usuario */
+    function activarModoUbicacion() {
+      modoUbicacionManual = true;
+      ponerEstadoGPS('Haz clic en el mapa para marcar dónde estás.', 'amber');
+      if (map) {
+        map.getContainer().style.cursor = 'crosshair';
+      }
+    }
+
+    function seguirMiUbicacion() {
+      seleccion = null;
+      document.getElementById('inputBuscar').value = '';
+      if (typeof salirModoViaje === 'function') { salirModoViaje(); }
+      if (userPos && map) {
+        map.setView([userPos.lat, userPos.lng], 15);
+      } else {
+        iniciarGPS();
+      }
+      pintar();
     }
 
     function seguirMiUbicacion() {

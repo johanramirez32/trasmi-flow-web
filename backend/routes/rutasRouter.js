@@ -16,6 +16,7 @@ const ctrlOficial = require('../controllers/rutasOficialesController');
 router.get('/', ctrl.listarRutas);
 router.get('/estacion/:nombre', ctrl.listarRutasEstacion);
 router.get('/plan', ctrl.planearRuta);
+router.get('/itinerario', ctrl.itinerario);
 router.get('/oficiales', ctrlOficial.listarRutasOficiales);
 router.get('/oficiales/estaciones', ctrlOficial.listarEstacionesOficiales);
 router.get('/oficiales/estacion/:nombre', ctrlOficial.listarRutasPorEstacion);

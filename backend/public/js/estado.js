@@ -22,6 +22,11 @@
     // Capa propia del corredor de Transmilenio (para que no la borre la ruta vial)
     var lineaRutaTM = null, capaParadasTM = null, capaPlan = null;
     var CANTIDAD_CERCANAS = 5;
+
+    // Viaje del usuario: estaciones elegidas como inicio y destino
+    var viajeOrigen = null, viajeDestino = null;
+    var modoViaje = false, modoUbicacionManual = false, gpsActivo = false;
+    var rutaPeatonal = null, capaItinerario = null;
     var COLOR_AGLOMERACION = { 'Baja': '#22c55e', 'Media': '#f59e0b', 'Alta': '#ef4444' };
 
     // ==========================================================

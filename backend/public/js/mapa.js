@@ -14,6 +14,20 @@
 
       capaMarcadores = L.layerGroup().addTo(map);
 
+      // Si el GPS no funciona, el usuario puede marcar su punto con un clic
+      map.on('click', function (ev) {
+        if (!modoUbicacionManual) { return; }
+        modoUbicacionManual = false;
+        userPos = { lat: ev.latlng.lat, lng: ev.latlng.lng };
+        gpsActivo = true;
+        if (map.getContainer()) { map.getContainer().style.cursor = ''; }
+        var coords = document.getElementById('txtCoordenadas');
+        if (coords) { coords.textContent = userPos.lat.toFixed(5) + ', ' + userPos.lng.toFixed(5); }
+        ponerEstadoGPS('Ubicación marcada en el mapa', 'emerald');
+        if (typeof alCambiarUbicacion === 'function') { alCambiarUbicacion(); }
+        pintar();
+      });
+
       // Los datos pueden haber llegado antes que el mapa: repintar
       if (estaciones.length > 0) pintar();
 
@@ -65,6 +79,10 @@
     function pintar() {
       if (!map || estaciones.length === 0) return;
 
+      // Durante el viaje no se repintan las estaciones cercanas:
+      // solo se actualiza la caminata si el GPS se ha movido
+      if (modoViaje) { actualizarRutaPeatonal(); return; }
+
       capaMarcadores.clearLayers();
       if (circuloCerca) { map.removeLayer(circuloCerca); circuloCerca = null; }
       if (lineaRuta)    { map.removeLayer(lineaRuta);    lineaRuta = null; }
@@ -100,7 +118,7 @@
           .sort(function (a, b) { return a.dist - b.dist; })
           .slice(0, CANTIDAD_CERCANAS);
 
-        titulo = 'Estaciones mas cercanas';
+        titulo = userPos ? 'Estaciones cercanas a tu ubicación' : 'Estaciones cercanas (marca tu ubicación)';
       } else {
         centro = [4.6097, -74.0817];
         lista = estaciones
@@ -109,12 +127,12 @@
           })
           .sort(function (a, b) { return a.dist - b.dist; })
           .slice(0, CANTIDAD_CERCANAS);
-        titulo = 'Estaciones (activa tu GPS)';
+        titulo = 'Estaciones (marca tu ubicación en el mapa)';
       }
 
       document.getElementById('tituloPanel').textContent = titulo;
       document.getElementById('contador').textContent = lista.length;
-      document.getElementById('listaResultado').innerHTML = lista.map(tarjetaFila).join('');
+      document.getElementById('listaResultado').innerHTML = lista.map(tarjetaCercana).join('');
 
       lista.forEach(function (e) {
         L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
@@ -346,71 +364,251 @@
       }
     }
 
-    /** Usuario: traza el viaje desde la estacion mas cercana hasta su destino */
-    function verRutaUsuario() {
+    // ==========================================================
+    // VIAJE: GPS -> ESTACION DE INICIO -> ESTACION DE DESTINO
+    // ==========================================================
+    /** Al moverse el GPS se recalcula la caminata hasta la estacion elegida */
+    function alCambiarUbicacion() {
+      if (viajeOrigen && userPos) { actualizarRutaPeatonal(); }
+    }
+
+    /** Quita todas las capas del viaje */
+    function limpiarViaje() {
+      if (!map) { return; }
+      if (rutaPeatonal)    { map.removeLayer(rutaPeatonal); rutaPeatonal = null; }
+      if (capaItinerario)  { map.removeLayer(capaItinerario); capaItinerario = null; }
+      if (lineaRutaTM)     { map.removeLayer(lineaRutaTM); lineaRutaTM = null; }
+      if (capaParadasTM)   { map.removeLayer(capaParadasTM); capaParadasTM = null; }
+      if (capaPlan)        { map.removeLayer(capaPlan); capaPlan = null; }
+      if (lineaRuta)       { map.removeLayer(lineaRuta); lineaRuta = null; }
+      if (circuloCerca)    { map.removeLayer(circuloCerca); circuloCerca = null; }
+    }
+
+    /** Sale del modo viaje (por ejemplo, al buscar otra estacion) */
+    function salirModoViaje() {
+      viajeOrigen = null;
+      viajeDestino = null;
+      modoViaje = false;
+      limpiarViaje();
+      var it = document.getElementById('userItinerario');
+      if (it) { it.classList.add('hidden'); it.innerHTML = ''; }
+      var c = document.getElementById('userMensajeRuta');
+      if (c) { c.classList.add('hidden'); c.textContent = ''; }
+    }
+
+    /** Ruta a pie por las calles (perfil peatonal OSRM), con respaldo */
+    function dibujarRutaPeatonal(lat1, lng1, lat2, lng2) {
+      if (!map) { return Promise.resolve(null); }
+      var servicios = [
+        'https://routing.openstreetmap.de/routed-foot/route/v1/driving/',
+        'https://router.project-osrm.org/route/v1/foot/'
+      ];
+      function pedir(i) {
+        if (i >= servicios.length) { return Promise.resolve(null); }
+        return fetch(servicios[i] + lng1 + ',' + lat1 + ';' + lng2 + ',' + lat2 +
+                     '?overview=full&geometries=geojson')
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data || !data.routes || !data.routes.length) { return pedir(i + 1); }
+            var r = data.routes[0];
+            var coords = (r.geometry.coordinates || []).map(function (c) { return [c[1], c[0]]; });
+            if (rutaPeatonal) { map.removeLayer(rutaPeatonal); rutaPeatonal = null; }
+            rutaPeatonal = L.polyline(coords, {
+              color: '#22c55e', weight: 4, opacity: 0.9, dashArray: '8, 6'
+            }).addTo(map);
+            return { coords: coords, distancia: r.distance, duracion: r.duration };
+          })
+          .catch(function () { return pedir(i + 1); });
+      }
+      return pedir(0);
+    }
+
+    function actualizarRutaPeatonal() {
+      if (viajeOrigen && userPos) {
+        return dibujarRutaPeatonal(userPos.lat, userPos.lng, viajeOrigen.lat, viajeOrigen.lng);
+      }
+      return Promise.resolve(null);
+    }
+
+    /** Pone un marcador verde (inicio) o rojo (destino) */
+    function marcarPunto(e, color, etiqueta) {
+      if (!map || !e) { return; }
+      if (!capaItinerario) { capaItinerario = L.featureGroup().addTo(map); }
+      var la = e.lat != null ? e.lat : e.latitud;
+      var lo = e.lng != null ? e.lng : e.longitud;
+      if (la == null || lo == null) { return; }
+      L.marker([la, lo], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="width:18px;height:18px;border-radius:50%;background:' + color +
+                ';border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.6)"></div>',
+          iconSize: [18, 18], iconAnchor: [9, 9]
+        })
+      }).bindPopup('<b>' + escHtml(etiqueta) + '</b>').addTo(capaItinerario);
+    }
+
+    /** El usuario elige la estacion de PARTIDA en la lista de cercanas */
+    function elegirInicio(id) {
+      var est = estaciones.find(function (e) { return e.id === id; });
+      if (!est) { return; }
+      salirModoViaje();
+      viajeOrigen = est;
+      modoViaje = true;
+
+      var tit = document.getElementById('tituloPanel');
+      if (tit) { tit.textContent = 'Viaje desde ' + est.nombre; }
       var cont = document.getElementById('userMensajeRuta');
-      var destinoEl = document.getElementById('userInputDestino');
-      var destino = destinoEl ? (destinoEl.value || '').trim() : '';
+      if (cont) {
+        cont.textContent = 'Inicio: ' + est.nombre + '. Elige ahora tu estación de destino en la lista.';
+        cont.classList.remove('hidden');
+      }
+      if (userPos) { actualizarRutaPeatonal(); }
+      else { ponerEstadoGPS('Marca tu ubicación en el mapa para trazar la caminata.', 'amber'); }
 
-      if (!destino) {
-        if (cont) { cont.textContent = 'Escribe el destino de tu ruta.'; cont.classList.remove('hidden'); }
+      marcarPunto(est, '#22c55e', 'Inicio: ' + est.nombre);
+      document.getElementById('listaResultado').innerHTML = listaCercanasHtml();
+    }
+
+    /** El usuario elige la estacion de LLEGADA: se calculan rutas y transbordos */
+    function elegirDestino(id) {
+      var est = estaciones.find(function (e) { return e.id === id; });
+      if (!est) { return; }
+
+      if (!viajeOrigen) {
+        var cerca = (userPos || gpsActivo) ? estacionMasCercana() : null;
+        if (cerca && cerca.id !== est.id) {
+          viajeOrigen = cerca;
+        } else {
+          var aviso = document.getElementById('userMensajeRuta');
+          if (aviso) { aviso.textContent = 'Primero elige una estación de inicio (botón Inicio).'; aviso.classList.remove('hidden'); }
+          return;
+        }
+      }
+      if (viajeOrigen.id === est.id) {
+        var aviso2 = document.getElementById('userMensajeRuta');
+        if (aviso2) { aviso2.textContent = 'El destino es la misma estación de inicio.'; aviso2.classList.remove('hidden'); }
         return;
       }
 
-      // Inicio del viaje: la estacion mas cercana a la ubicacion del usuario
-      if (!estaciones || !estaciones.length) {
-        if (cont) { cont.textContent = 'Cargando estaciones, intenta de nuevo en un momento.'; cont.classList.remove('hidden'); }
-        return;
-      }
-      var origen = estacionMasCercana();
-      if (!origen) {
-        if (cont) { cont.textContent = 'Activa tu ubicacion para identificar la estacion de inicio.'; cont.classList.remove('hidden'); }
-        return;
-      }
-      if (normTexto(origen.nombre) === normTexto(destino)) {
-        if (cont) { cont.textContent = 'El destino es el mismo punto de inicio: ' + origen.nombre + '.'; cont.classList.remove('hidden'); }
-        return;
-      }
+      viajeDestino = est;
+      modoViaje = true;
 
-      var url = API_URL + '/rutas/plan?origen=' + encodeURIComponent(origen.nombre) +
-                '&destino=' + encodeURIComponent(destino);
+      var cont = document.getElementById('userMensajeRuta');
+      if (cont) { cont.textContent = 'Calculando tu itinerario...'; cont.classList.remove('hidden'); }
+
+      var url = API_URL + '/rutas/itinerario?origen=' + encodeURIComponent(viajeOrigen.nombre) +
+                '&destino=' + encodeURIComponent(est.nombre);
 
       fetch(url)
-        .then(function (r) {
-          return r.json().then(function (d) { return { ok: r.ok, d: d }; });
-        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
         .then(function (res) {
-          if (!res.ok) { throw new Error(res.d.error || 'No se pudo planificar la ruta'); }
-
+          if (!res.ok) { throw new Error(res.d.error || 'No se pudo calcular el itinerario'); }
           var datos = res.d;
-          var directas = datos.rutas || [];
-          var otras = datos.otras || [];
-          var ruta = directas.length ? directas[0] : (otras.length ? otras[0] : null);
-          var destinoReal = datos.destino ? datos.destino.nombre : destino;
-          var origenReal = datos.origen ? datos.origen : { nombre: origen.nombre, latitud: origen.lat, longitud: origen.lng };
-
-          if (!ruta) {
-            limpiarMapaParaViaje();
-            if (cont) {
-              cont.textContent = 'No se encontro una ruta de Transmilenio desde ' + origen.nombre + ' hasta ' + destinoReal + '.';
-              cont.classList.remove('hidden');
-            }
-            return;
+          window.__itinerarioCache = datos;
+          dibujarItinerario(datos);
+          renderItinerario(datos);
+          if (cont) {
+            cont.textContent = viajeOrigen.nombre + ' → ' + est.nombre +
+              (function () {
+                var nb = datos.transbordos || 0;
+                return nb === 0 ? ' · sin transbordos'
+                  : ' · ' + nb + (nb === 1 ? ' transbordo' : ' transbordos');
+              })();
+            cont.classList.remove('hidden');
           }
-
-          var ok = trazarViaje(ruta, origenReal, datos.destino);
-          if (!ok) {
-            if (cont) { cont.textContent = 'La ruta no se pudo trazar en el mapa.'; cont.classList.remove('hidden'); }
-            return;
-          }
-
-          var mensaje = origen.nombre + ' → ' + destinoReal + ' · Linea ' + ruta.codigo;
-          if (!directas.length) { mensaje += ' (sin linea directa)'; }
-          if (cont) { cont.textContent = mensaje; cont.classList.remove('hidden'); }
         })
         .catch(function (err) {
-          if (cont) { cont.textContent = 'No se pudo trazar la ruta: ' + err.message; cont.classList.remove('hidden'); }
+          if (cont) { cont.textContent = 'No se pudo calcular el itinerario: ' + err.message; cont.classList.remove('hidden'); }
         });
+    }
+
+    /** Dibuja todos los tramos del viaje (caminata + lineas + marcadores) */
+    function dibujarItinerario(datos) {
+      limpiarViaje();
+      capaItinerario = L.featureGroup().addTo(map);
+
+      (datos.tramos || []).forEach(function (tramo) {
+        var ests = tramo.estaciones || [];
+        if (!ests.length) { return; }
+        var coords = recortarCorredor(tramo, ests[0], ests[ests.length - 1])
+          .filter(function (c) { return c && c[0] != null && c[1] != null; });
+        if (coords.length >= 2) {
+          L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 5, opacity: 0.9 }).addTo(capaItinerario);
+        }
+        ests.forEach(function (p) {
+          if (p.lat == null || p.lng == null) { return; }
+          L.circleMarker([p.lat, p.lng], {
+            radius: 3, color: '#ffffff', weight: 1,
+            fillColor: tramo.color || '#8b5cf6', fillOpacity: 1
+          }).bindPopup(escHtml(p.nombre)).addTo(capaItinerario);
+        });
+      });
+
+      marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''));
+      marcarPunto(datos.destino, '#ef4444', 'Destino: ' + (datos.destino ? datos.destino.nombre : ''));
+
+      if (userPos && viajeOrigen) { actualizarRutaPeatonal(); }
+      if (capaItinerario.getLayers().length) {
+        map.fitBounds(capaItinerario.getBounds(), { padding: [40, 40] });
+      }
+    }
+
+    /** Panel lateral: pasos del viaje y transbordos */
+    function renderItinerario(datos) {
+      var panel = document.getElementById('userItinerario');
+      if (!panel) { return; }
+      var html = '<p class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2">Tu itinerario</p>';
+
+      if (userPos && viajeOrigen) {
+        var metros = Math.round(distanciaKM(userPos.lat, userPos.lng, viajeOrigen.lat, viajeOrigen.lng) * 1000);
+        html += '<div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border mb-2">' +
+          '<p class="text-white font-bold text-xs">1. Camina hasta ' + escHtml(viajeOrigen.nombre) + '</p>' +
+          '<p class="text-[11px] text-slate-400 mt-1">' + metros + ' m · ruta peatonal por calles</p>' +
+          '</div>';
+      }
+
+      (datos.tramos || []).forEach(function (t, i) {
+        var numero = (userPos && viajeOrigen ? i + 2 : i + 1);
+        var ultimo = i === (datos.tramos.length - 1);
+        html += '<div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border mb-2" style="border-left:3px solid ' + t.color + '">' +
+          '<p class="text-white font-bold text-xs">' + numero + '. Línea ' + escHtml(t.codigo) + '</p>' +
+          '<p class="text-[11px] text-slate-400 mt-1">' + escHtml(t.desde) + ' → ' + escHtml(t.hasta) + '</p>' +
+          '<p class="text-[11px] text-slate-400 mt-0.5">' + t.numero_paradas + ' estaciones</p>' +
+          (ultimo
+            ? '<p class="text-[10px] font-black text-emerald-400 mt-1">Llegada a ' + escHtml(datos.destino ? datos.destino.nombre : '') + '</p>'
+            : '<p class="text-[10px] font-black text-amber-400 mt-1">TRANSBORDO en ' + escHtml(t.hasta) + '</p>') +
+          '</div>';
+      });
+
+      panel.innerHTML = html;
+      panel.classList.remove('hidden');
+    }
+
+    function listaCercanasHtml() {
+      if (!estaciones.length) { return ''; }
+      var centro = userPos ? [userPos.lat, userPos.lng] : [4.6097, -74.0817];
+      var lista = estaciones.map(function (e) {
+        return Object.assign({}, e, { dist: distanciaKM(centro[0], centro[1], e.lat, e.lng) });
+      }).sort(function (a, b) { return a.dist - b.dist; }).slice(0, CANTIDAD_CERCANAS);
+      return lista.map(tarjetaCercana).join('');
+    }
+
+    /** El campo de destino busca la estacion y dispara el itinerario */
+    function verRutaUsuario() {
+      var texto = ((document.getElementById('userInputDestino') || {}).value || '').trim();
+      var cont = document.getElementById('userMensajeRuta');
+      if (!texto) {
+        if (cont) { cont.textContent = 'Busca y elige una estación de destino.'; cont.classList.remove('hidden'); }
+        return;
+      }
+      var n = normTexto(texto);
+      var est = estaciones.find(function (e) { return normTexto(e.nombre) === n; }) ||
+                estaciones.find(function (e) { return normTexto(e.nombre).indexOf(n) !== -1; });
+      if (!est) {
+        if (cont) { cont.textContent = 'No se encontró la estación: ' + texto; cont.classList.remove('hidden'); }
+        return;
+      }
+      elegirDestino(est.id);
     }
 
     /** Usuario: dibuja en el mapa la ruta de Transmilenio elegida */
@@ -500,7 +698,7 @@
         .addTo(capaMarcadores);
 
       // Ruta en linea azul desde la ubicacion del usuario hasta la estacion
-      if (userPos) { dibujarRuta(userPos.lat, userPos.lng, ref.lat, ref.lng); }
+      if (userPos) { dibujarRutaPeatonal(userPos.lat, userPos.lng, ref.lat, ref.lng); }
 
       var cercanas = estaciones
         .filter(function (e) { return e.id !== ref.id; })
@@ -601,6 +799,24 @@
             nivelTexto(e.aglomeracion) +
           '</span>' +
         '</div>';
+    }
+
+    /** Tarjeta de estacion cercana con botones para elegir inicio o destino */
+    function tarjetaCercana(e) {
+      var color = COLOR_AGLOMERACION[nivelTexto(e.aglomeracion)] || '#f59e0b';
+      return '<div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border mb-2">' +
+        '<div class="flex items-center gap-2.5">' +
+          '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>' +
+          '<div class="min-w-0 flex-grow">' +
+            '<p class="text-white font-bold text-xs truncate">' + escHtml(e.nombre) + '</p>' +
+            '<p class="text-[11px] text-slate-400 truncate">' + escHtml(e.troncal || '') + ' &bull; ' + e.dist.toFixed(2) + ' km</p>' +
+          '</div>' +
+        '</div>' +
+        '<div class="flex gap-2 mt-2">' +
+          '<button onclick="elegirInicio(' + e.id + ')" class="flex-1 px-2 py-1.5 bg-emerald-600/20 border border-emerald-600/40 text-emerald-300 text-[10px] font-bold rounded-lg hover:bg-emerald-600/40">Inicio</button>' +
+          '<button onclick="elegirDestino(' + e.id + ')" class="flex-1 px-2 py-1.5 bg-red-600/20 border border-red-600/40 text-red-300 text-[10px] font-bold rounded-lg hover:bg-red-600/40">Destino</button>' +
+        '</div>' +
+      '</div>';
     }
 
     function popupEstacion(e) {
