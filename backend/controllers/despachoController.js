@@ -23,10 +23,13 @@ async function notificarReportesAtendidos(pool, estacion, bus) {
 }
 
 async function registrarDespacho(req, res) {
-  const { estacion, bus, operador } = req.body;
+  const estacion = String(req.body.estacion || '').trim().slice(0, 120);
+  const bus = String(req.body.bus || '').trim().slice(0, 20);
+  // El operador se toma del token: no se puede suplantar
+  const operador = req.usuario ? req.usuario.email : '';
 
-  if (!estacion || !bus || !operador) {
-    return res.status(400).json({ error: 'Estacion, bus y operador son obligatorios.' });
+  if (!estacion || !bus) {
+    return res.status(400).json({ error: 'Estacion y bus son obligatorios.' });
   }
 
   try {

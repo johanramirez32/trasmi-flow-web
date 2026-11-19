@@ -360,6 +360,7 @@
             return;
           }
           localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
+          localStorage.setItem(TOKEN_KEY, res.d.token || '');
           verificarAcceso();
         })
         .catch(function () {
@@ -394,6 +395,7 @@
             return;
           }
           localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
+          localStorage.setItem(TOKEN_KEY, res.d.token || '');
           verificarAcceso();
         })
         .catch(function () {
@@ -463,6 +465,7 @@
 
     function cerrarSesion() {
       localStorage.removeItem('usuarioTransmiFlowReal');
+      localStorage.removeItem(TOKEN_KEY);
       if (idWatch !== null) { navigator.geolocation.clearWatch(idWatch); idWatch = null; }
       verificarAcceso();
     }

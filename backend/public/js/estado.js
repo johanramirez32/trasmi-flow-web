@@ -1,4 +1,22 @@
     const API_URL = '/api';
+    const TOKEN_KEY = 'transmiFlowToken';
+
+    // Toda peticion a la API lleva el token firmado de la sesion
+    (function () {
+      var fetchOriginal = window.fetch.bind(window);
+      window.fetch = function (url, opciones) {
+        var esAPI = typeof url === 'string' &&
+          (url.indexOf('/api/') === 0 || url.indexOf(API_URL) === 0);
+        if (esAPI) {
+          var token = localStorage.getItem(TOKEN_KEY) || '';
+          opciones = opciones || {};
+          var cabeceras = Object.assign({}, opciones.headers || {});
+          if (token) { cabeceras.Authorization = 'Bearer ' + token; }
+          opciones.headers = cabeceras;
+        }
+        return fetchOriginal(url, opciones);
+      };
+    })();
 
     // Diagnostico visible
     window.onerror = function (msg, archivo, linea) {

@@ -8,16 +8,19 @@ const { getPool } = require('../db');
 const pool = getPool();
 
 async function crearReporte(req, res) {
-  const { estacion, nivel, usuario } = req.body;
+  const estacion = String(req.body.estacion || '').trim().slice(0, 120);
+  const nivel = ['Baja', 'Media', 'Alta'].indexOf(req.body.nivel) !== -1 ? req.body.nivel : '';
+  // El usuario se toma del token: no se puede suplantar
+  const usuario = req.usuario ? req.usuario.email : 'anonimo';
 
   if (!estacion || !nivel) {
-    return res.status(400).json({ error: 'Faltan datos del reporte.' });
+    return res.status(400).json({ error: 'Datos del reporte invalidos.' });
   }
 
   try {
     const resultado = await pool.query(
       'INSERT INTO reportes (estacion, nivel, usuario) VALUES ($1, $2, $3) RETURNING id',
-      [estacion, nivel, usuario || 'anonimo']
+      [estacion, nivel, usuario]
     );
 
     const nuevo = await pool.query(

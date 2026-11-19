@@ -11,7 +11,7 @@
 
     function cambiarVistaOperador(vista) {
       vista = vista || 'reportes';
-      ['reportes', 'aglom', 'despacho', 'rutas', 'camaras'].forEach(function (v) {
+      ['reportes', 'aglom', 'despacho', 'rutas', 'camaras', 'diagnostico'].forEach(function (v) {
         var p = document.getElementById(idPanelOperador(v));
         if (p) p.classList.toggle('hidden', v !== vista);
 
@@ -36,6 +36,7 @@
         if (selCamaras) { cargarOperadorCamaras(selCamaras.value); }
       }
       if (vista === 'despacho') { cargarOperadorSelects(); }
+      if (vista === 'diagnostico') { cargarDiagnostico(); }
     }
 
     /** Estacion clickeada en el mapa (marcador): carga sus rutas y muestra el apartado de planificacion */
@@ -326,6 +327,45 @@
       if (n === 'alta') { return 85; }
       if (n === 'media') { return 55; }
       return 30;
+    }
+
+    /** Muestra las pruebas de disponibilidad, seguridad e integridad */
+    function cargarDiagnostico() {
+      var cont = document.getElementById('opListaDiagnostico');
+      if (!cont) { return Promise.resolve(); }
+      cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Ejecutando pruebas...</p>';
+
+      return fetch(API_URL + '/diagnostico')
+        .then(function (r) {
+          return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+        })
+        .then(function (res) {
+          if (!res.ok) { throw new Error(res.d.error || 'No se pudo verificar'); }
+          var d = res.d;
+          var html = '<div class="p-3 rounded-xl border mb-3 ' +
+            (d.fallos === 0 ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-red-500/40 bg-red-500/10') + '">' +
+            '<p class="text-xs font-black ' + (d.fallos === 0 ? 'text-emerald-400' : 'text-red-400') + '">' +
+            escHtml(d.estado) + ' · ' + (d.total - d.fallos) + '/' + d.total + ' pruebas superadas</p>' +
+            '<p class="text-[10px] text-slate-400 mt-1">Actualizado: ' + escHtml(d.fecha) + '</p></div>';
+
+          var categoria = '';
+          (d.resultados || []).forEach(function (x) {
+            if (x.categoria !== categoria) {
+              categoria = x.categoria;
+              html += '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-3 mb-1">' +
+                escHtml(categoria) + '</p>';
+            }
+            html += '<div class="flex items-start gap-2 p-2.5 bg-brand-dark/70 rounded-lg border border-brand-border">' +
+              '<span class="text-[11px] font-black shrink-0 ' + (x.ok ? 'text-emerald-400' : 'text-red-400') + '">' +
+              (x.ok ? '[OK]' : '[FALLO]') + '</span>' +
+              '<div class="min-w-0"><p class="text-white text-[11px] font-bold">' + escHtml(x.nombre) + '</p>' +
+              '<p class="text-[10px] text-slate-400 break-words">' + escHtml(x.detalle) + '</p></div></div>';
+          });
+          cont.innerHTML = html;
+        })
+        .catch(function (err) {
+          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">' + escHtml(err.message) + '</p>';
+        });
     }
 
     /** Carga la lista de buses disponibles para despacho */

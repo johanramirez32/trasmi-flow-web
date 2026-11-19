@@ -10,7 +10,9 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "cargar": "node cargar-estaciones.js",
-    "exportar": "node exportar-estaciones.js"
+    "exportar": "node exportar-estaciones.js",
+    "test": "node test/verificacion.js",
+    "test:vuln": "node test/vulnerabilidades.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

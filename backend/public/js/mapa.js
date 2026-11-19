@@ -431,7 +431,7 @@
     }
 
     /** Pone un marcador verde (inicio) o rojo (destino) */
-    function marcarPunto(e, color, etiqueta) {
+    function marcarPunto(e, color, etiqueta, letra) {
       if (!map || !e) { return; }
       if (!capaItinerario) { capaItinerario = L.featureGroup().addTo(map); }
       var la = e.lat != null ? e.lat : e.latitud;
@@ -440,8 +440,10 @@
       L.marker([la, lo], {
         icon: L.divIcon({
           className: '',
-          html: '<div style="width:18px;height:18px;border-radius:50%;background:' + color +
-                ';border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.6)"></div>',
+          html: '<div style="width:22px;height:22px;border-radius:50%;background:' + color +
+                ';border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.6);color:#fff;' +
+                'font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center">' +
+                (letra || '') + '</div>',
           iconSize: [18, 18], iconAnchor: [9, 9]
         })
       }).bindPopup('<b>' + escHtml(etiqueta) + '</b>').addTo(capaItinerario);
@@ -456,7 +458,10 @@
       modoViaje = true;
 
       var tit = document.getElementById('tituloPanel');
-      if (tit) { tit.textContent = 'Viaje desde ' + est.nombre; }
+      if (tit) {
+        tit.innerHTML = '<span class="text-emerald-400">INICIO: ' + escHtml(est.nombre) +
+                        '</span> <span class="text-slate-500">→ elige tu destino</span>';
+      }
       var cont = document.getElementById('userMensajeRuta');
       if (cont) {
         cont.textContent = 'Inicio: ' + est.nombre + '. Elige ahora tu estación de destino en la lista.';
@@ -465,7 +470,7 @@
       if (userPos) { actualizarRutaPeatonal(); }
       else { ponerEstadoGPS('Marca tu ubicación en el mapa para trazar la caminata.', 'amber'); }
 
-      marcarPunto(est, '#22c55e', 'Inicio: ' + est.nombre);
+      marcarPunto(est, '#22c55e', 'Inicio: ' + est.nombre, 'A');
       document.getElementById('listaResultado').innerHTML = listaCercanasHtml();
     }
 
@@ -492,6 +497,13 @@
 
       viajeDestino = est;
       modoViaje = true;
+
+      var tit2 = document.getElementById('tituloPanel');
+      if (tit2) {
+        tit2.innerHTML = '<span class="text-emerald-400">INICIO: ' + escHtml(viajeOrigen.nombre) +
+                         '</span> <span class="text-white">→</span> ' +
+                         '<span class="text-red-400">DESTINO: ' + escHtml(est.nombre) + '</span>';
+      }
 
       var cont = document.getElementById('userMensajeRuta');
       if (cont) { cont.textContent = 'Calculando tu itinerario...'; cont.classList.remove('hidden'); }
@@ -544,8 +556,8 @@
         });
       });
 
-      marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''));
-      marcarPunto(datos.destino, '#ef4444', 'Destino: ' + (datos.destino ? datos.destino.nombre : ''));
+      marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
+      marcarPunto(datos.destino, '#ef4444', 'Destino: ' + (datos.destino ? datos.destino.nombre : ''), 'B');
 
       if (userPos && viajeOrigen) { actualizarRutaPeatonal(); }
       if (capaItinerario.getLayers().length) {
@@ -557,7 +569,16 @@
     function renderItinerario(datos) {
       var panel = document.getElementById('userItinerario');
       if (!panel) { return; }
-      var html = '<p class="text-[11px] uppercase tracking-wider text-slate-400 font-bold mb-2">Tu itinerario</p>';
+      var html = '<div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border mb-3">' +
+        '<p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-2">Tu viaje</p>' +
+        '<p class="text-xs font-black"><span class="text-emerald-400">A · ' +
+          escHtml(viajeOrigen ? viajeOrigen.nombre : (datos.origen ? datos.origen.nombre : '')) +
+        '</span> <span class="text-white">→</span> <span class="text-red-400">' +
+          escHtml(datos.destino ? datos.destino.nombre : '') + ' · B</span></p>' +
+        '<p class="text-[11px] text-slate-400 mt-1">' +
+          (datos.transbordos ? datos.transbordos + (datos.transbordos === 1 ? ' transbordo' : ' transbordos') : 'Sin transbordos') +
+          ' · ' + datos.total_paradas + ' estaciones en total</p>' +
+      '</div>';
 
       if (userPos && viajeOrigen) {
         var metros = Math.round(distanciaKM(userPos.lat, userPos.lng, viajeOrigen.lat, viajeOrigen.lng) * 1000);
@@ -804,7 +825,13 @@
     /** Tarjeta de estacion cercana con botones para elegir inicio o destino */
     function tarjetaCercana(e) {
       var color = COLOR_AGLOMERACION[nivelTexto(e.aglomeracion)] || '#f59e0b';
-      return '<div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border mb-2">' +
+      var borde = viajeOrigen && viajeOrigen.id === e.id ? 'border-emerald-500'
+        : (viajeDestino && viajeDestino.id === e.id ? 'border-red-500' : 'border-brand-border');
+      return '<div class="p-3 bg-brand-dark/70 rounded-xl border ' + borde + ' mb-2">'
+        + (viajeOrigen && viajeOrigen.id === e.id
+            ? '<p class="text-[10px] font-black text-emerald-400 mb-1">● PUNTO DE INICIO</p>' : '')
+        + (viajeDestino && viajeDestino.id === e.id
+            ? '<p class="text-[10px] font-black text-red-400 mb-1">● PUNTO DE DESTINO</p>' : '') +
         '<div class="flex items-center gap-2.5">' +
           '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>' +
           '<div class="min-w-0 flex-grow">' +

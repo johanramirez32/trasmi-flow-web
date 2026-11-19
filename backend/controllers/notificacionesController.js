@@ -8,7 +8,8 @@ const { getPool } = require('../db');
 const pool = getPool();
 
 async function listarNotificaciones(req, res) {
-  const usuario = req.query.usuario;
+  // El correo se toma del token, nunca del query string (evita IDOR)
+  const usuario = req.usuario ? req.usuario.email : '';
 
   try {
     const r = await pool.query(
@@ -23,7 +24,8 @@ async function listarNotificaciones(req, res) {
 }
 
 async function marcarLeidas(req, res) {
-  const usuario = req.query.usuario;
+  // El correo se toma del token, nunca del query string (evita IDOR)
+  const usuario = req.usuario ? req.usuario.email : '';
 
   try {
     const r = await pool.query(
