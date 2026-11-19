@@ -36,9 +36,9 @@ function parada(x, orden) {
 
 /**
  * GET /api/rutas/itinerario?origen=...&destino=...
- * Calcula el viaje completo entre dos estaciones. Busca primero una linea
- * directa y, si no existe, combina lineas haciendo el menor numero de
- * transbordos posible (recorriendo cada linea en ambos sentidos).
+ * Calcula el viaje entre dos estaciones y devuelve varias opciones:
+ * la directa (si existe) y alternativas con transbordos, con tipo de
+ * transbordo y tiempo estimado de cada tramo.
  */
 async function itinerario(req, res) {
   const origen = (req.query.origen || '').toString();
@@ -87,6 +87,8 @@ async function itinerario(req, res) {
       rutasMap[x.id].paradas.push(parada(x));
     });
     const rutas = Object.keys(rutasMap).map(function (k) { return rutasMap[k]; });
+    const porId = {};
+    rutas.forEach(function (r) { porId[r.id] = r; });
 
     // Indice: estacion -> lineas que la sirven y en que posicion
     const porEstacion = {};
@@ -97,35 +99,53 @@ async function itinerario(req, res) {
       });
     });
 
+    // Firma de las lineas usadas para no repetir opciones iguales
+    function firmaDe(pasos) {
+      const lineas = [];
+      pasos.forEach(function (p) {
+        if (p.rutaId && lineas[lineas.length - 1] !== p.rutaId) { lineas.push(p.rutaId); }
+      });
+      return lineas.join('>');
+    }
+
     // Busqueda por niveles: nivel 0 = una linea, nivel 1 = un transbordo, ...
+    // Se recogen hasta 4 soluciones distintas (la mejor y alternativas).
     let frente = [{ estacion: o.id, rutaId: null, pasos: [{ estacion: o.id, rutaId: null }], transbordos: 0 }];
     const visitados = new Set();
-    let solucion = null;
+    const soluciones = [];
+    const firmas = new Set();
 
-    for (let nivel = 0; nivel <= 4 && !solucion && frente.length; nivel++) {
+    for (let nivel = 0; nivel <= 3 && frente.length && soluciones.length < 6; nivel++) {
       const siguiente = [];
-      for (let s = 0; s < frente.length && !solucion; s++) {
+      for (let s = 0; s < frente.length; s++) {
         const est = frente[s];
         const opciones = porEstacion[est.estacion] || [];
-        for (let a = 0; a < opciones.length && !solucion; a++) {
+        for (let a = 0; a < opciones.length; a++) {
           const op = opciones[a];
           if (op.ruta.id === est.rutaId) { continue; } // seguimos en la misma linea
-          for (let ddir = 0; ddir < 2 && !solucion; ddir++) {
+          for (let ddir = 0; ddir < 2; ddir++) {
             const dir = ddir === 0 ? 1 : -1;
             for (let j = op.i + dir; j >= 0 && j < op.ruta.paradas.length; j += dir) {
               const paradaDest = op.ruta.paradas[j];
-              const key = paradaDest.id + '|' + op.ruta.id;
+              const key = paradaDest.id + '|' + op.ruta.id + '|' + nivel;
               if (visitados.has(key)) { continue; }
               visitados.add(key);
 
-              const pasos = est.pasos.concat([{ estacion: paradaDest.id, rutaId: op.ruta.id }]);
               const nuevo = {
                 estacion: paradaDest.id,
                 rutaId: op.ruta.id,
-                pasos: pasos,
+                pasos: est.pasos.concat([{ estacion: paradaDest.id, rutaId: op.ruta.id }]),
                 transbordos: est.rutaId ? est.transbordos + 1 : 0
               };
-              if (paradaDest.id === d.id) { solucion = nuevo; break; }
+
+              if (paradaDest.id === d.id) {
+                const firma = firmaDe(nuevo.pasos);
+                if (!firmas.has(firma)) {
+                  firmas.add(firma);
+                  soluciones.push(nuevo);
+                }
+                continue; // seguir buscando otras alternativas
+              }
               siguiente.push(nuevo);
             }
           }
@@ -134,53 +154,78 @@ async function itinerario(req, res) {
       frente = siguiente;
     }
 
-    if (!solucion) {
+    if (!soluciones.length) {
       return res.status(404).json({ error: 'No se encontro un itinerario entre esas estaciones.' });
     }
 
-    // Agrupar los pasos consecutivos de la misma linea en tramos
-    const grupos = [];
-    solucion.pasos.forEach(function (p, i) {
-      if (i === 0) { return; }
-      const ultimo = grupos[grupos.length - 1];
-      if (ultimo && ultimo.rutaId === p.rutaId) {
-        ultimo.hasta = p.estacion;
-      } else {
-        grupos.push({ rutaId: p.rutaId, desde: solucion.pasos[i - 1].estacion, hasta: p.estacion });
-      }
+    soluciones.sort(function (a, b) {
+      if (a.transbordos !== b.transbordos) { return a.transbordos - b.transbordos; }
+      return a.pasos.length - b.pasos.length;
     });
 
-    const porId = {};
-    rutas.forEach(function (r) { porId[r.id] = r; });
     const colores = ['#8b5cf6', '#f59e0b', '#22c55e', '#3b82f6', '#ec4899', '#06b6d4'];
 
-    const tramos = grupos.map(function (g, i) {
-      const ruta = porId[g.rutaId];
-      const iDesde = ruta.paradas.findIndex(function (p) { return p.id === g.desde; });
-      const iHasta = ruta.paradas.findIndex(function (p) { return p.id === g.hasta; });
-      const ini = Math.min(iDesde, iHasta);
-      const fin = Math.max(iDesde, iHasta);
-      const paradasTramo = ruta.paradas.slice(ini, fin + 1);
-      if (iDesde > iHasta) { paradasTramo.reverse(); }
+    function construirOpcion(solucion, indice) {
+      const grupos = [];
+      solucion.pasos.forEach(function (p, i) {
+        if (i === 0) { return; }
+        const ultimo = grupos[grupos.length - 1];
+        if (ultimo && ultimo.rutaId === p.rutaId) {
+          ultimo.hasta = p.estacion;
+        } else {
+          grupos.push({ rutaId: p.rutaId, desde: solucion.pasos[i - 1].estacion, hasta: p.estacion });
+        }
+      });
+
+      const tramos = grupos.map(function (g, i) {
+        const ruta = porId[g.rutaId];
+        const iDesde = ruta.paradas.findIndex(function (p) { return p.id === g.desde; });
+        const iHasta = ruta.paradas.findIndex(function (p) { return p.id === g.hasta; });
+        const ini = Math.min(iDesde, iHasta);
+        const fin = Math.max(iDesde, iHasta);
+        const paradasTramo = ruta.paradas.slice(ini, fin + 1);
+        if (iDesde > iHasta) { paradasTramo.reverse(); }
+
+        const ultimo = i === grupos.length - 1;
+        return {
+          tipo: 'transmilenio',
+          orden: i + 1,
+          codigo: ruta.codigo,
+          nombre: ruta.nombre,
+          linea_origen: ruta.origen,
+          linea_destino: ruta.destino,
+          color: colores[i % colores.length],
+          coordenadas: ruta.coordenadas,
+          estaciones: paradasTramo,
+          indice_origen: 0,
+          indice_destino: paradasTramo.length - 1,
+          desde: paradasTramo.length ? paradasTramo[0].nombre : '',
+          hasta: paradasTramo.length ? paradasTramo[paradasTramo.length - 1].nombre : '',
+          paradas: paradasTramo.map(function (p) { return p.nombre; }),
+          numero_paradas: paradasTramo.length,
+          // 3 min de espera + 1.5 min por estacion
+          minutos_estimados: Math.max(3, Math.round(3 + (paradasTramo.length - 1) * 1.5)),
+          tipo_transbordo: ultimo ? null : 'Misma estación (andén)',
+          transbordo_en: ultimo ? null : (paradasTramo.length ? paradasTramo[paradasTramo.length - 1].nombre : '')
+        };
+      });
+
+      const minutosTramos = tramos.reduce(function (a, x) { return a + x.minutos_estimados; }, 0);
+      const esperaTransbordos = solucion.transbordos * 4;
 
       return {
-        tipo: 'transmilenio',
-        orden: i + 1,
-        codigo: ruta.codigo,
-        nombre: ruta.nombre,
-        linea_origen: ruta.origen,
-        linea_destino: ruta.destino,
-        color: colores[i % colores.length],
-        coordenadas: ruta.coordenadas,
-        estaciones: paradasTramo,
-        indice_origen: 0,
-        indice_destino: paradasTramo.length - 1,
-        desde: paradasTramo.length ? paradasTramo[0].nombre : '',
-        hasta: paradasTramo.length ? paradasTramo[paradasTramo.length - 1].nombre : '',
-        paradas: paradasTramo.map(function (p) { return p.nombre; }),
-        numero_paradas: paradasTramo.length
+        indice: indice,
+        etiqueta: indice === 0 ? 'Recomendada' : 'Alternativa ' + indice,
+        transbordos: solucion.transbordos,
+        tramos: tramos,
+        total_paradas: tramos.reduce(function (a, x) { return a + x.numero_paradas; }, 0),
+        minutos_estimados: minutosTramos + esperaTransbordos,
+        lineas: tramos.map(function (x) { return x.codigo; })
       };
-    });
+    }
+
+    const opciones = soluciones.slice(0, 4).map(construirOpcion);
+    const mejor = opciones[0];
 
     const estacionJson = function (e) {
       if (!e) return null;
@@ -195,9 +240,12 @@ async function itinerario(req, res) {
     res.json({
       origen: estacionJson(o),
       destino: estacionJson(d),
-      transbordos: solucion.transbordos,
-      tramos: tramos,
-      total_paradas: tramos.reduce(function (a, t) { return a + t.numero_paradas; }, 0)
+      opciones: opciones,
+      // Compatibilidad con el panel actual
+      transbordos: mejor.transbordos,
+      tramos: mejor.tramos,
+      total_paradas: mejor.total_paradas,
+      minutos_estimados: mejor.minutos_estimados
     });
   } catch (err) {
     console.error(err);

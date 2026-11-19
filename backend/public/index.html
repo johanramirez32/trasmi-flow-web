@@ -263,15 +263,32 @@
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-grow">
-        <div class="lg:col-span-7 altura-mapa rounded-2xl border border-brand-border overflow-hidden shadow-2xl">
+        <div class="lg:col-span-7 altura-mapa rounded-2xl border border-brand-border overflow-hidden shadow-2xl relative">
           <div id="mapa" class="w-full h-full z-10"></div>
+
+          <!-- Ventana lateral de rutas (se abre con el boton "Rutas") -->
+          <div id="panelRutasLateral" class="hidden absolute top-3 right-3 z-[700] w-[300px] max-w-[85%] max-h-[88%] flex flex-col bg-brand-card/95 border border-brand-border rounded-2xl shadow-2xl">
+            <div class="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-brand-border shrink-0">
+              <div class="min-w-0">
+                <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Rutas de la estación</p>
+                <p id="rutasLateralEstacion" class="text-xs font-black text-white truncate">—</p>
+              </div>
+              <button onclick="togglePanelRutas()" class="shrink-0 px-2 py-1 bg-brand-dark border border-brand-border text-slate-300 text-xs font-bold rounded-lg hover:border-brand-red" title="Ocultar panel">×</button>
+            </div>
+            <div id="rutasLateralContenido" class="p-3 space-y-2 overflow-y-auto custom-scroll flex-grow">
+              <p class="text-xs text-slate-400 text-center py-6">Elige una estación de inicio para ver sus rutas.</p>
+            </div>
+          </div>
         </div>
 
         <div class="lg:col-span-5 bg-brand-card rounded-2xl border border-brand-border p-4 flex flex-col altura-mapa shadow-2xl">
           <div id="panelLista" class="flex flex-col h-full min-h-0">
             <div class="flex items-center justify-between pb-3 border-b border-brand-border mb-3 gap-2">
               <span id="tituloPanel" class="text-xs sm:text-sm font-black uppercase tracking-wider text-white">Estaciones mas cercanas</span>
-              <span id="contador" class="text-[11px] text-slate-400 bg-brand-dark px-2 py-0.5 rounded-md border border-brand-border shrink-0">0</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <button onclick="togglePanelRutas()" id="btnRutasLateral" class="px-2 py-1 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">Rutas</button>
+                <span id="contador" class="text-[11px] text-slate-400 bg-brand-dark px-2 py-0.5 rounded-md border border-brand-border">0</span>
+              </div>
             </div>
             <div id="userItinerario" class="hidden space-y-2 max-h-[240px] overflow-y-auto custom-scroll pr-1 mb-3"></div>
             <div id="listaResultado" class="space-y-2.5 overflow-y-auto pr-1 flex-grow custom-scroll">

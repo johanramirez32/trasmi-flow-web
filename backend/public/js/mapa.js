@@ -6,11 +6,26 @@
       map = L.map('mapa', { zoomControl: false }).setView([4.6097, -74.0817], 12);
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      // OpenStreetMap: NO requiere API key
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Basemap publico: OSM bloquea teselas muy solicitadas, se usa CARTO
+      var teselas = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
-        attribution: '&copy; OpenStreetMap'
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap &copy; CARTO'
       }).addTo(map);
+
+      // Si CARTO falla, se cambia a Esri World Street Map
+      var erroresTesela = 0;
+      teselas.on('tileerror', function () {
+        erroresTesela++;
+        if (erroresTesela >= 3 && map.hasLayer(teselas)) {
+          map.removeLayer(teselas);
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/' +
+            'World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 18,
+            attribution: 'Tiles &copy; Esri'
+          }).addTo(map);
+        }
+      });
 
       capaMarcadores = L.layerGroup().addTo(map);
 
@@ -472,6 +487,9 @@
 
       marcarPunto(est, '#22c55e', 'Inicio: ' + est.nombre, 'A');
       document.getElementById('listaResultado').innerHTML = listaCercanasHtml();
+      cargarRutasDeEstacion(est);
+      var panel = document.getElementById('panelRutasLateral');
+      if (panel) { panel.classList.remove('hidden'); }
     }
 
     /** El usuario elige la estacion de LLEGADA: se calculan rutas y transbordos */
@@ -517,8 +535,10 @@
           if (!res.ok) { throw new Error(res.d.error || 'No se pudo calcular el itinerario'); }
           var datos = res.d;
           window.__itinerarioCache = datos;
+          window.__opcionActiva = 0;
           dibujarItinerario(datos);
           renderItinerario(datos);
+          renderRutasLateral();
           if (cont) {
             cont.textContent = viajeOrigen.nombre + ' → ' + est.nombre +
               (function () {
@@ -577,7 +597,7 @@
           escHtml(datos.destino ? datos.destino.nombre : '') + ' · B</span></p>' +
         '<p class="text-[11px] text-slate-400 mt-1">' +
           (datos.transbordos ? datos.transbordos + (datos.transbordos === 1 ? ' transbordo' : ' transbordos') : 'Sin transbordos') +
-          ' · ' + datos.total_paradas + ' estaciones en total</p>' +
+          ' · ' + datos.total_paradas + ' estaciones · ~' + (datos.minutos_estimados || 0) + ' min</p>' +
       '</div>';
 
       if (userPos && viajeOrigen) {
@@ -594,7 +614,9 @@
         html += '<div class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border mb-2" style="border-left:3px solid ' + t.color + '">' +
           '<p class="text-white font-bold text-xs">' + numero + '. Línea ' + escHtml(t.codigo) + '</p>' +
           '<p class="text-[11px] text-slate-400 mt-1">' + escHtml(t.desde) + ' → ' + escHtml(t.hasta) + '</p>' +
-          '<p class="text-[11px] text-slate-400 mt-0.5">' + t.numero_paradas + ' estaciones</p>' +
+          '<p class="text-[11px] text-slate-400 mt-0.5">' + t.numero_paradas + ' estaciones · ~' +
+            (t.minutos_estimados || 0) + ' min' +
+            (t.tipo_transbordo ? ' · transbordo en ' + escHtml(t.transbordo_en || t.hasta) : '') + '</p>' +
           (ultimo
             ? '<p class="text-[10px] font-black text-emerald-400 mt-1">Llegada a ' + escHtml(datos.destino ? datos.destino.nombre : '') + '</p>'
             : '<p class="text-[10px] font-black text-amber-400 mt-1">TRANSBORDO en ' + escHtml(t.hasta) + '</p>') +
@@ -603,6 +625,138 @@
 
       panel.innerHTML = html;
       panel.classList.remove('hidden');
+    }
+
+    // ==========================================================
+    // VENTANA LATERAL DE RUTAS
+    // ==========================================================
+    /** Muestra u oculta la ventana de rutas sobre el mapa */
+    function togglePanelRutas() {
+      var panel = document.getElementById('panelRutasLateral');
+      if (!panel) { return; }
+      var vaMostrar = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !vaMostrar);
+      if (vaMostrar) { renderRutasLateral(); }
+    }
+
+    /** Trae las rutas que pasan por la estacion de inicio */
+    function cargarRutasDeEstacion(est) {
+      window.__rutasEstacionOrigen = [];
+      var nombre = document.getElementById('rutasLateralEstacion');
+      if (nombre) { nombre.textContent = est.nombre; }
+      renderRutasLateral();
+
+      fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre))
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { throw new Error(res.d.error || 'No se pudieron cargar'); }
+          window.__rutasEstacionOrigen = res.d.rutas || [];
+          renderRutasLateral();
+        })
+        .catch(function () {
+          window.__rutasEstacionOrigen = [];
+          renderRutasLateral();
+        });
+    }
+
+    /** Dibuja una ruta completa de la estacion de inicio */
+    function verRutaLateral(id) {
+      var rutas = window.__rutasEstacionOrigen || [];
+      var ruta = rutas.find(function (r) { return r.id === id; });
+      if (!ruta) { return; }
+      dibujarCorredorTransmilenio(ruta);
+    }
+
+    /** Dibuja una opcion concreta del itinerario (recomendada o alternativa) */
+    function dibujarOpcionLateral(indice) {
+      var datos = window.__itinerarioCache;
+      if (!datos || !datos.opciones) { return; }
+      var op = datos.opciones[indice];
+      if (!op) { return; }
+
+      window.__opcionActiva = indice;
+      limpiarViaje();
+      capaItinerario = L.featureGroup().addTo(map);
+      (op.tramos || []).forEach(function (tramo) {
+        var ests = tramo.estaciones || [];
+        if (!ests.length) { return; }
+        var coords = recortarCorredor(tramo, ests[0], ests[ests.length - 1])
+          .filter(function (c) { return c && c[0] != null && c[1] != null; });
+        if (coords.length >= 2) {
+          L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 5, opacity: 0.9 }).addTo(capaItinerario);
+        }
+      });
+      marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
+      marcarPunto(datos.destino, '#ef4444', 'Destino: ' + (datos.destino ? datos.destino.nombre : ''), 'B');
+      if (userPos && viajeOrigen) { actualizarRutaPeatonal(); }
+      if (capaItinerario.getLayers().length) {
+        map.fitBounds(capaItinerario.getBounds(), { padding: [40, 40] });
+      }
+      renderRutasLateral();
+    }
+
+    /** Pinta el contenido de la ventana lateral */
+    function renderRutasLateral() {
+      var cont = document.getElementById('rutasLateralContenido');
+      if (!cont) { return; }
+
+      var rutas = window.__rutasEstacionOrigen || [];
+      var datos = window.__itinerarioCache;
+      var html = '';
+
+      if (!viajeOrigen) {
+        cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Elige una estación de inicio para ver sus rutas.</p>';
+        return;
+      }
+
+      // Opciones de viaje (rutas que pueden llevar al destino)
+      if (datos && datos.opciones && datos.opciones.length) {
+        html += '<p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Opciones hacia el destino</p>';
+        datos.opciones.forEach(function (op, i) {
+          var activa = (window.__opcionActiva || 0) === i;
+          html += '<div class="p-2.5 rounded-xl border ' + (activa ? 'border-brand-red' : 'border-brand-border') + ' bg-brand-dark/70 mb-2">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<p class="text-[11px] font-black ' + (activa ? 'text-brand-red' : 'text-white') + '">' + escHtml(op.etiqueta) + '</p>' +
+              '<span class="text-[10px] font-black text-emerald-400">' + op.minutos_estimados + ' min</span>' +
+            '</div>' +
+            '<p class="text-[10px] text-slate-400 mt-1">' +
+              (op.transbordos ? op.transbordos + (op.transbordos === 1 ? ' transbordo' : ' transbordos') : 'Sin transbordos') +
+              ' · ' + op.total_paradas + ' estaciones</p>' +
+            '<p class="text-[10px] text-slate-300 mt-1 font-bold">' + escHtml(op.lineas.join(' → ')) + '</p>';
+          op.tramos.forEach(function (tr, k) {
+            if (tr.tipo_transbordo) {
+              html += '<p class="text-[9px] text-amber-400 mt-1">↳ Transbordo: ' + escHtml(tr.tipo_transbordo) +
+                      ' en ' + escHtml(tr.transbordo_en || tr.hasta) + ' (+4 min)</p>';
+            }
+            html += '<p class="text-[9px] text-slate-500 mt-0.5">' + escHtml(tr.codigo) + ': ' +
+                    escHtml(tr.desde) + ' → ' + escHtml(tr.hasta) + ' · ' + tr.minutos_estimados + ' min</p>';
+          });
+          html += '<button onclick="dibujarOpcionLateral(' + i + ')" class="mt-2 w-full px-2 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">Ver esta opción en el mapa</button>' +
+            '</div>';
+        });
+      }
+
+      // Rutas que pasan por la estacion de inicio
+      html += '<p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold mt-3 mb-1">Rutas en ' + escHtml(viajeOrigen.nombre) + ' (' + rutas.length + ')</p>';
+      if (!rutas.length) {
+        html += '<p class="text-[11px] text-slate-500 text-center py-3">Cargando rutas de la estación...</p>';
+      }
+      var usadas = datos && datos.opciones && datos.opciones[0] ? datos.opciones[0].lineas : [];
+      rutas.forEach(function (r) {
+        var ests = r.estaciones || [];
+        var sirve = usadas.indexOf(r.codigo) !== -1;
+        html += '<div class="p-2 rounded-lg bg-brand-dark/70 border border-brand-border mb-1.5">' +
+          '<div class="flex items-center justify-between gap-2">' +
+            '<p class="text-[11px] font-black text-white">' + escHtml(r.codigo) +
+              (sirve ? ' <span class="text-[9px] text-emerald-400">TE SIRVE</span>' : '') + '</p>' +
+            '<span class="text-[9px] text-slate-400">' + ests.length + ' paradas</span>' +
+          '</div>' +
+          '<p class="text-[9px] text-slate-400 mt-0.5 truncate">' + escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</p>' +
+          '<button onclick="verRutaLateral(' + r.id + ')" class="mt-1 text-[9px] font-bold text-brand-red hover:underline">Ver ruta completa</button>' +
+        '</div>';
+      });
+
+      cont.innerHTML = html;
     }
 
     function listaCercanasHtml() {
