@@ -49,9 +49,10 @@
       var esOperador = !!(opSec && !opSec.classList.contains('hidden'));
 
       if (esOperador) {
+        var est = estacionPorValor(e.id) || estacionPorValor(nombre);
         var sel = document.getElementById('opSelectRutas');
-        if (sel) { sel.value = nombre; }
-        if (typeof cargarOperadorRutas === 'function') { cargarOperadorRutas(nombre); }
+        if (sel && est) { sel.value = est.id; }
+        if (typeof cargarOperadorRutas === 'function' && est) { cargarOperadorRutas(est.id); }
         if (typeof cambiarVistaOperador === 'function') { cambiarVistaOperador('rutas'); }
         return;
       }
@@ -65,12 +66,21 @@
       }
     }
 
+    /** Resuelve una estacion por ID o por nombre (compatibilidad) */
+    function estacionPorValor(valor) {
+      if (valor == null || valor === '') { return null; }
+      var lista = estaciones || [];
+      return lista.find(function (e) { return String(e.id) === String(valor); }) ||
+             lista.find(function (e) { return e.nombre === valor; }) || null;
+    }
+
     /** Estacion elegida en el panel operativo: carga sus rutas */
-    function seleccionarEstacionOperador(nombre) {
-      nombre = nombre || '';
+    function seleccionarEstacionOperador(valor) {
+      var est = estacionPorValor(valor);
+      if (!est) { return; }
       var sel = document.getElementById('opSelectRutas');
-      if (sel) { sel.value = nombre; }
-      if (typeof cargarOperadorRutas === 'function') { cargarOperadorRutas(nombre); }
+      if (sel) { sel.value = est.id; }
+      if (typeof cargarOperadorRutas === 'function') { cargarOperadorRutas(est.id); }
     }
 
     /** Busca una estacion por nombre tolerando acentos y mayusculas */
@@ -91,7 +101,8 @@
     function verRutaOperador() {
       var cont = document.getElementById('opMensajeRuta');
       var origenEl = document.getElementById('opSelectRutas');
-      var origen = origenEl ? (origenEl.value || '') : '';
+      var origenEst = estacionPorValor(origenEl ? origenEl.value : '');
+      var origen = origenEst ? origenEst.nombre : '';
       var destinoEl = document.getElementById('opInputDestino');
       var destino = destinoEl ? (destinoEl.value || '').trim() : '';
 
@@ -143,7 +154,7 @@
             select.innerHTML = '<option value="">Selecciona estacion</option>';
             (lista || []).forEach(function (e) {
               var opt = document.createElement('option');
-              opt.value = e.nombre;
+              opt.value = e.id;
               opt.textContent = e.nombre + (e.troncal ? ' (' + e.troncal + ')' : '');
               select.appendChild(opt);
             });
@@ -283,8 +294,7 @@
             buscar.innerHTML = '<option value="">Buscar estacion...</option>';
             (ests || []).forEach(function (e) {
               var opt = document.createElement('option');
-              opt.value = e.nombre;
-              opt.textContent = e.nombre + (e.troncal ? ' (' + e.troncal + ')' : '');
+              opt.value = e.id;opt.value = e.id;xtContent = e.nombre + (e.troncal ? ' (' + e.troncal + ')' : '');
               buscar.appendChild(opt);
             });
             var existe = false;
@@ -303,7 +313,7 @@
               }
             });
             var pct = pctAglomeracion(nivel);
-            return '<button onclick="seleccionarEstacionOperador(' + JSON.stringify(e.nombre) + ')" class="w-full text-left p-2 rounded-lg bg-brand-card border border-brand-border hover:border-brand-red">' +
+            return '<button onclick="seleccionarEstacionOperador(' + e.id + ')" class="w-full text-left p-2 rounded-lg bg-brand-card border border-brand-border hover:border-brand-red">' +
               '<div class="flex items-center justify-between gap-2">' +
                 '<div class="min-w-0">' +
                   '<p class="text-white font-semibold text-xs sm:text-sm truncate">' + escHtml(e.nombre) + '</p>' +
@@ -407,18 +417,21 @@
       enviarDespacho();
     }
 
-    function cargarOperadorRutas(estacion) {
+    function cargarOperadorRutas(valor) {
       var cont = document.getElementById('opListaRutas');
       if (!cont) { return Promise.resolve(); }
-      if (!estacion) {
+      var est = estacionPorValor(valor);
+      if (!est) {
         cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Selecciona una estacion para ver sus rutas.</p>';
         return Promise.resolve();
       }
 
       var selEst = document.getElementById('opSelectEstacion');
-      if (selEst && estacion) { selEst.value = estacion; }
+      if (selEst) { selEst.value = est.id; }
+      var selRutas = document.getElementById('opSelectRutas');
+      if (selRutas) { selRutas.value = est.id; }
 
-      return fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(estacion))
+      return fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre) + '?id=' + encodeURIComponent(est.id))
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (data) {
           var rutas = data.rutas || [];
@@ -451,9 +464,11 @@
         });
     }
 
-    function cargarOperadorCamaras(estacion) {
+    function cargarOperadorCamaras(valor) {
       var cont = document.getElementById('opListaCamaras');
       if (!cont) { return Promise.resolve(); }
+      var estCam = estacionPorValor(valor);
+      var estacion = estCam ? estCam.nombre : valor;
       if (!estacion) {
         cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Selecciona una estacion para ver sus camaras.</p>';
         return Promise.resolve();

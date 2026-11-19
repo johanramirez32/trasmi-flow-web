@@ -138,7 +138,7 @@
       lista.forEach(function (e) {
         L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
           .bindPopup(popupEstacion(e))
-          .bindTooltip(e.nombre, { direction: 'top', offset: [0, -10], className: 'tooltip-estacion' })
+          .bindTooltip(e.nombre + ' · ' + (e.troncal || ''), { direction: 'top', offset: [0, -10], className: 'tooltip-estacion' })
           .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(e); } })
           .addTo(capaMarcadores);
       });
@@ -459,6 +459,7 @@
       if (!est) { return; }
       salirModoViaje();
       viajeOrigen = est;
+      window.__origenAuto = false;
       modoViaje = true;
 
       var tit = document.getElementById('tituloPanel');
@@ -490,6 +491,7 @@
         var cerca = (userPos || gpsActivo) ? estacionMasCercana() : null;
         if (cerca && cerca.id !== est.id) {
           viajeOrigen = cerca;
+          window.__origenAuto = true;
         } else {
           var aviso = document.getElementById('userMensajeRuta');
           if (aviso) { aviso.textContent = 'Primero elige una estación de inicio (botón Inicio).'; aviso.classList.remove('hidden'); }
@@ -507,7 +509,8 @@
 
       var tit2 = document.getElementById('tituloPanel');
       if (tit2) {
-        tit2.innerHTML = '<span class="text-emerald-400">INICIO: ' + escHtml(viajeOrigen.nombre) +
+        tit2.innerHTML = '<span class="text-emerald-400">INICIO' +
+                         (window.__origenAuto ? ' (GPS)' : '') + ': ' + escHtml(viajeOrigen.nombre) +
                          '</span> <span class="text-white">→</span> ' +
                          '<span class="text-red-400">DESTINO: ' + escHtml(est.nombre) + '</span>';
       }
@@ -531,12 +534,12 @@
           renderItinerario(datos);
           renderRutasLateral();
           if (cont) {
-            cont.textContent = viajeOrigen.nombre + ' → ' + est.nombre +
-              (function () {
-                var nb = datos.transbordos || 0;
-                return nb === 0 ? ' · sin transbordos'
-                  : ' · ' + nb + (nb === 1 ? ' transbordo' : ' transbordos');
-              })();
+            var nb = datos.transbordos || 0;
+            cont.textContent = (window.__origenAuto ? 'Inicio automático (más cercana a tu GPS): ' : '') +
+              viajeOrigen.nombre + ' → ' + est.nombre +
+              (nb === 0 ? ' · sin transbordos'
+                : ' · ' + nb + (nb === 1 ? ' transbordo' : ' transbordos')) +
+              (window.__origenAuto ? '. Cambia el origen con «Inicio».' : '');
             cont.classList.remove('hidden');
           }
         })
@@ -924,7 +927,7 @@
 
       L.marker([ref.lat, ref.lng], { icon: iconoEstacion(ref), zIndexOffset: 900 })
         .bindPopup(popupEstacion(ref))
-        .bindTooltip(ref.nombre, { permanent: true, direction: 'top', offset: [0, -12], className: 'tooltip-estacion tooltip-seleccionada' })
+        .bindTooltip(ref.nombre + ' · ' + (ref.troncal || ''), { permanent: true, direction: 'top', offset: [0, -12], className: 'tooltip-estacion tooltip-seleccionada' })
         .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(ref); } })
         .addTo(capaMarcadores);
 
@@ -942,7 +945,7 @@
       cercanas.forEach(function (e) {
         L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
           .bindPopup(popupEstacion(e))
-          .bindTooltip(e.nombre, { direction: 'top', offset: [0, -10], className: 'tooltip-estacion' })
+          .bindTooltip(e.nombre + ' · ' + (e.troncal || ''), { direction: 'top', offset: [0, -10], className: 'tooltip-estacion' })
           .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(e); } })
           .addTo(capaMarcadores);
       });
