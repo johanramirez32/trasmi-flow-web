@@ -6,26 +6,12 @@
       map = L.map('mapa', { zoomControl: false }).setView([4.6097, -74.0817], 12);
       L.control.zoom({ position: 'topright' }).addTo(map);
 
-      // Basemap publico: OSM bloquea teselas muy solicitadas, se usa CARTO
-      var teselas = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        subdomains: 'abcd',
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
+      // Esri World Street Map: funciona sin API key (OSM bloquea y CARTO pide llave)
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/' +
+        'World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 18,
+        attribution: 'Tiles &copy; Esri, &copy; OpenStreetMap'
       }).addTo(map);
-
-      // Si CARTO falla, se cambia a Esri World Street Map
-      var erroresTesela = 0;
-      teselas.on('tileerror', function () {
-        erroresTesela++;
-        if (erroresTesela >= 3 && map.hasLayer(teselas)) {
-          map.removeLayer(teselas);
-          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/' +
-            'World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-            maxZoom: 18,
-            attribution: 'Tiles &copy; Esri'
-          }).addTo(map);
-        }
-      });
 
       capaMarcadores = L.layerGroup().addTo(map);
 
@@ -1048,40 +1034,22 @@
     }
 
     /** Muestra las 3 estaciones mas cercanas al usuario con su distancia y nivel */
+    /** El boton "Mi estacion mas cercana" SOLO muestra el GPS, sin cambiar inicio/destino */
     function irANearesta() {
-      if (!estaciones || !estaciones.length) return;
-      var centro = userPos ? [userPos.lat, userPos.lng] : [4.6097, -74.0817];
-      var lista = estaciones
-        .map(function (e) { return Object.assign({}, e, { dist: distanciaKM(centro[0], centro[1], e.lat, e.lng) }); })
-        .sort(function (a, b) { return a.dist - b.dist; })
-        .slice(0, 3);
+      if (!map) { return; }
 
-      var tarjetas = [];
-      for (var i = 0; i < lista.length; i++) {
-        var e = lista[i];
-        var color = COLOR_AGLOMERACION[nivelTexto(e.aglomeracion)] || '#f59e0b';
-        var metros = Math.round(e.dist * 1000);
-        tarjetas.push(
-          '<div onclick="seleccionarEstacion(' + e.id + ')" class="p-3 bg-brand-dark/70 rounded-xl border border-brand-border hover:border-brand-red cursor-pointer flex items-center justify-between gap-3" style="border-color:' + color + '">' +
-            '<div class="min-w-0 flex items-center gap-2.5">' +
-              '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>' +
-              '<div class="min-w-0">' +
-                '<p class="text-white font-bold text-xs truncate">' + (i + 1) + '. ' + e.nombre + '</p>' +
-                '<p class="text-[11px] text-slate-400 truncate">' + e.troncal + ' &bull; ' + metros + ' m</p>' +
-              '</div>' +
-            '</div>' +
-            '<span class="text-[10px] font-bold px-2 py-1 rounded-lg shrink-0" style="color:' + color + ';background:' + color + '22">' + nivelTexto(e.aglomeracion) + '</span>' +
-          '</div>'
-        );
+      if (!userPos) {
+        // Aun no hay posicion: pedirla. Al llegar se centrara el mapa
+        iniciarGPS();
+        return;
       }
-      var html = tarjetas.join('');
 
-      document.getElementById('tituloPanel').textContent = 'Tus 3 estaciones mas cercanas';
-      document.getElementById('contador').textContent = lista.length;
-      document.getElementById('listaResultado').innerHTML = html;
-
-      // Ruta en linea azul desde la ubicacion del usuario hasta la estacion final
-      if (userPos && map && lista.length) { dibujarRuta(userPos.lat, userPos.lng, lista[0].lat, lista[0].lng); }
-
-      if (userPos && map) { map.setView([userPos.lat, userPos.lng], 14); }
+      // No se modifican tituloPanel, listaResultado ni el itinerario del viaje
+      if (marcadorUsuario) { map.removeLayer(marcadorUsuario); marcadorUsuario = null; }
+      marcadorUsuario = L.marker([userPos.lat, userPos.lng], {
+        icon: iconoUsuario(), zIndexOffset: 1000
+      }).addTo(map);
+      marcadorUsuario.bindPopup('<b>Tu ubicación actual</b>').openPopup();
+      map.setView([userPos.lat, userPos.lng], 15);
+      ponerEstadoGPS('Ubicación mostrada en el mapa', 'emerald');
     }
