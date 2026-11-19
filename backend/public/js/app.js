@@ -370,12 +370,63 @@
     function alternarModoAuth() {
       esRegistro = !esRegistro;
       document.getElementById('campoNombre').classList.toggle('hidden', !esRegistro);
-      document.getElementById('campoRol').classList.toggle('hidden', !esRegistro);
       document.getElementById('authTitulo').textContent = esRegistro ? 'Crear Cuenta' : 'Iniciar Sesion';
       document.getElementById('txtBtnAuth').textContent = esRegistro ? 'Registrarme' : 'Ingresar a la Plataforma';
       document.getElementById('txtPreguntaAuth').textContent = esRegistro ? 'Ya tienes cuenta?' : 'No tienes cuenta?';
       document.getElementById('btnAlternarAuth').textContent = esRegistro ? 'Inicia sesion' : 'Registrate aqui';
       document.getElementById('authMensajeError').classList.add('hidden');
+      var passMsg = document.getElementById('authMensajePassword');
+      if (passMsg) { passMsg.classList.add('hidden'); passMsg.textContent = ''; }
+      var reglas = document.getElementById('reglasPassword');
+      if (reglas) { reglas.classList.toggle('hidden', !esRegistro); }
+    }
+
+    /** Muestra u oculta la contrasena */
+    function togglePassword() {
+      var input = document.getElementById('inputPassword');
+      if (!input) { return; }
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    /** Reglas de contrasena que se validan tambien en el servidor */
+    function validarPasswordLocal(password) {
+      var errores = [];
+      if (password.length < 8) { errores.push('8 caracteres'); }
+      if ((password.match(/[A-Za-z]/g) || []).length < 4) { errores.push('4 letras'); }
+      if (!/[A-Z]/.test(password)) { errores.push('1 mayuscula'); }
+      if (!/[0-9]/.test(password)) { errores.push('1 numero'); }
+      if (!/[^A-Za-z0-9]/.test(password)) { errores.push('1 caracter especial'); }
+      return errores;
+    }
+
+    /** Bombillito de estado de la base de datos */
+    function verificarConexion() {
+      fetch(API_URL + '/health')
+        .then(function (r) {
+          if (!r.ok) { throw new Error('HTTP ' + r.status); }
+          return r.json();
+        })
+        .then(function (data) {
+          var dot = document.getElementById('dotConexion');
+          var txt = document.getElementById('txtConexion');
+          if (dot) { dot.className = 'w-2 h-2 rounded-full bg-emerald-500'; }
+          if (txt) { txt.textContent = 'Base de datos conectada'; }
+        })
+        .catch(function () {
+          var dot = document.getElementById('dotConexion');
+          var txt = document.getElementById('txtConexion');
+          if (dot) { dot.className = 'w-2 h-2 rounded-full bg-red-500'; }
+          if (txt) { txt.textContent = 'Sin conexion con la base de datos'; }
+        });
+    }
+
+    /** Acceso social: requiere credenciales OAuth del proveedor */
+    function accesoSocial(proveedor) {
+      var msg = document.getElementById('authMensajeError');
+      if (msg) {
+        msg.textContent = 'El ingreso con ' + proveedor + ' requiere configuracion OAuth. Usa tu correo y contrasena.';
+        msg.classList.remove('hidden');
+      }
     }
 
     function procesarAuth(event) {
@@ -385,8 +436,22 @@
       var nombre   = document.getElementById('inputNombre').value.trim();
       var msg      = document.getElementById('authMensajeError');
 
+      var passMsg = document.getElementById('authMensajePassword');
+      if (esRegistro) {
+        var errores = validarPasswordLocal(password);
+        if (errores.length) {
+          if (passMsg) {
+            passMsg.textContent = 'Falta: ' + errores.join(', ') + '.';
+            passMsg.classList.remove('hidden');
+          }
+          document.getElementById('inputPassword').focus();
+          return;
+        }
+        if (passMsg) { passMsg.classList.add('hidden'); }
+      }
+
       var endpoint = esRegistro ? '/registro' : '/login';
-      var payload  = esRegistro ? { nombre: nombre, email: email, password: password, rol: document.getElementById('inputRol').value }
+      var payload  = esRegistro ? { nombre: nombre, email: email, password: password }
                               : { email: email, password: password };
 
       fetch(API_URL + endpoint, {
@@ -515,4 +580,9 @@
     // ==========================================================
     // ARRANQUE
     // ==========================================================
-    window.addEventListener('load', verificarAcceso);
+    window.addEventListener('load', function () {
+      verificarAcceso();
+      verificarConexion();
+      if (window.__timerConexion) { clearInterval(window.__timerConexion); }
+      window.__timerConexion = setInterval(verificarConexion, 30000);
+    });

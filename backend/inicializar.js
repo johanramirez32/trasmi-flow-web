@@ -63,10 +63,14 @@ const ESQUEMA = [
   `CREATE TABLE IF NOT EXISTS despachos (
      id         SERIAL PRIMARY KEY,
      estacion  VARCHAR(120) NOT NULL,
+     ruta       VARCHAR(20),
      bus        VARCHAR(20) NOT NULL,
+     tipo_bus   VARCHAR(30) DEFAULT 'Bus normal',
      operador  VARCHAR(150) NOT NULL,
      creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    )`,
+  `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS ruta VARCHAR(20)`,
+  `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS tipo_bus VARCHAR(30) DEFAULT 'Bus normal'`,
   `CREATE INDEX IF NOT EXISTS idx_despachos_estacion ON despachos(estacion)`,
 
   // Modulo Operario: rutas del sistema (linea + estaciones que la sirven)
@@ -256,7 +260,7 @@ async function arreglarReportes(pool) {
     );
 
     const ya = await pool.query(
-      "SELECT COUNT(*)::int n FROM reportes WHERE usuario LIKE 'practica@%'");
+      "SELECT COUNT(*)::int n FROM reportes WHERE usuario LIKE 'practica%@transmiflow.local'");
     if (ya.rows[0].n > 0) {
       console.log('   Reportes de practica ya cargados');
       return;

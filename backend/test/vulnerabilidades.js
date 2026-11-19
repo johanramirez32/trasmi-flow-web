@@ -25,7 +25,7 @@ async function llamar(ruta, opciones) {
   await pool.query('DELETE FROM usuarios WHERE email = $1', [email]);
   const reg = await llamar('/api/registro', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nombre: 'Prueba seguridad', email, password: 'PruebaSegura123', rol: 'usuario' })
+    body: JSON.stringify({ nombre: 'Prueba seguridad', email, password: 'PruebaSegura123@' })
   });
   const token = reg.json && reg.json.token;
   res('Registro devuelve token firmado', reg.status === 201 && !!token, 'HTTP ' + reg.status);
