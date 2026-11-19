@@ -56,8 +56,10 @@
         return;
       }
 
-      // Vista ciudadana: seleccionar la estacion en el mapa
+      // Vista ciudadana: usar el ID del marcador para no confundir
+      // estaciones que tienen el mismo nombre
       if (typeof seleccionarEstacion === 'function') {
+        if (e.id != null) { seleccionarEstacion(e.id); return; }
         var est = (estaciones || []).filter(function (x) { return x.nombre === nombre; })[0];
         if (est) { seleccionarEstacion(est.id); }
       }

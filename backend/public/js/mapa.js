@@ -138,6 +138,7 @@
       lista.forEach(function (e) {
         L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
           .bindPopup(popupEstacion(e))
+          .bindTooltip(e.nombre, { direction: 'top', offset: [0, -10], className: 'tooltip-estacion' })
           .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(e); } })
           .addTo(capaMarcadores);
       });
@@ -147,7 +148,7 @@
         fillColor: '#3b82f6', fillOpacity: .06, dashArray: '5, 5'
       }).addTo(map);
 
-      var grupo = L.latLngBounds(centro);
+      var grupo = L.latLngBounds([[centro[0], centro[1]]]);
       lista.forEach(function (e) { grupo.extend([e.lat, e.lng]); });
       map.fitBounds(grupo.pad(0.25), { maxZoom: 15 });
     }
@@ -447,7 +448,9 @@
                 (letra || '') + '</div>',
           iconSize: [18, 18], iconAnchor: [9, 9]
         })
-      }).bindPopup('<b>' + escHtml(etiqueta) + '</b>').addTo(capaItinerario);
+      }).bindPopup('<b>' + escHtml(etiqueta) + '</b>')
+        .bindTooltip(escHtml(etiqueta), { permanent: true, direction: 'top', offset: [0, -14], className: 'tooltip-viaje' })
+        .addTo(capaItinerario);
     }
 
     /** El usuario elige la estacion de PARTIDA en la lista de cercanas */
@@ -919,6 +922,7 @@
 
       L.marker([ref.lat, ref.lng], { icon: iconoEstacion(ref), zIndexOffset: 900 })
         .bindPopup(popupEstacion(ref))
+        .bindTooltip(ref.nombre, { permanent: true, direction: 'top', offset: [0, -12], className: 'tooltip-estacion tooltip-seleccionada' })
         .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(ref); } })
         .addTo(capaMarcadores);
 
@@ -936,6 +940,7 @@
       cercanas.forEach(function (e) {
         L.marker([e.lat, e.lng], { icon: iconoEstacion(e), title: e.nombre })
           .bindPopup(popupEstacion(e))
+          .bindTooltip(e.nombre, { direction: 'top', offset: [0, -10], className: 'tooltip-estacion' })
           .on('click', function () { if (typeof seleccionarEstacionMapa === 'function') { seleccionarEstacionMapa(e); } })
           .addTo(capaMarcadores);
       });
@@ -976,7 +981,7 @@
             '<span class="text-slate-500">' + escHtml(err.message) + '</span></p></div>';
         });
 
-      var grupo = L.latLngBounds(centro);
+      var grupo = L.latLngBounds([[centro[0], centro[1]]]);
       cercanas.forEach(function (e) { grupo.extend([e.lat, e.lng]); });
       map.fitBounds(grupo.pad(0.3), { maxZoom: 15 });
     }

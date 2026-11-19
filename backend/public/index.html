@@ -64,6 +64,28 @@
     .leaflet-control-zoom a:hover { background-color: #ef4444 !important; }
     .leaflet-control-attribution { font-size: 9px !important; }
 
+    /* Nombres de estaciones sobre el mapa */
+    .leaflet-tooltip.tooltip-estacion {
+      background: #0b0f19; color: #fff; border: 1px solid #1f293d;
+      border-radius: 8px; padding: 3px 8px; font-size: 11px; font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,0,0,.5);
+    }
+    .leaflet-tooltip.tooltip-estacion:before {
+      border-top-color: #1f293d;
+    }
+    .leaflet-tooltip.tooltip-seleccionada {
+      border-color: #ef4444; color: #fff;
+    }
+    .leaflet-tooltip.tooltip-seleccionada:before {
+      border-top-color: #ef4444;
+    }
+    .leaflet-tooltip.tooltip-viaje {
+      background: #0b0f19; color: #fff; border: 1px solid #8b5cf6;
+      border-radius: 8px; padding: 3px 8px; font-size: 10px; font-weight: 800;
+      box-shadow: 0 2px 8px rgba(0,0,0,.5);
+    }
+    .leaflet-tooltip.tooltip-viaje:before { border-top-color: #8b5cf6; }
+
     .user-pulse-marker { position: relative; }
     .user-pulse-marker::after {
       content: ''; position: absolute; top: 50%; left: 50%;
