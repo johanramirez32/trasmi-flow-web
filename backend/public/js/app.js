@@ -60,7 +60,8 @@
                  '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:' + color + '"></span>' +
                  '<div class="min-w-0 flex-grow">' +
                    '<p class="text-white font-semibold text-xs sm:text-sm truncate">' + escHtml(r.estacion) + '</p>' +
-                   '<p class="text-[11px] text-slate-400 truncate">' + quien + ' &middot; ' + cuando + '</p>' +
+                   '<p class="text-[11px] text-slate-400 truncate">' + 'Ruta ' + escHtml(r.ruta || 'NO INDICADA') + ' &middot; ' + quien + ' &middot; ' + cuando +
+                      (r.atendido ? ' &middot; <span class="text-emerald-400">ATENDIDO</span>' : ' &middot; <span class="text-amber-400">PENDIENTE</span>') + '</p>' +
                  '</div>' +
                  '<span class="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0" ' +
                        'style="background:' + color + '22;color:' + color + '">' + escHtml(r.nivel) + '</span>' +
@@ -94,9 +95,16 @@
       var sug     = document.getElementById('repSugerencias');
 
       var est = campo.value.trim();
+      var rutaSel = document.getElementById('repRuta');
+      var ruta = rutaSel ? rutaSel.value.trim() : '';
       if (!est) {
         mostrarMensajeReporte('Escribe el nombre de la estacion', 'error');
         campo.focus();
+        return;
+      }
+      if (!ruta) {
+        mostrarMensajeReporte('Selecciona la ruta que genera la aglomeracion', 'error');
+        if (rutaSel) { rutaSel.focus(); }
         return;
       }
 
@@ -113,6 +121,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           estacion: est,
+          ruta: ruta,
           nivel: nivel.value,
           usuario: usuario.email || 'anonimo'
         })
@@ -129,6 +138,7 @@
           pintarReportes([respuesta.reporte].concat(cache).slice(0, 25));
 
           campo.value = '';
+          if (rutaSel) { rutaSel.innerHTML = '<option value="">Primero elige la estacion</option>'; }
           if (sug) sug.classList.add('hidden');
           mostrarMensajeReporte('Reporte enviado. Gracias por tu aporte.', 'ok');
           actualizarIconos();
@@ -171,6 +181,38 @@
     function elegirSugerencia(nombre) {
       document.getElementById('repEstacion').value = nombre;
       document.getElementById('repSugerencias').classList.add('hidden');
+      cargarRutasDelReporte(nombre);
+    }
+
+    /** Carga en el selector las rutas que paran en la estacion reportada */
+    function cargarRutasDelReporte(nombre) {
+      var sel = document.getElementById('repRuta');
+      if (!sel) { return Promise.resolve([]); }
+      sel.innerHTML = '<option value="">Cargando rutas...</option>';
+      if (!nombre) { sel.innerHTML = '<option value="">Primero elige la estacion</option>'; return Promise.resolve([]); }
+
+      var est = (estaciones || []).find(function (e) { return e.nombre === nombre; });
+      var url = API_URL + '/rutas/estacion/' + encodeURIComponent(nombre) +
+                (est ? '?id=' + encodeURIComponent(est.id) : '');
+
+      return fetch(url)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var rutas = data.rutas || [];
+          if (!rutas.length) {
+            sel.innerHTML = '<option value="">Sin rutas para esta estacion</option>';
+            return rutas;
+          }
+          sel.innerHTML = '<option value="">Selecciona la ruta</option>' + rutas.map(function (r) {
+            return '<option value="' + escHtml(r.codigo) + '">' + escHtml(r.codigo) +
+                   ' · ' + escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</option>';
+          }).join('');
+          return rutas;
+        })
+        .catch(function () {
+          sel.innerHTML = '<option value="">No se pudieron cargar las rutas</option>';
+          return [];
+        });
     }
 
     // ==========================================================

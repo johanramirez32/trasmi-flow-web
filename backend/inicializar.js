@@ -52,10 +52,12 @@ const ESQUEMA = [
   `CREATE TABLE IF NOT EXISTS reportes (
      id         SERIAL PRIMARY KEY,
      estacion   VARCHAR(120) NOT NULL,
+     ruta       VARCHAR(20),
      nivel      VARCHAR(20)  NOT NULL,
      usuario    VARCHAR(150),
      creado_en  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
    )`,
+  `ALTER TABLE reportes ADD COLUMN IF NOT EXISTS ruta VARCHAR(20)`,
 
   // Modulo Operario: despachos de buses
   `CREATE TABLE IF NOT EXISTS despachos (
@@ -236,6 +238,53 @@ async function sembrarCamaras(pool) {
 }
 
 /**
+ * Completa la ruta de los reportes antiguos y crea reportes de practica.
+ */
+async function arreglarReportes(pool) {
+  try {
+    await pool.query(
+      `UPDATE reportes r SET ruta = (
+          SELECT ru.codigo
+            FROM rutas ru
+            JOIN ruta_estaciones re ON re.ruta_id = ru.id
+            JOIN estaciones e ON e.id = re.estacion_id
+           WHERE LOWER(e.nombre) = LOWER(r.estacion)
+           ORDER BY ru.codigo
+           LIMIT 1
+        )
+        WHERE r.ruta IS NULL OR r.ruta = ''`
+    );
+
+    const ya = await pool.query(
+      "SELECT COUNT(*)::int n FROM reportes WHERE usuario LIKE 'practica@%'");
+    if (ya.rows[0].n > 0) {
+      console.log('   Reportes de practica ya cargados');
+      return;
+    }
+
+    const ejemplos = [
+      ['Portal Américas', 'B28', 'Alta'],
+      ['Museo Nacional', 'G47', 'Media'],
+      ['Patio Bonito', '5 C', 'Alta'],
+      ['Ricaurte - NQS', 'B12', 'Media'],
+      ['Comuneros', 'G11', 'Baja'],
+      ['Portal Norte – Unicervantes', 'B28', 'Alta']
+    ];
+
+    for (let i = 0; i < ejemplos.length; i++) {
+      const [estacion, ruta, nivel] = ejemplos[i];
+      await pool.query(
+        'INSERT INTO reportes (estacion, ruta, nivel, usuario, creado_en) VALUES ($1,$2,$3,$4, NOW() - ($5 || \' minutes\')::interval)',
+        [estacion, ruta, nivel, 'practica' + (i + 1) + '@transmiflow.local', (i + 1) * 7]
+      );
+    }
+    console.log('   Reportes de practica creados: ' + ejemplos.length);
+  } catch (err) {
+    console.warn('   No se pudieron arreglar los reportes: ' + err.message);
+  }
+}
+
+/**
  * Sincroniza las rutas oficiales de Transmilenio (servicio ArcGIS) con las
  * tablas rutas / ruta_estaciones de la base de datos.
  *
@@ -378,6 +427,7 @@ async function inicializar(pool, intentos = 5) {
   await sembrarSiEstaVacia(pool);
   await sembrarRutas(pool);
   await sembrarCamaras(pool);
+  await arreglarReportes(pool);
   await sincronizarRutasOficiales(pool);
 }
 

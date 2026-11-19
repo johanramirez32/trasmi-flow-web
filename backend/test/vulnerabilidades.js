@@ -70,7 +70,7 @@ async function llamar(ruta, opciones) {
   const xss = "<img src=x onerror=alert(1)>";
   const reporte = await llamar('/api/reportes', {
     method: 'POST', headers: auth,
-    body: JSON.stringify({ estacion: xss, nivel: 'Alta' })
+    body: JSON.stringify({ estacion: xss, ruta: xss, nivel: 'Alta' })
   });
   res('Reporte con payload XSS se acepta como texto', reporte.status === 201, 'HTTP ' + reporte.status);
   if (reporte.json && reporte.json.reporte) {

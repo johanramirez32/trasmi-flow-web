@@ -379,6 +379,13 @@
         </div>
 
         <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Ruta que genera la aglomeracion</label>
+          <select id="repRuta" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+            <option value="">Primero elige la estacion</option>
+          </select>
+        </div>
+
+        <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nivel de ocupacion</label>
           <select id="repNivel" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
             <option value="Baja">Baja - hayibus disponibles</option>
@@ -417,22 +424,16 @@
     <section id="sec-operadores" class="hidden space-y-4">
       <h3 class="text-xl sm:text-2xl font-black text-white text-center">Panel Operativo</h3>
       <p class="text-center text-xs text-slate-400 -mt-2">
-        Gestion del sistema: reportes, aglomeracion, despachos, rutas y camaras de seguridad
+        Gestion del sistema: reportes en tiempo real, rutas y camaras de seguridad
       </p>
 
       <div class="flex flex-wrap items-center justify-center gap-2">
         <button onclick="cambiarVistaOperador('reportes')" id="opBtnReportes"
           class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-brand-red">Reportes en tiempo real</button>
-        <button onclick="cambiarVistaOperador('aglomeracion')" id="opBtnAglomeracion"
-          class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Aglomeracion</button>
-        <button onclick="cambiarVistaOperador('despacho')" id="opBtnDespacho"
-          class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Despacho de bus</button>
         <button onclick="cambiarVistaOperador('rutas')" id="opBtnRutas"
           class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Rutas</button>
         <button onclick="cambiarVistaOperador('camaras')" id="opBtnCamaras"
           class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Camaras</button>
-        <button onclick="cambiarVistaOperador('diagnostico')" id="opBtnDiagnostico"
-          class="px-4 py-2 text-xs font-bold rounded-xl text-slate-400 hover:text-white bg-brand-card border border-brand-border">Diagnóstico</button>
       </div>
 
       <div class="max-w-5xl mx-auto">
@@ -444,27 +445,6 @@
               <p class="text-xs text-slate-400 text-center py-6">Cargando reportes...</p>
             </div>
           </div>
-        </div>
-
-        <div id="opPanelAglomeracion" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
-          <span class="text-xs font-black uppercase tracking-wider text-white">Nivel de aglomeracion por estacion y bus</span>
-          <div id="opListaAglomeracion" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
-            <p class="text-xs text-slate-400 text-center py-6">Cargando...</p>
-          </div>
-        </div>
-
-        <div id="opPanelDespacho" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-4">
-          <span class="text-xs font-black uppercase tracking-wider text-white">Despacho de bus</span>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <select id="opSelectEstacion" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
-              <option value="">Selecciona estacion</option>
-            </select>
-            <input id="opInputBus" placeholder="Numero de bus (Ej: B12)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
-            <button onclick="enviarDespacho()" class="px-4 py-3 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
-              Despachar
-            </button>
-          </div>
-          <p id="opMensajeDespacho" class="hidden text-center text-xs font-medium py-1"></p>
         </div>
 
         <div id="opPanelRutas" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
@@ -513,6 +493,14 @@
             </div>
           </div>
 
+          <!-- RUTAS A LIBERAR SEGUN REPORTES DE USUARIOS -->
+          <div class="space-y-2 pt-2 border-t border-brand-border">
+            <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rutas a liberar (reportes de usuarios)</label>
+            <div id="opListaRutasReportadas" class="space-y-2 max-h-[300px] overflow-y-auto custom-scroll pr-1">
+              <p class="text-xs text-slate-400 text-center py-4">Cargando reportes...</p>
+            </div>
+          </div>
+
           <!-- DESTINO DE LA RUTA -->
           <div class="space-y-2 pt-2 border-t border-brand-border">
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Destino de la ruta</label>
@@ -526,16 +514,6 @@
           </div>
         </div>
 
-        <div id="opPanelDiagnostico" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-black uppercase tracking-wider text-white">Diagnóstico del sistema</span>
-            <button onclick="cargarDiagnostico()" class="px-3 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">Actualizar</button>
-          </div>
-          <div id="opListaDiagnostico" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
-            <p class="text-xs text-slate-400 text-center py-6">Cargando verificación...</p>
-          </div>
-        </div>
-
         <div id="opPanelCamaras" class="hidden bg-brand-card p-4 sm:p-6 rounded-3xl border border-brand-border space-y-3">
           <span class="text-xs font-black uppercase tracking-wider text-white">Camaras de seguridad</span>
           <select id="opSelectCamaras" onchange="cargarOperadorCamaras(this.value)" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
@@ -543,6 +521,28 @@
           </select>
           <div id="opListaCamaras" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
             <p class="text-xs text-slate-400 text-center py-6">Cargando camaras...</p>
+          </div>
+
+          <!-- MODELO DE CAPTURA Y ESTIMACION DE AGLOMERACION -->
+          <div class="pt-3 border-t border-brand-border space-y-3">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Estimacion de aglomeracion por camara</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select id="opCamaraRuta" class="w-full px-4 py-2.5 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+                <option value="">Selecciona la ruta a analizar</option>
+              </select>
+              <div class="flex gap-2">
+                <button onclick="iniciarCamara()" class="flex-1 px-3 py-2.5 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Activar camara</button>
+                <button onclick="capturarYEstimar()" class="flex-1 px-3 py-2.5 bg-gradient-to-r from-brand-red to-brand-darkRed text-white text-[11px] font-bold rounded-lg">Capturar y estimar</button>
+              </div>
+            </div>
+            <video id="opVideoCamara" autoplay playsinline muted class="hidden w-full rounded-xl border border-brand-border bg-black"></video>
+            <canvas id="opCanvasCamara" width="320" height="240" class="hidden"></canvas>
+            <div id="opResultadoCamara" class="hidden p-3 rounded-xl border border-brand-border bg-brand-dark/70">
+              <p id="opNivelCamara" class="text-sm font-black text-white"></p>
+              <p id="opDetalleCamara" class="text-[11px] text-slate-400 mt-1"></p>
+              <button onclick="guardarReporteCamara()" class="mt-2 w-full px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Guardar como reporte</button>
+            </div>
+            <p class="text-[10px] text-slate-500">Estimacion por analisis de imagen (bordes y movimiento). No sustituye la observacion del operario.</p>
           </div>
         </div>
       </div>

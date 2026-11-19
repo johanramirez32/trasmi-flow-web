@@ -11,7 +11,7 @@
 
     function cambiarVistaOperador(vista) {
       vista = vista || 'reportes';
-      ['reportes', 'aglomeracion', 'despacho', 'rutas', 'camaras', 'diagnostico'].forEach(function (v) {
+      ['reportes', 'rutas', 'camaras'].forEach(function (v) {
         var p = document.getElementById(idPanelOperador(v));
         if (p) p.classList.toggle('hidden', v !== vista);
 
@@ -24,19 +24,17 @@
       });
 
       if (vista === 'reportes') { cargarOperadorReportes(); }
-      if (vista === 'aglomeracion') { cargarOperadorAglomeraciones(); }
       if (vista === 'rutas') {
         var selRutas = document.getElementById('opSelectRutas');
         if (selRutas) { cargarOperadorRutas(selRutas.value); }
         cargarOperadorEstacionesPanel();
         cargarOperadorBuses();
+        cargarRutasReportadas();
       }
       if (vista === 'camaras') {
         var selCamaras = document.getElementById('opSelectCamaras');
         if (selCamaras) { cargarOperadorCamaras(selCamaras.value); }
       }
-      if (vista === 'despacho') { cargarOperadorSelects(); }
-      if (vista === 'diagnostico') { cargarDiagnostico(); }
     }
 
     /** Estacion clickeada en el mapa (marcador): carga sus rutas y muestra el apartado de planificacion */
@@ -193,6 +191,24 @@
             var conteo = { Baja: 0, Media: 0, Alta: 0 };
             rs.forEach(function (r) { conteo[r.nivel] = (conteo[r.nivel] || 0) + 1; });
 
+            var porRuta = {};
+            rs.forEach(function (x) {
+              var k = x.ruta || 'SIN RUTA';
+              if (!porRuta[k]) { porRuta[k] = { nivel: x.nivel, n: 0, atendido: x.atendido }; }
+              porRuta[k].n++;
+              if (x.atendido) { porRuta[k].atendido = true; }
+            });
+            var detalleRutas = Object.keys(porRuta).map(function (k) {
+              var d = porRuta[k];
+              var c = COLOR_NIVEL[d.nivel] || '#94a3b8';
+              return '<div class="flex items-center justify-between gap-2 mt-1.5 pl-2 border-l-2" style="border-color:' + c + '">' +
+                '<span class="text-[11px] text-white font-bold">Ruta ' + escHtml(k) + ' <span class="text-slate-500">(' + d.n + ')</span></span>' +
+                '<span class="text-[10px] font-black" style="color:' + c + '">' + escHtml(d.nivel) + '</span>' +
+                '<span class="text-[9px] ' + (d.atendido ? 'text-emerald-400' : 'text-amber-400') + '">' +
+                  (d.atendido ? 'ATENDIDA' : 'PENDIENTE') + '</span>' +
+              '</div>';
+            }).join('');
+
             return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
               '<div class="flex items-center justify-between gap-2">' +
                 '<p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(estacion) + '</p>' +
@@ -200,6 +216,7 @@
               '</div>' +
               '<p class="text-[11px] text-slate-400 mt-1">' +
                 (conteo.Alta || 0) + ' Alta &middot; ' + (conteo.Media || 0) + ' Media &middot; ' + (conteo.Baja || 0) + ' Baja &middot; ' + rs.length + ' reportes</p>' +
+              detalleRutas +
             '</div>';
           }).join('');
 
@@ -241,10 +258,12 @@
     }
 
     function enviarDespacho() {
-      var estSel = document.getElementById('opSelectEstacion').value;
+      var sel1 = document.getElementById('opSelectEstacion') || document.getElementById('opInputBuscarEstacion');
+      var sel2 = document.getElementById('opInputBus') || document.getElementById('opInputBuscarBus');
+      var estSel = sel1 ? sel1.value : '';
       var estRes = estacionPorValor(estSel);
       var estacion = estRes ? estRes.nombre : estSel;
-      var bus = document.getElementById('opInputBus').value.trim();
+      var bus = sel2 ? sel2.value.trim() : '';
       var msg = document.getElementById('opMensajeDespacho');
 
       if (!estacion || !bus) {
@@ -341,6 +360,181 @@
       if (n === 'alta') { return 85; }
       if (n === 'media') { return 55; }
       return 30;
+    }
+
+    /** Carga las rutas que los usuarios reportaron como problematicas */
+    function cargarRutasReportadas() {
+      var cont = document.getElementById('opListaRutasReportadas');
+      if (!cont) { return Promise.resolve(); }
+      cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">Cargando reportes...</p>';
+
+      return fetch(API_URL + '/reportes/rutas')
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+          var rutas = data.rutas || [];
+          if (!rutas.length) {
+            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">No hay rutas reportadas.</p>';
+            return;
+          }
+          cont.innerHTML = rutas.map(function (x) {
+            var color = COLOR_NIVEL[x.nivel] || '#94a3b8';
+            var estado = x.atendido
+              ? '<span class="text-emerald-400">ATENDIDA</span>'
+              : '<span class="text-amber-400">PENDIENTE</span>';
+            return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
+              '<div class="flex items-center justify-between gap-2">' +
+                '<p class="text-white font-bold text-xs">Ruta ' + escHtml(x.ruta) + '</p>' +
+                '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:' + color + '22;color:' + color + '">' + escHtml(x.nivel) + '</span>' +
+              '</div>' +
+              '<p class="text-[11px] text-slate-400 mt-1">' + escHtml(x.estacion) + ' &middot; ' + x.total + ' reporte(s) &middot; ' + estado + '</p>' +
+              '<p class="text-[10px] text-slate-500 mt-0.5">Ultimo: ' + tiempoRelativo(x.creado_en) + '</p>' +
+            '</div>';
+          }).join('');
+        })
+        .catch(function (err) {
+          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-4">' + escHtml(err.message) + '</p>';
+        });
+    }
+
+    /** Carga las rutas de la estacion elegida en el analizador de camara */
+    function cargarRutasCamara(est) {
+      var sel = document.getElementById('opCamaraRuta');
+      if (!sel) { return; }
+      sel.innerHTML = '<option value="">Cargando rutas...</option>';
+      if (!est) { sel.innerHTML = '<option value="">Selecciona la ruta a analizar</option>'; return; }
+      fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre) + '?id=' + encodeURIComponent(est.id))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var rutas = data.rutas || [];
+          sel.innerHTML = '<option value="">Selecciona la ruta a analizar</option>' + rutas.map(function (r) {
+            return '<option value="' + escHtml(r.codigo) + '">' + escHtml(r.codigo) + ' · ' + escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</option>';
+          }).join('');
+        })
+        .catch(function () { sel.innerHTML = '<option value="">No se pudieron cargar</option>'; });
+    }
+
+    var streamCamara = null;
+    var frameCamaraAnterior = null;
+    var estimacionCamara = null;
+
+    /** Activa la camara del dispositivo para tomar el espacio de la estacion */
+    function iniciarCamara() {
+      var video = document.getElementById('opVideoCamara');
+      if (!video) { return; }
+      if (streamCamara) {
+        video.classList.remove('hidden');
+        return;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Este navegador no permite acceder a la camara.');
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false })
+        .then(function (stream) {
+          streamCamara = stream;
+          video.srcObject = stream;
+          video.classList.remove('hidden');
+        })
+        .catch(function (err) { alert('No se pudo activar la camara: ' + err.message); });
+    }
+
+    function imagenAGris(canvas) {
+      var ctx = canvas.getContext('2d');
+      var w = canvas.width, h = canvas.height;
+      var datos = ctx.getImageData(0, 0, w, h).data;
+      var gris = new Float32Array(w * h);
+      for (var i = 0; i < w * h; i++) {
+        gris[i] = (datos[i*4] * 0.299 + datos[i*4+1] * 0.587 + datos[i*4+2] * 0.114) / 255;
+      }
+      return { gris: gris, w: w, h: h };
+    }
+
+    /** Captura un cuadro y estima aglomeracion por densidad de bordes y movimiento */
+    function capturarYEstimar() {
+      var video = document.getElementById('opVideoCamara');
+      var canvas = document.getElementById('opCanvasCamara');
+      var caja = document.getElementById('opResultadoCamara');
+      if (!video || !canvas || !caja) { return; }
+      if (!streamCamara || video.videoWidth === 0) {
+        caja.classList.remove('hidden');
+        document.getElementById('opNivelCamara').textContent = 'Camara no activa';
+        document.getElementById('opDetalleCamara').textContent = 'Activa la camara antes de capturar.';
+        return;
+      }
+
+      canvas.width = 160;
+      canvas.height = 120;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      var actual = imagenAGris(canvas);
+
+      // Densidad de bordes (mas personas = mas bordes)
+      var bordes = 0, total = 0;
+      for (var y = 1; y < actual.h - 1; y++) {
+        for (var x = 1; x < actual.w - 1; x++) {
+          var i = y * actual.w + x;
+          var gx = actual.gris[i + 1] - actual.gris[i - 1];
+          var gy = actual.gris[i + actual.w] - actual.gris[i - actual.w];
+          if (Math.sqrt(gx * gx + gy * gy) > 0.12) { bordes++; }
+          total++;
+        }
+      }
+      var densidad = total ? bordes / total : 0;
+
+      // Movimiento entre cuadros (personas en movimiento)
+      var movimiento = 0;
+      if (frameCamaraAnterior && frameCamaraAnterior.length === actual.gris.length) {
+        for (var k = 0; k < actual.gris.length; k++) {
+          movimiento += Math.abs(actual.gris[k] - frameCamaraAnterior[k]);
+        }
+        movimiento = movimiento / actual.gris.length;
+      }
+      frameCamaraAnterior = actual.gris;
+
+      var puntaje = Math.round(Math.min(100, (densidad * 260 + movimiento * 320)));
+      var nivel = puntaje < 25 ? 'Baja' : (puntaje < 55 ? 'Media' : 'Alta');
+      var est = estacionPorValor(document.getElementById('opSelectCamaras').value);
+      var ruta = document.getElementById('opCamaraRuta').value;
+      estimacionCamara = {
+        estacion: est ? est.nombre : '', ruta: ruta, nivel: nivel,
+        nivelTexto: nivel, puntaje: puntaje,
+        detalle: 'Densidad de bordes ' + Math.round(densidad * 100) + '% · movimiento ' + Math.round(movimiento * 100) + '%'
+      };
+
+      var color = COLOR_NIVEL[nivel];
+      caja.classList.remove('hidden');
+      document.getElementById('opNivelCamara').innerHTML =
+        '<span style="color:' + color + '">Nivel estimado: ' + nivel + ' (' + puntaje + '%)</span>';
+      document.getElementById('opDetalleCamara').textContent =
+        (est ? est.nombre : 'Sin estacion') + (ruta ? ' · Ruta ' + ruta : '') + ' · ' + estimacionCamara.detalle;
+    }
+
+    /** Guarda la estimacion de la camara como reporte del sistema */
+    function guardarReporteCamara() {
+      if (!estimacionCamara) {
+        alert('Primero captura y estima el nivel.');
+        return;
+      }
+      if (!estimacionCamara.estacion || !estimacionCamara.ruta) {
+        alert('Selecciona la estacion y la ruta antes de guardar.');
+        return;
+      }
+      fetch(API_URL + '/reportes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          estacion: estimacionCamara.estacion,
+          ruta: estimacionCamara.ruta,
+          nivel: estimacionCamara.nivel
+        })
+      })
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function () {
+          alert('Reporte guardado con el nivel estimado.');
+          cargarOperadorReportes();
+          cargarRutasReportadas();
+        })
+        .catch(function (err) { alert('No se pudo guardar: ' + err.message); });
     }
 
     /** Muestra las pruebas de disponibilidad, seguridad e integridad */
@@ -479,6 +673,7 @@
       if (!cont) { return Promise.resolve(); }
       var estCam = estacionPorValor(valor);
       var estacion = estCam ? estCam.nombre : valor;
+      cargarRutasCamara(estCam);
       if (!estacion) {
         cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Selecciona una estacion para ver sus camaras.</p>';
         return Promise.resolve();
