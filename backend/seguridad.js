@@ -82,22 +82,23 @@ function requerirOperario(req, res, next) {
   next();
 }
 
-/** Limite de peticiones por IP (en memoria, se reinicia con el servidor) */
+/** Limite de peticiones por IP + correo (en memoria, se reinicia con el servidor) */
 function limiteIntentos(max, ventanaMs) {
   const registro = new Map();
   return function (req, res, next) {
     const ip = req.ip || req.connection.remoteAddress || 'desconocida';
+    const email = String((req.body && req.body.email) || '').toLowerCase().trim();
+    const clave = ip + '|' + email;
     const ahora = Date.now();
-    const entrada = registro.get(ip);
+    const entrada = registro.get(clave);
     if (entrada && ahora - entrada.inicio < ventanaMs) {
       if (entrada.conteo >= max) {
-        return res.status(429).json({ error: 'Demasiados intentos. Espera un momento e inténtalo de nuevo.' });
+        return res.status(429).json({ error: 'Demasiados intentos con este correo. Espera un momento e inténtalo de nuevo.' });
       }
       entrada.conteo++;
     } else {
-      registro.set(ip, { inicio: ahora, conteo: 1 });
+      registro.set(clave, { inicio: ahora, conteo: 1 });
     }
-    // Limpieza pequena para no acumular IPs
     if (registro.size > 5000) { registro.clear(); }
     next();
   };

@@ -11,7 +11,7 @@
 
     function cambiarVistaOperador(vista) {
       vista = vista || 'reportes';
-      ['reportes', 'aglom', 'despacho', 'rutas', 'camaras', 'diagnostico'].forEach(function (v) {
+      ['reportes', 'aglomeracion', 'despacho', 'rutas', 'camaras', 'diagnostico'].forEach(function (v) {
         var p = document.getElementById(idPanelOperador(v));
         if (p) p.classList.toggle('hidden', v !== vista);
 
@@ -24,7 +24,7 @@
       });
 
       if (vista === 'reportes') { cargarOperadorReportes(); }
-      if (vista === 'aglom')   { cargarOperadorAglomeraciones(); }
+      if (vista === 'aglomeracion') { cargarOperadorAglomeraciones(); }
       if (vista === 'rutas') {
         var selRutas = document.getElementById('opSelectRutas');
         if (selRutas) { cargarOperadorRutas(selRutas.value); }
@@ -241,7 +241,9 @@
     }
 
     function enviarDespacho() {
-      var estacion = document.getElementById('opSelectEstacion').value;
+      var estSel = document.getElementById('opSelectEstacion').value;
+      var estRes = estacionPorValor(estSel);
+      var estacion = estRes ? estRes.nombre : estSel;
       var bus = document.getElementById('opInputBus').value.trim();
       var msg = document.getElementById('opMensajeDespacho');
 
@@ -436,6 +438,10 @@
         .then(function (data) {
           var rutas = data.rutas || [];
           window.__rutasOperador = rutas;
+          var tituloRutas = document.getElementById('opTituloRutas');
+          if (tituloRutas) {
+            tituloRutas.textContent = 'Rutas que paran en ' + est.nombre + ' (' + rutas.length + ')';
+          }
           if (!rutas.length) {
             cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No hay rutas registradas para esta estacion.</p>';
             return;
@@ -454,7 +460,11 @@
               '</div>' +
               '<p class="text-[11px] text-slate-400 mt-1">Inicio: ' + escHtml(inicio) + ' &nbsp;|&nbsp; Fin: ' + escHtml(fin) + '</p>' +
               '<p class="text-[11px] text-slate-400 mt-0.5">Paradas: ' + ests.length + '</p>' +
-              '<button onclick="verRutaEnMapa(' + r.id + ')" class="mt-2 w-full px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Ver ruta en el mapa</button>' +
+              '<div class="flex gap-2 mt-2">' +
+                '<button onclick="verRutaEnMapa(' + r.id + ')" class="flex-1 px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Ver ruta en el mapa</button>' +
+                '<button onclick="toggleParadasOperador(' + r.id + ')" class="px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Paradas</button>' +
+              '</div>' +
+              '<div id="opParadas-' + r.id + '" class="hidden mt-2 text-[11px] text-slate-400 space-y-0.5"></div>' +
             '</div>';
             }).join('');
           }
@@ -492,6 +502,23 @@
         .catch(function (err) {
           cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las camaras.<br>' + escHtml(err.message) + '</p>';
         });
+    }
+
+    /** Muestra u oculta las paradas de una ruta en el panel operativo */
+    function toggleParadasOperador(rutaId) {
+      var caja = document.getElementById('opParadas-' + rutaId);
+      if (!caja) { return; }
+      if (!caja.classList.contains('hidden')) { caja.classList.add('hidden'); return; }
+      var rutas = window.__rutasOperador || [];
+      var ruta = rutas.find(function (r) { return r.id === rutaId; });
+      if (!ruta) { return; }
+      var ests = ruta.estaciones || [];
+      caja.innerHTML = ests.length
+        ? ests.map(function (e, i) {
+            return '<p class="flex gap-2"><span class="text-brand-red font-black">' + (i+1) + '.</span><span>' + escHtml(e.nombre) + '</span></p>';
+          }).join('')
+        : '<p class="text-slate-500">Sin paradas registradas.</p>';
+      caja.classList.remove('hidden');
     }
 
     /** Dibuja en el mapa la ruta seleccionada (inicio -> fin con paradas) */

@@ -92,7 +92,7 @@ async function llamar(ruta, opciones) {
 
   // 9. Fuerza bruta: limite de intentos
   let ultimo = 200;
-  for (let i = 0; i < 15; i++) {
+  for (let i = 0; i < 8; i++) {
     const r = await llamar('/api/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'noexiste@correo.com', password: 'clave-erronea-' + i })

@@ -100,7 +100,7 @@ async function ejecutarVerificaciones() {
 
     const auth = fs.readFileSync(path.join(__dirname, 'routes', 'authRouter.js'), 'utf8');
     resultados.push(check('Seguridad', 'Limite de intentos de login', /limiteIntentos/.test(auth),
-      /limiteIntentos/.test(auth) ? '12 intentos / 5 min por IP' : 'Sin limite'));
+      /limiteIntentos/.test(auth) ? '5 intentos / 5 min por correo' : 'Sin limite'));
 
     const rutas = fs.readFileSync(path.join(__dirname, 'routes', 'notificacionesRouter.js'), 'utf8');
     const notiCtrl = fs.readFileSync(path.join(__dirname, 'controllers', 'notificacionesController.js'), 'utf8');
