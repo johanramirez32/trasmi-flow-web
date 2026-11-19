@@ -291,21 +291,28 @@ async function listarRutas(req, res) {
 
 /** Busca la estacion en la BD tolerando acentos y diferencias de escritura */
 async function buscarEstacion(nombre) {
+  // 1) Coincidencia exacta (es lo que envia el selector del usuario)
   const exacto = await pool.query('SELECT * FROM estaciones WHERE LOWER(nombre) = LOWER($1) LIMIT 1', [nombre]);
   if (exacto.rows.length) return exacto.rows[0];
 
   const todas = await pool.query('SELECT * FROM estaciones');
   const n = norm(nombre);
-  if (!n) return null;
+  if (!n) { return null; }
 
-  let prefijo = null;
-  let contiene = null;
+  const prefijos = [];
+  const contienen = [];
   for (const e of todas.rows) {
     const m = norm(e.nombre);
-    if (!prefijo && (m.indexOf(n) === 0 || n.indexOf(m) === 0)) prefijo = e;
-    if (!contiene && (m.indexOf(n) !== -1 || n.indexOf(m) !== -1)) contiene = e;
+    if (m === n) { return e; }
+    if (m.indexOf(n) === 0) { prefijos.push(e); }
+    else if (m.indexOf(n) !== -1) { contienen.push(e); }
   }
-  return prefijo || contiene;
+
+  // Solo se acepta una coincidencia unica; si hay varias,
+  // se devuelve null para que el usuario elija la estacion correcta
+  if (prefijos.length === 1) { return prefijos[0]; }
+  if (!prefijos.length && contienen.length === 1) { return contienen[0]; }
+  return null;
 }
 
 /**

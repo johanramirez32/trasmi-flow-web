@@ -312,7 +312,8 @@
             <label for="userInputDestino" class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Estación de destino</label>
             <input id="userInputDestino" list="listaDestinos" autocomplete="off" placeholder="Busca tu estación de destino" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
             <datalist id="listaDestinos"></datalist>
-            <p class="text-[10px] text-slate-500 mt-1">También puedes elegir el destino con el botón «Destino» en la lista de estaciones.</p>
+            <div id="userSugerenciasDestino" class="hidden mt-2 max-h-48 overflow-y-auto custom-scroll bg-brand-dark border border-brand-border rounded-xl"></div>
+            <p class="text-[10px] text-slate-500 mt-1">Escribe el nombre exacto o elige una opción. También puedes usar el botón «Destino» en la lista de estaciones.</p>
           </div>
           <button onclick="verRutaUsuario()" class="px-4 py-3 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
             Trazar viaje

@@ -754,22 +754,86 @@
       return lista.map(tarjetaCercana).join('');
     }
 
-    /** El campo de destino busca la estacion y dispara el itinerario */
+    /** Normaliza con espacios para comparar nombres de estaciones */
+    function normNombre(s) {
+      return String(s == null ? '' : s)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+    }
+
+    /** Devuelve { exactos, candidatos } para el texto escrito */
+    function resolverEstaciones(texto) {
+      var n = normNombre(texto);
+      if (!n) { return { exactos: [], candidatos: [] }; }
+      var exactos = [];
+      var prefijos = [];
+      var contienen = [];
+
+      (estaciones || []).forEach(function (e) {
+        var m = normNombre(e.nombre);
+        if (m === n) { exactos.push(e); return; }
+        if (m.indexOf(n) === 0) { prefijos.push(e); return; }
+        if (m.indexOf(n) !== -1) { contienen.push(e); }
+      });
+
+      if (exactos.length) { return { exactos: exactos, candidatos: exactos }; }
+      if (prefijos.length) { return { exactos: [], candidatos: prefijos }; }
+      return { exactos: [], candidatos: contienen };
+    }
+
+    /** El usuario elige una coincidencia del selector */
+    function elegirSugerenciaDestino(id) {
+      var est = estaciones.find(function (e) { return e.id === id; });
+      var caja = document.getElementById('userSugerenciasDestino');
+      if (caja) { caja.classList.add('hidden'); caja.innerHTML = ''; }
+      if (!est) { return; }
+      var input = document.getElementById('userInputDestino');
+      if (input) { input.value = est.nombre; }
+      elegirDestino(est.id);
+    }
+
+    /** El campo de destino resuelve el nombre y pide confirmacion si es ambiguo */
     function verRutaUsuario() {
       var texto = ((document.getElementById('userInputDestino') || {}).value || '').trim();
       var cont = document.getElementById('userMensajeRuta');
+      var caja = document.getElementById('userSugerenciasDestino');
+      if (caja) { caja.classList.add('hidden'); caja.innerHTML = ''; }
+
       if (!texto) {
         if (cont) { cont.textContent = 'Busca y elige una estación de destino.'; cont.classList.remove('hidden'); }
         return;
       }
-      var n = normTexto(texto);
-      var est = estaciones.find(function (e) { return normTexto(e.nombre) === n; }) ||
-                estaciones.find(function (e) { return normTexto(e.nombre).indexOf(n) !== -1; });
-      if (!est) {
+
+      var res = resolverEstaciones(texto);
+      if (!res.candidatos.length) {
         if (cont) { cont.textContent = 'No se encontró la estación: ' + texto; cont.classList.remove('hidden'); }
         return;
       }
-      elegirDestino(est.id);
+
+      // Coincidencia exacta: se usa directamente
+      if (res.exactos.length) {
+        elegirDestino(res.exactos[0].id);
+        return;
+      }
+
+      // Varias coincidencias: el usuario elige la correcta
+      if (caja) {
+        var html = '<p class="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-brand-border">' +
+                   res.candidatos.length + ' estaciones coinciden con "' + escHtml(texto) + '"</p>';
+        res.candidatos.slice(0, 20).forEach(function (e) {
+          html += '<button onclick="elegirSugerenciaDestino(' + e.id + ')" class="w-full text-left px-3 py-2 text-xs text-white hover:bg-brand-red/20 border-b border-brand-border last:border-0">' +
+                  escHtml(e.nombre) + ' <span class="text-slate-500">· ' + escHtml(e.troncal || '') + '</span></button>';
+        });
+        caja.innerHTML = html;
+        caja.classList.remove('hidden');
+      }
+      if (cont) {
+        cont.textContent = 'Hay varias estaciones con ese nombre. Elige una de la lista.';
+        cont.classList.remove('hidden');
+      }
     }
 
     /** Usuario: dibuja en el mapa la ruta de Transmilenio elegida */
