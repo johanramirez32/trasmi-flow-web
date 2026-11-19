@@ -516,7 +516,9 @@
       if (cont) { cont.textContent = 'Calculando tu itinerario...'; cont.classList.remove('hidden'); }
 
       var url = API_URL + '/rutas/itinerario?origen=' + encodeURIComponent(viajeOrigen.nombre) +
-                '&destino=' + encodeURIComponent(est.nombre);
+                '&destino=' + encodeURIComponent(est.nombre) +
+                '&origen_id=' + encodeURIComponent(viajeOrigen.id) +
+                '&destino_id=' + encodeURIComponent(est.id);
 
       fetch(url)
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -635,7 +637,7 @@
       if (nombre) { nombre.textContent = est.nombre; }
       renderRutasLateral();
 
-      fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre))
+      fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre) + '?id=' + encodeURIComponent(est.id))
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
         .then(function (res) {
           if (!res.ok) { throw new Error(res.d.error || 'No se pudieron cargar'); }
@@ -961,7 +963,7 @@
 
       // Rutas de Transmilenio que sirven a la estacion seleccionada
       // (el servidor responde con las rutas de la BD y, si no hay, con las oficiales)
-      fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(ref.nombre))
+      fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(ref.nombre) + '?id=' + encodeURIComponent(ref.id))
         .then(function (r) {
           return r.json().then(function (d) { return { ok: r.ok, d: d }; });
         })

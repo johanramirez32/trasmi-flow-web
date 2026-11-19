@@ -49,8 +49,9 @@ async function itinerario(req, res) {
   }
 
   try {
-    const o = await buscarEstacion(origen);
-    const d = await buscarEstacion(destino);
+    // Si el frontend envia IDs, se usan: nunca se confunden nombres repetidos
+    const o = req.query.origen_id ? await buscarEstacionPorId(req.query.origen_id) : await buscarEstacion(origen);
+    const d = req.query.destino_id ? await buscarEstacionPorId(req.query.destino_id) : await buscarEstacion(destino);
     if (!o || !d) {
       return res.status(404).json({ error: 'No se encontro la estacion de origen o de destino.' });
     }
@@ -289,6 +290,13 @@ async function listarRutas(req, res) {
   }
 }
 
+/** Busca una estacion por ID (forma inequivoca cuando hay nombres repetidos) */
+async function buscarEstacionPorId(id) {
+  if (id == null || id === '') { return null; }
+  const r = await pool.query('SELECT * FROM estaciones WHERE id = $1 LIMIT 1', [id]);
+  return r.rows[0] || null;
+}
+
 /** Busca la estacion en la BD tolerando acentos y diferencias de escritura */
 async function buscarEstacion(nombre) {
   // 1) Coincidencia exacta (es lo que envia el selector del usuario)
@@ -431,7 +439,9 @@ async function listarRutasEstacion(req, res) {
   const nombre = req.params.nombre;
 
   try {
-    const estacion = await buscarEstacion(nombre);
+    const estacion = req.query.id
+      ? await buscarEstacionPorId(req.query.id)
+      : await buscarEstacion(nombre);
     let rutas = [];
 
     if (estacion) {

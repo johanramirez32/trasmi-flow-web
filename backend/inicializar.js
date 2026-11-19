@@ -253,11 +253,30 @@ async function sincronizarRutasOficiales(pool) {
     }
 
     // Estaciones de la base de datos indexadas por nombre normalizado
-    const estDB = await pool.query('SELECT id, nombre FROM estaciones');
+    const estDB = await pool.query('SELECT id, nombre, lat, lng FROM estaciones');
     const porNombre = {};
     estDB.rows.forEach(function (e) {
-      porNombre[oficial.norm(e.nombre)] = e.id;
+      const k = oficial.norm(e.nombre);
+      if (!porNombre[k]) { porNombre[k] = []; }
+      porNombre[k].push(e);
     });
+
+    // Cuando dos estaciones comparten nombre (ej. Temporal AV. Jiménez),
+    // se elige la mas cercana por coordenadas para no mezclar sus paradas
+    function estacionIdPorNombre(nombre, lat, lng) {
+      const lista = porNombre[oficial.norm(nombre)] || [];
+      if (!lista.length) { return null; }
+      if (lista.length === 1) { return lista[0].id; }
+      let mejor = lista[0];
+      let mejorDist = Infinity;
+      lista.forEach(function (e) {
+        const dla = (e.lat != null ? parseFloat(e.lat) : 0) - (lat || 0);
+        const dlo = (e.lng != null ? parseFloat(e.lng) : 0) - (lng || 0);
+        const d = dla * dla + dlo * dlo;
+        if (d < mejorDist) { mejorDist = d; mejor = e; }
+      });
+      return mejor.id;
+    }
 
     const codigos = Array.from(new Set(data.rutas.map(function (r) { return r.codigo; })));
     const ya = await pool.query(
@@ -266,7 +285,7 @@ async function sincronizarRutasOficiales(pool) {
       'SELECT COUNT(*)::int n FROM ruta_estaciones re JOIN rutas r ON r.id = re.ruta_id WHERE r.codigo = ANY($1)',
       [codigos]
     );
-    if (ya.rows[0].n === codigos.length && paradas.rows[0].n > 0) {
+    if (ya.rows[0].n === codigos.length && paradas.rows[0].n > 0 && process.env.RECALCULAR_RUTAS !== '1') {
       console.log('   Rutas oficiales ya sincronizadas: ' + ya.rows[0].n);
       return;
     }
@@ -304,7 +323,7 @@ async function sincronizarRutasOficiales(pool) {
         const ordenes = [];
         let orden = 0;
         for (const p of r.estaciones) {
-          const estId = porNombre[oficial.norm(p.nombre)];
+          const estId = estacionIdPorNombre(p.nombre, p.latitud, p.longitud);
           if (!estId) continue;
           orden++;
           rutasId.push(rutaId);
