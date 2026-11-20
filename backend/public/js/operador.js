@@ -84,6 +84,7 @@
       if (selBuscar) { selBuscar.value = est.id; }
       if (typeof cargarOperadorRutas === 'function') { cargarOperadorRutas(est.id); }
       if (typeof cargarOperadorBuses === 'function') { cargarOperadorBuses(est.id); }
+      if (typeof actualizarNotifBadge === 'function') { actualizarNotifBadge({ estacion: est.nombre }); }
     }
 
     /** Busca una estacion por nombre tolerando acentos y mayusculas */
@@ -253,15 +254,29 @@
               porRuta[k].n++;
               if (x.atendido) { porRuta[k].atendido = true; }
             });
-            var detalleRutas = Object.keys(porRuta).map(function (k) {
-              var d = porRuta[k];
-              var c = COLOR_NIVEL[d.nivel] || '#94a3b8';
-              var pct = d.nivel === 'Alta' ? 85 : (d.nivel === 'Media' ? 55 : 30);
-              return '<div class="flex items-center justify-between gap-2 mt-1.5 pl-2 border-l-2" style="border-color:' + c + '">' +
-                '<span class="text-[11px] text-white font-bold">Ruta ' + escHtml(k) + ' <span class="text-slate-500">(' + d.n + ')</span></span>' +
-                '<span class="text-[10px] font-black" style="color:' + c + '">' + escHtml(d.nivel) + ' ' + pct + '%</span>' +
-                '<span class="text-[9px] ' + (d.atendido ? 'text-emerald-400' : 'text-amber-400') + '">' +
-                  (d.atendido ? 'ATENDIDA' : 'PENDIENTE') + '</span>' +
+            var detalleRutas = rs.map(function (x) {
+              var c = COLOR_NIVEL[x.nivel] || '#94a3b8';
+              var pct = x.nivel === 'Alta' ? 85 : (x.nivel === 'Media' ? 55 : 30);
+              var args = (JSON.stringify(x.id) + ', ' + JSON.stringify(x.estacion) + ', ' + JSON.stringify(x.ruta || '')).replace(/"/g, '&quot;');
+              return '<div class="mt-1.5">' +
+                '<button onclick="toggleDetalleReporte(' + args + ')" class="w-full flex items-center justify-between gap-2 pl-2 border-l-2 py-1 hover:bg-brand-dark/60 rounded" style="border-color:' + c + '">' +
+                  '<span class="text-[11px] text-white font-bold">Ruta ' + escHtml(x.ruta || 'SIN RUTA') + '</span>' +
+                  '<span class="text-[10px] font-black" style="color:' + c + '">' + escHtml(x.nivel) + ' ' + pct + '%</span>' +
+                  '<span class="text-[9px] ' + (x.atendido ? 'text-emerald-400' : 'text-amber-400') + '">' +
+                    (x.atendido ? 'ATENDIDA' : 'PENDIENTE') + '</span>' +
+                '</button>' +
+                '<div id="detReporte-' + x.id + '" class="hidden p-2 mt-1 rounded-lg bg-brand-dark/70 border border-brand-border space-y-1">' +
+                  '<p class="text-[10px] text-slate-300">Estación: <b class="text-white">' + escHtml(x.estacion) + '</b></p>' +
+                  '<p class="text-[10px] text-slate-300">Ruta: <b class="text-white">' + escHtml(x.ruta || 'SIN RUTA') + '</b></p>' +
+                  '<p class="text-[10px] text-slate-300">Usuario: <b class="text-white">' + escHtml(x.usuario || 'anónimo') + '</b></p>' +
+                  '<p class="text-[10px] text-slate-300">Hora: <b class="text-white">' + tiempoRelativo(x.creado_en) + '</b></p>' +
+                  '<p class="text-[10px] text-slate-300">Nivel de aglomeración: <b style="color:' + c + '">' + escHtml(x.nivel) + ' ' + pct + '%</b></p>' +
+                  '<div class="flex gap-2 pt-1">' +
+                    '<button onclick="tramitarReporte(' + x.id + ')" class="flex-1 px-2 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">Tramitar reporte</button>' +
+                    '<button onclick="despacharDesdeReporte(' + args + ')" class="flex-1 px-2 py-1.5 bg-gradient-to-r from-brand-red to-brand-darkRed text-white text-[10px] font-bold rounded-lg">Despachar bus</button>' +
+                  '</div>' +
+                  '<p id="msgReporte-' + x.id + '" class="hidden text-[10px] text-center"></p>' +
+                '</div>' +
               '</div>';
             }).join('');
 
@@ -281,6 +296,54 @@
         .catch(function (err) {
           cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar los reportes.<br>' + escHtml(err.message) + '</p>';
         });
+    }
+
+    /** Abre/cierra el detalle de un reporte */
+    function toggleDetalleReporte(id, estacion, ruta) {
+      var caja = document.getElementById('detReporte-' + id);
+      if (!caja) { return; }
+      var mostrar = caja.classList.contains('hidden');
+      document.querySelectorAll('[id^="detReporte-"]').forEach(function (x) { x.classList.add('hidden'); });
+      if (mostrar) { caja.classList.remove('hidden'); }
+      // Actualizar campana con el contexto del reporte
+      if (typeof actualizarNotifBadge === 'function' && mostrar) { actualizarNotifBadge({ estacion: estacion, ruta: ruta }); }
+    }
+
+    /** Tramita (atiende) un reporte */
+    function tramitarReporte(id) {
+      fetch(API_URL + '/reportes/' + id + '/atender', { method: 'POST' })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          var msg = document.getElementById('msgReporte-' + id);
+          if (msg) { msg.textContent = res.ok ? 'Reporte tramitado y notificado al usuario.' : (res.d.error || 'No se pudo tramitar'); msg.className = 'text-[10px] text-center text-emerald-400'; msg.classList.remove('hidden'); }
+          cargarOperadorReportes();
+          if (typeof actualizarNotifBadge === 'function') { actualizarNotifBadge(); }
+        })
+        .catch(function (err) {
+          var msg = document.getElementById('msgReporte-' + id);
+          if (msg) { msg.textContent = 'Error: ' + err.message; msg.className = 'text-[10px] text-center text-red-400'; msg.classList.remove('hidden'); }
+        });
+    }
+
+    /** Lleva el reporte al despacho con estacion y ruta precargadas */
+    function despacharDesdeReporte(id, estacion, ruta) {
+      var est = estaciones.find(function (e) { return e.nombre === estacion; });
+      var selEst = document.getElementById('opDespachoEstacion');
+      if (est && selEst) {
+        selEst.value = est.id;
+        if (typeof cargarRutasDespacho === 'function') {
+          cargarRutasDespacho();
+          setTimeout(function () {
+            var selR = document.getElementById('opDespachoRuta');
+            if (selR && ruta) {
+              for (var i = 0; i < selR.options.length; i++) { if (selR.options[i].value === ruta) { selR.value = ruta; break; } }
+            }
+          }, 1200);
+        }
+      }
+      if (typeof cambiarVistaOperador === 'function') { cambiarVistaOperador('rutas'); }
+      var msg = document.getElementById('opMensajeConfirmar');
+      if (msg) { msg.textContent = 'Reporte ' + id + ' · ' + estacion + ' · ruta ' + ruta + '. Confirma placa y conductor para despachar.'; msg.className = 'text-center text-xs font-medium py-1 text-emerald-400'; msg.classList.remove('hidden'); }
     }
 
     /** Frecuencia de buses: hace cuanto paso el ultimo y cada cuanto pasan */
@@ -832,7 +895,8 @@
         fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre) + '?id=' + encodeURIComponent(est.id)).then(function (r) { return r.json(); }),
         fetch(API_URL + '/reportes?limite=100').then(function (r) { return r.json(); }),
         window.__flotaBuses ? Promise.resolve(window.__flotaBuses) : fetch(API_URL + '/flota/buses').then(function (r) { return r.json(); }),
-        window.__flotaConductores ? Promise.resolve(window.__flotaConductores) : fetch(API_URL + '/flota/conductores').then(function (r) { return r.json(); })
+        window.__flotaConductores ? Promise.resolve(window.__flotaConductores) : fetch(API_URL + '/flota/conductores').then(function (r) { return r.json(); }),
+        fetch(API_URL + '/vagones/' + encodeURIComponent(est.id)).then(function (r) { return r.ok ? r.json() : { vagones: [] }; })
       ]).then(function (res) {
         var rutas = (res[0] && res[0].rutas) || [];
         var reportes = res[1] || [];
@@ -865,27 +929,19 @@
         }
         rutas.sort(function (a, b) { return pesoRuta(b) - pesoRuta(a); });
 
-        cont.innerHTML = rutas.map(function (r) {
-          var reps = reportes.filter(function (x) {
-            return String(x.estacion).toLowerCase() === String(est.nombre).toLowerCase() && (x.ruta || '') === (r.codigo || '');
-          });
-          var nivel = 'Baja';
-          if (reps.some(function (x) { return x.nivel === 'Alta'; })) { nivel = 'Alta'; }
-          else if (reps.some(function (x) { return x.nivel === 'Media'; })) { nivel = 'Media'; }
-          var color = COLOR_NIVEL[nivel];
-          var pct = nivel === 'Alta' ? 85 : (nivel === 'Media' ? 55 : 30);
+        var vagones = (res[4] && res[4].vagones) || [];
+
+        function htmlRuta(r, color, nivel, pct, reps) {
           var rid = String(r.id).replace(/[^a-zA-Z0-9]/g, '');
           var args = (JSON.stringify(r.id) + ', ' + JSON.stringify(r.codigo)).replace(/"/g, '&quot;');
-
           return '<div class="relative p-3 border border-brand-border rounded-xl mb-2" style="border-left:4px solid ' + color + ';background:' + color + '14">' +
             '<div class="flex items-center justify-between gap-2">' +
               '<p class="text-white font-black text-xs">Ruta ' + escHtml(r.codigo) + '</p>' +
               '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:' + color + '22;color:' + color + '">' + nivel + ' ' + pct + '%</span>' +
             '</div>' +
             '<p class="text-[10px] text-slate-400 mt-1 truncate">' + escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</p>' +
-            '<p class="text-[10px] text-slate-400 mt-0.5">' + reps.length + ' reporte(s) · ' + (r.estaciones || []).length + ' paradas · ' + escHtml(est.nombre) + '</p>' +
+            '<p class="text-[10px] text-slate-400 mt-0.5">' + reps.length + ' reporte(s) · ' + escHtml(est.nombre) + '</p>' +
             '<button onclick="toggleDespachoRuta(' + args + ')" class="mt-2 w-full px-3 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">Despachar bus ▾</button>' +
-
             '<div id="popDespacho-' + rid + '" class="hidden absolute z-50 top-full left-2 mt-1 w-[94%] p-3 bg-brand-card border border-brand-red rounded-xl shadow-2xl space-y-2">' +
               '<div class="flex items-center justify-between gap-2">' +
                 '<p class="text-[10px] font-black text-white uppercase">Despachar ruta ' + escHtml(r.codigo) + '</p>' +
@@ -895,25 +951,56 @@
                 '<p class="text-[10px] font-bold" style="color:' + color + '">Nivel ' + escHtml(nivel) + ' · ' + pct + '%</p>' +
                 '<p class="text-[9px] text-slate-400 mt-0.5">' + reps.length + ' reporte(s) · ' + escHtml(est.nombre) + '</p>' +
               '</div>' +
-              '<div>' +
-                '<label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Bus por placa</label>' +
-                '<select id="popPlaca-' + rid + '" onchange="actualizarTipoPopover(\'' + rid + '\')" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' + opcionesBus + '</select>' +
-              '</div>' +
-              '<div>' +
-                '<label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Conductor por cedula</label>' +
-                '<select id="popCedula-' + rid + '" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' + opcionesConductor + '</select>' +
-              '</div>' +
-              '<div>' +
-                '<label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tipo de bus</label>' +
+              '<div><label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Bus por placa</label>' +
+                '<select id="popPlaca-' + rid + '" onchange="actualizarTipoPopover(\'' + rid + '\')" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' + opcionesBus + '</select></div>' +
+              '<div><label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Conductor por cedula</label>' +
+                '<select id="popCedula-' + rid + '" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' + opcionesConductor + '</select></div>' +
+              '<div><label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tipo de bus</label>' +
                 '<select id="popTipo-' + rid + '" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' +
-                  '<option value="Bus normal">Bus normal</option><option value="Biarticulado">Biarticulado</option>' +
-                '</select>' +
-              '</div>' +
+                  '<option value="Bus normal">Bus normal</option><option value="Biarticulado">Biarticulado</option></select></div>' +
               '<button onclick="confirmarDespachoPopover(' + args + ')" class="w-full px-3 py-2 bg-gradient-to-r from-brand-red to-brand-darkRed text-white text-[10px] font-bold rounded-lg">Confirmar despacho</button>' +
               '<p id="popMsg-' + rid + '" class="hidden text-[10px] text-center text-emerald-400"></p>' +
             '</div>' +
           '</div>';
-        }).join('');
+        }
+
+        function nivelDeRuta(r) {
+          var reps = reportes.filter(function (x) {
+            return String(x.estacion).toLowerCase() === String(est.nombre).toLowerCase() && (x.ruta || '') === (r.codigo || '');
+          });
+          var nivel = 'Baja';
+          if (reps.some(function (x) { return x.nivel === 'Alta'; })) { nivel = 'Alta'; }
+          else if (reps.some(function (x) { return x.nivel === 'Media'; })) { nivel = 'Media'; }
+          return { nivel: nivel, pct: nivel === 'Alta' ? 85 : (nivel === 'Media' ? 55 : 30), reps: reps };
+        }
+
+        if (!vagones.length) {
+          cont.innerHTML = rutas.map(function (r) {
+            var n = nivelDeRuta(r);
+            return htmlRuta(r, COLOR_NIVEL[n.nivel], n.nivel, n.pct, n.reps);
+          }).join('');
+        } else {
+          cont.innerHTML = vagones.map(function (v) {
+            var rutasVagon = (v.rutas || []).map(function (vr) {
+              return rutas.find(function (r) { return r.codigo === vr.codigo; });
+            }).filter(Boolean);
+            rutasVagon.sort(function (a, b) {
+              return (nivelDeRuta(b).pct - nivelDeRuta(a).pct);
+            });
+            return '<div class="mb-3 p-2 rounded-xl border border-brand-border bg-brand-dark/40">' +
+              '<p class="text-[10px] font-black text-white uppercase mb-1">🚃 ' + escHtml(v.nombre) +
+                ' <span class="text-slate-500 normal-case">(' + rutasVagon.length + ' rutas)</span></p>' +
+              (v.camaras && v.camaras.length
+                ? '<p class="text-[9px] text-slate-500 mb-1">📷 ' + v.camaras.map(function (c) { return escHtml(c.nombre); }).join(', ') + '</p>' : '') +
+              (rutasVagon.length
+                ? rutasVagon.map(function (r) {
+                    var n = nivelDeRuta(r);
+                    return htmlRuta(r, COLOR_NIVEL[n.nivel], n.nivel, n.pct, n.reps);
+                  }).join('')
+                : '<p class="text-[10px] text-slate-500 py-2">Sin rutas asignadas a este vagón.</p>') +
+            '</div>';
+          }).join('');
+        }
 
         // Mostrar de una vez las opciones de la ruta prioritaria
         if (rutas.length) {
@@ -1073,24 +1160,39 @@
         return Promise.resolve();
       }
 
-      return fetch(API_URL + '/camaras/estacion/' + encodeURIComponent(estacion))
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (data) {
-          var camaras = data.camaras || [];
-          if (!camaras.length) {
-            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No hay camaras registradas para esta estacion.</p>';
-            return;
-          }
-          cont.innerHTML = camaras.map(function (c) {
-            return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
-              '<p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(c.nombre) + '</p>' +
-              '<p class="text-[11px] text-slate-400 mt-1">Camara registrada en ' + escHtml(c.estacion) + '</p>' +
-            '</div>';
-          }).join('');
-        })
-        .catch(function (err) {
-          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las camaras.<br>' + escHtml(err.message) + '</p>';
-        });
+      return Promise.all([
+        fetch(API_URL + '/camaras/estacion/' + encodeURIComponent(estacion)).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+        fetch(API_URL + '/vagones/' + encodeURIComponent(estCam.id)).then(function (r) { return r.ok ? r.json() : { vagones: [] }; })
+      ]).then(function (res) {
+        var camaras = (res[0] && res[0].camaras) || [];
+        var vagones = (res[1] && res[1].vagones) || [];
+        if (!camaras.length && !vagones.length) {
+          cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No hay camaras ni vagones registrados para esta estacion.</p>';
+          return;
+        }
+        function tarjetaCamara(c) {
+          return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl mb-1">' +
+            '<p class="text-white font-semibold text-xs sm:text-sm">📷 ' + escHtml(c.nombre) + '</p>' +
+            '<p class="text-[11px] text-slate-400 mt-1">' + escHtml(c.estacion) + '</p>' +
+          '</div>';
+        }
+        if (!vagones.length) {
+          cont.innerHTML = camaras.map(tarjetaCamara).join('');
+          return;
+        }
+        cont.innerHTML = vagones.map(function (v) {
+          var cam = camaras.filter(function (c) { return c.vagon_id === v.id; });
+          var sinVagon = camaras.filter(function (c) { return !c.vagon_id; });
+          return '<div class="p-2 rounded-xl border border-brand-border bg-brand-dark/40 mb-2">' +
+            '<p class="text-[10px] font-black text-white uppercase mb-1">🚃 ' + escHtml(v.nombre) + '</p>' +
+            (cam.length ? cam.map(tarjetaCamara).join('') : '<p class="text-[10px] text-slate-500">Sin camaras en este vagón</p>') +
+          '</div>';
+        }).join('') + (camaras.filter(function (c) { return !c.vagon_id; }).length
+          ? '<div class="p-2 rounded-xl border border-brand-border bg-brand-dark/40"><p class="text-[10px] font-black text-white uppercase mb-1">Sin vagón asignado</p>' +
+            camaras.filter(function (c) { return !c.vagon_id; }).map(tarjetaCamara).join('') + '</div>' : '');
+      }).catch(function (err) {
+        cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las camaras.<br>' + escHtml(err.message) + '</p>';
+      });
     }
 
     /** Muestra u oculta las paradas de una ruta en el panel operativo */

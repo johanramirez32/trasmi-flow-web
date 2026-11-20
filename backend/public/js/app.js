@@ -349,18 +349,35 @@
     }
 
     /** Refresca la campana con las alertas de aglomeracion */
-    function actualizarNotifBadge() {
+    function actualizarNotifBadge(contexto) {
       var badge = document.getElementById('notifBadge');
       var cont = document.getElementById('listaNotifPanel');
+      contexto = contexto || {};
       fetch(API_URL + '/alertas/aglomeracion')
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (datos) {
-          var n = (datos.rutas || []).length;
+          var rutas = datos.rutas || [];
+          var estaciones = datos.estaciones || [];
+          var etiqueta = '';
+          if (contexto.estacion) {
+            rutas = rutas.filter(function (x) { return x.estacion === contexto.estacion; });
+            estaciones = estaciones.filter(function (x) { return x.estacion === contexto.estacion; });
+            etiqueta = contexto.estacion;
+          }
+          if (contexto.ruta) {
+            rutas = rutas.filter(function (x) { return x.ruta === contexto.ruta; });
+            etiqueta = (etiqueta ? etiqueta + ' · ' : '') + 'Ruta ' + contexto.ruta;
+          }
+          var n = rutas.length;
           if (badge) {
             if (n > 0) { badge.textContent = n; badge.classList.remove('hidden'); }
             else { badge.textContent = '0'; badge.classList.add('hidden'); }
           }
-          if (cont) { cont.innerHTML = htmlAlertasAglomeracion(datos); }
+          if (cont) {
+            cont.innerHTML = (etiqueta
+              ? '<p class="text-[10px] font-black text-brand-red uppercase tracking-wider mb-1">Contexto: ' + escHtml(etiqueta) + '</p>'
+              : '') + htmlAlertasAglomeracion({ rutas: rutas, estaciones: estaciones });
+          }
         })
         .catch(function () {
           if (cont) { cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-4">Sin alertas.</p>'; }

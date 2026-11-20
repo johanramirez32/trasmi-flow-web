@@ -162,6 +162,24 @@ const ESQUEMA = [
   `ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS reporte_id INTEGER`,
   `ALTER TABLE camaras ADD COLUMN IF NOT EXISTS estacion_id INTEGER`,
 
+  `ALTER TABLE estaciones ADD COLUMN IF NOT EXISTS direccion VARCHAR(255)`,
+  `ALTER TABLE estaciones ADD COLUMN IF NOT EXISTS portal VARCHAR(120)`,
+  `ALTER TABLE reportes ADD COLUMN IF NOT EXISTS vagon_id INTEGER`,
+  `ALTER TABLE camaras ADD COLUMN IF NOT EXISTS vagon_id INTEGER`,
+  `CREATE TABLE IF NOT EXISTS vagones (
+     id SERIAL PRIMARY KEY,
+     estacion_id INTEGER NOT NULL REFERENCES estaciones(id) ON DELETE CASCADE,
+     nombre VARCHAR(120) NOT NULL,
+     sentido VARCHAR(20) NOT NULL DEFAULT 'Ida',
+     activo BOOLEAN DEFAULT TRUE
+   )`,
+  `CREATE TABLE IF NOT EXISTS vagon_rutas (
+     id SERIAL PRIMARY KEY,
+     vagon_id INTEGER NOT NULL REFERENCES vagones(id) ON DELETE CASCADE,
+     ruta_id INTEGER NOT NULL REFERENCES rutas(id) ON DELETE CASCADE,
+     orden INTEGER DEFAULT 0
+   )`,
+
   `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_rep_est') THEN ALTER TABLE reportes ADD CONSTRAINT fk_rep_est FOREIGN KEY (estacion_id) REFERENCES estaciones(id) ON DELETE SET NULL; END IF; END $$;`,
   `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_rep_ruta') THEN ALTER TABLE reportes ADD CONSTRAINT fk_rep_ruta FOREIGN KEY (ruta_id) REFERENCES rutas(id) ON DELETE SET NULL; END IF; END $$;`,
   `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_rep_usu') THEN ALTER TABLE reportes ADD CONSTRAINT fk_rep_usu FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL; END IF; END $$;`,
@@ -173,6 +191,8 @@ const ESQUEMA = [
   `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_not_usu') THEN ALTER TABLE notificaciones ADD CONSTRAINT fk_not_usu FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE; END IF; END $$;`,
   `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_not_rep') THEN ALTER TABLE notificaciones ADD CONSTRAINT fk_not_rep FOREIGN KEY (reporte_id) REFERENCES reportes(id) ON DELETE CASCADE; END IF; END $$;`,
   `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_cam_est') THEN ALTER TABLE camaras ADD CONSTRAINT fk_cam_est FOREIGN KEY (estacion_id) REFERENCES estaciones(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_rep_vagon') THEN ALTER TABLE reportes ADD CONSTRAINT fk_rep_vagon FOREIGN KEY (vagon_id) REFERENCES vagones(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_cam_vagon') THEN ALTER TABLE camaras ADD CONSTRAINT fk_cam_vagon FOREIGN KEY (vagon_id) REFERENCES vagones(id) ON DELETE SET NULL; END IF; END $$;`,
 
   `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='uq_buses_placa') THEN ALTER TABLE buses ADD CONSTRAINT uq_buses_placa UNIQUE (placa); END IF; END $$;`,
   `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='uq_cond_cedula') THEN ALTER TABLE conductores ADD CONSTRAINT uq_cond_cedula UNIQUE (cedula); END IF; END $$;`,
@@ -385,6 +405,130 @@ async function sembrarFlota(pool) {
  * Completa las llaves foraneas de registros existentes (creados antes de
  * normalizar el modelo) usando las columnas de texto originales.
  */
+/**
+ * Completa direccion ( ArcGIS ub_est ), portal, vagones por estacion
+ * y genera reportes adicionales de prueba.
+ */
+async function enriquecerRed(pool) {
+  try {
+    // Direccion desde el servicio oficial
+    try {
+      const BASE = 'https://gis.transmilenio.gov.co/arcgis/rest/services/' +
+        'ConsultaSubgerenciaPlanificacionSITP/Consulta_Planificacion_SITP/FeatureServer';
+      const body = new URLSearchParams({ f: 'json', where: '1=1',
+        outFields: 'num_est,nom_est,ub_est,tipo_esta', returnGeometry: 'false', resultRecordCount: '3000' });
+      const r = await fetch(BASE + '/2/query', { method: 'POST', body,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+      const j = await r.json();
+      const dirs = {};
+      (j.features || []).forEach(function (f) {
+        const a = f.attributes;
+        if (a && a.nom_est && a.ub_est) { dirs[a.nom_est.trim().toLowerCase()] = a.ub_est; }
+      });
+      const ests = await pool.query('SELECT id, nombre FROM estaciones');
+      for (const e of ests.rows) {
+        const d = dirs[String(e.nombre).toLowerCase()];
+        if (d) { await pool.query('UPDATE estaciones SET direccion=$1 WHERE id=$2', [d, e.id]); }
+      }
+      console.log('   Direcciones oficiales actualizadas');
+    } catch (err) {
+      console.warn('   No se pudieron actualizar direcciones: ' + err.message);
+    }
+
+    // Portal segun la troncal
+    const portales = await pool.query("SELECT nombre FROM estaciones WHERE nombre ILIKE 'Portal%'");
+    const claves = {};
+    portales.rows.forEach(function (x) {
+      const n = x.nombre.replace(/^Portal\s*/i, '').trim().toLowerCase();
+      claves[n] = x.nombre;
+    });
+    claves['norte'] = 'Portal Norte – Unicervantes';
+    claves['unicervantes'] = 'Portal Norte – Unicervantes';
+    claves['occidental'] = 'Portal Américas';
+    claves['sur'] = 'Portal Sur - JFK Coop. Financiera';
+    const letras = {
+      A:'Portal Norte – Unicervantes', B:'Portal Norte – Unicervantes',
+      C:'Portal Suba', D:'Portal 80', E:'Portal 20 de Julio',
+      F:'Portal Américas', G:'Portal Sur - JFK Coop. Financiera',
+      H:'Portal El Dorado – C.C. Nuestro Bogotá', J:'Portal 20 de Julio',
+      K:'Portal 20 de Julio', L:'Portal 20 de Julio', M:'Portal Tunal',
+      N:'Portal Norte – Unicervantes', Q:'Portal Tunal', R:'Portal Usme',
+      S:'Portal Usme', T:'Portal Tunal', U:'Portal Suba', V:'Portal 80',
+      X:'Portal Américas', Y:'Portal Sur - JFK Coop. Financiera', Z:'Portal Usme'
+    };
+    const ests2 = await pool.query('SELECT id, nombre, troncal FROM estaciones');
+    for (const e of ests2.rows) {
+      const txt = (e.troncal || '').toLowerCase();
+      let portal = null;
+      Object.keys(claves).forEach(function (k) { if (!portal && txt.indexOf(k) !== -1) { portal = claves[k]; } });
+      if (!portal) {
+        const m = (e.troncal || '').trim().match(/^([A-Za-z])/);
+        if (m && letras[m[1].toUpperCase()]) { portal = letras[m[1].toUpperCase()]; }
+      }
+      if (portal) { await pool.query('UPDATE estaciones SET portal=$1 WHERE id=$2', [portal, e.id]); }
+    }
+
+    // Vagones: 2 por estacion (ida y vuelta) con las rutas que paran en cada uno
+    const rutasEst = await pool.query(
+      'SELECT e.id AS estacion_id, r.id AS ruta_id, r.codigo, re.orden, ' +
+      '(SELECT COUNT(*)::int FROM ruta_estaciones x WHERE x.ruta_id = r.id) AS total ' +
+      'FROM estaciones e JOIN ruta_estaciones re ON re.estacion_id = e.id ' +
+      'JOIN rutas r ON r.id = re.ruta_id ORDER BY e.id, r.codigo');
+    const porEst = {};
+    rutasEst.rows.forEach(function (x) {
+      if (!porEst[x.estacion_id]) { porEst[x.estacion_id] = []; }
+      porEst[x.estacion_id].push(x);
+    });
+
+    for (const id of Object.keys(porEst)) {
+      const yaVagon = await pool.query('SELECT COUNT(*)::int n FROM vagones WHERE estacion_id=$1', [id]);
+      if (yaVagon.rows[0].n > 0) { continue; }
+      const lista = porEst[id];
+      const v1 = await pool.query(
+        "INSERT INTO vagones (estacion_id, nombre, sentido) VALUES ($1,'Vagón 1 · Ida','Ida') RETURNING id", [id]);
+      const v2 = await pool.query(
+        "INSERT INTO vagones (estacion_id, nombre, sentido) VALUES ($1,'Vagón 2 · Vuelta','Vuelta') RETURNING id", [id]);
+      for (const r of lista) {
+        const mitad = r.total / 2;
+        const vagon = r.orden <= mitad ? v1.rows[0].id : v2.rows[0].id;
+        await pool.query('INSERT INTO vagon_rutas (vagon_id, ruta_id, orden) VALUES ($1,$2,$3)', [vagon, r.ruta_id, r.orden]);
+      }
+    }
+    console.log('   Vagones creados: ' + Object.keys(porEst).length + ' estaciones');
+
+    // Camaras: asignar al Vagon 1 de su estacion
+    await pool.query(`UPDATE camaras c SET vagon_id = (
+        SELECT v.id FROM vagones v WHERE v.estacion_id = c.estacion_id ORDER BY v.id LIMIT 1)
+      WHERE c.vagon_id IS NULL AND c.estacion_id IS NOT NULL`);
+
+    // 17 reportes adicionales en estaciones y rutas distintas
+    const ya = await pool.query("SELECT COUNT(*)::int n FROM reportes WHERE usuario LIKE 'extra%@transmiflow.local'");
+    if (!ya.rows[0].n) {
+      const ejemplos = [
+        ['Portal Américas','B28','Alta'], ['Portal Américas','F28','Alta'],
+        ['Portal Norte – Unicervantes','B28','Media'], ['Museo Nacional','G47','Alta'],
+        ['Museo Nacional','2 M','Media'], ['Patio Bonito','5 C','Alta'],
+        ['Ricaurte - CL 13','B12','Media'], ['Ricaurte - NQS','B12','Alta'],
+        ['Comuneros','G11','Media'], ['Santa Isabel','G11','Baja'],
+        ['Portal Suba','C19','Alta'], ['Portal 80','D10','Media'],
+        ['Portal Tunal','K43','Alta'], ['Portal Usme','L41','Media'],
+        ['Portal Sur - JFK Coop. Financiera','B46','Alta'], ['Calle 26 - Atrio','1 P','Media'],
+        ['Temporal Calle 34','8 G','Alta']
+      ];
+      for (let i = 0; i < ejemplos.length; i++) {
+        const [est, ruta, nivel] = ejemplos[i];
+        await pool.query(
+          'INSERT INTO reportes (estacion, ruta, nivel, usuario, creado_en) VALUES ($1,$2,$3,$4, NOW() - ($5||\' hours\')::interval)',
+          [est, ruta, nivel, 'extra' + (i + 1) + '@transmiflow.local', i + 1]
+        );
+      }
+      console.log('   Reportes adicionales creados: 17');
+    }
+  } catch (err) {
+    console.warn('   No se pudo enriquecer la red: ' + err.message);
+  }
+}
+
 async function normalizarRelaciones(pool) {
   try {
     // Crear referencias faltantes para datos heredados (texto sin FK)
@@ -580,6 +724,7 @@ async function inicializar(pool, intentos = 5) {
   await sembrarCamaras(pool);
   await sembrarFlota(pool);
   await arreglarReportes(pool);
+  await enriquecerRed(pool);
   await normalizarRelaciones(pool);
   await sincronizarRutasOficiales(pool);
 }

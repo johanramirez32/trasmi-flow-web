@@ -34,6 +34,7 @@
       if (!e) return;
       if (typeof salirModoViaje === 'function') { salirModoViaje(); }
       seleccion = e;
+      if (typeof actualizarNotifBadge === 'function') { actualizarNotifBadge({ estacion: e.nombre }); }
       document.getElementById('resultadosBusqueda').classList.add('hidden');
       document.getElementById('inputBuscar').value = e.nombre;
       pintar();

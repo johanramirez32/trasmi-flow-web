@@ -461,6 +461,7 @@
       viajeOrigen = est;
       window.__origenAuto = false;
       modoViaje = true;
+      if (typeof actualizarNotifBadge === 'function') { actualizarNotifBadge({ estacion: est.nombre }); }
 
       var tit = document.getElementById('tituloPanel');
       if (tit) {
@@ -506,6 +507,7 @@
 
       viajeDestino = est;
       modoViaje = true;
+      if (typeof actualizarNotifBadge === 'function') { actualizarNotifBadge({ estacion: est.nombre }); }
 
       var tit2 = document.getElementById('tituloPanel');
       if (tit2) {

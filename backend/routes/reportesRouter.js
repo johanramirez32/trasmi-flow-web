@@ -11,6 +11,7 @@ const seg = require('../seguridad');
 
 router.post('/', seg.requerirAuth, ctrl.crearReporte);
 router.get('/rutas', ctrl.rutasReportadas);
+router.post('/:id/atender', ctrl.atenderReporte);
 router.get('/', ctrl.listarReportes);
 
 module.exports = router;

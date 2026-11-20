@@ -107,4 +107,28 @@ async function rutasReportadas(req, res) {
   }
 }
 
-module.exports = { crearReporte, listarReportes, rutasReportadas };
+/** Tramitar un reporte: se marca atendido y se notifica al usuario */
+async function atenderReporte(req, res) {
+  try {
+    const id = req.params.id;
+    const r = await pool.query('SELECT * FROM reportes WHERE id = $1', [id]);
+    if (!r.rows.length) { return res.status(404).json({ error: 'Reporte no encontrado.' }); }
+    const rep = r.rows[0];
+
+    await pool.query(
+      'INSERT INTO notificaciones (usuario, usuario_id, mensaje, tipo, reporte_id) VALUES ($1,$2,$3,$4,$5)',
+      [rep.usuario, rep.usuario_id,
+       'Tu reporte en ' + rep.estacion + (rep.ruta ? ' (ruta ' + rep.ruta + ')' : '') + ' fue tramitado por el operario.',
+       'operador', rep.id]
+    );
+
+    const actualizado = await pool.query(
+      'SELECT id, estacion, ruta, nivel, usuario, creado_en FROM reportes WHERE id = $1', [id]);
+    res.json({ mensaje: 'Reporte tramitado', reporte: actualizado.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo tramitar el reporte.' });
+  }
+}
+
+module.exports = { crearReporte, listarReportes, rutasReportadas, atenderReporte };

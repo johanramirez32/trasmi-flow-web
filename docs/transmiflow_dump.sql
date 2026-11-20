@@ -1,21 +1,17 @@
 -- ============================================================
 -- TransmiFlow - Volcado completo de la base de datos
--- Generado con pg_dump (esquema + datos: estaciones, rutas,
--- ruta_estaciones, usuarios, buses, conductores, despachos,
--- reportes, notificaciones y camaras).
+-- Esquema + datos: estaciones (direccion y portal), rutas, ruta_estaciones,
+-- vagones, vagon_rutas, usuarios, buses, conductores, despachos,
+-- reportes, notificaciones y camaras.
 --
--- Restaurar:
---   psql -U postgres -d transmiflow_db -f transmiflow_dump.sql
--- O crear una base nueva:
---   createdb transmiflow_db
---   psql -U postgres -d transmiflow_db -f transmiflow_dump.sql
+-- Restaurar: psql -U postgres -d transmiflow_db -f transmiflow_dump.sql
 -- ============================================================
 
 --
 -- PostgreSQL database dump
 --
 
-\restrict OgxZQZZlRMUPpGORjiuncw7lZoqKJagDomRb5PHaw82Gqebu8vZN0D4sONShRpg
+\restrict U4zzv8AlOTdaCTmlhZWlUdHb6OH8523qRvesJGFIel2jIK7KslVFsqdABot8QJL
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -32,8 +28,12 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
+ALTER TABLE IF EXISTS ONLY public.vagones DROP CONSTRAINT IF EXISTS vagones_estacion_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.vagon_rutas DROP CONSTRAINT IF EXISTS vagon_rutas_vagon_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.vagon_rutas DROP CONSTRAINT IF EXISTS vagon_rutas_ruta_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.ruta_estaciones DROP CONSTRAINT IF EXISTS ruta_estaciones_ruta_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.ruta_estaciones DROP CONSTRAINT IF EXISTS ruta_estaciones_estacion_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.reportes DROP CONSTRAINT IF EXISTS fk_rep_vagon;
 ALTER TABLE IF EXISTS ONLY public.reportes DROP CONSTRAINT IF EXISTS fk_rep_usu;
 ALTER TABLE IF EXISTS ONLY public.reportes DROP CONSTRAINT IF EXISTS fk_rep_ruta;
 ALTER TABLE IF EXISTS ONLY public.reportes DROP CONSTRAINT IF EXISTS fk_rep_est;
@@ -44,6 +44,7 @@ ALTER TABLE IF EXISTS ONLY public.despachos DROP CONSTRAINT IF EXISTS fk_des_op;
 ALTER TABLE IF EXISTS ONLY public.despachos DROP CONSTRAINT IF EXISTS fk_des_est;
 ALTER TABLE IF EXISTS ONLY public.despachos DROP CONSTRAINT IF EXISTS fk_des_cond;
 ALTER TABLE IF EXISTS ONLY public.despachos DROP CONSTRAINT IF EXISTS fk_des_bus;
+ALTER TABLE IF EXISTS ONLY public.camaras DROP CONSTRAINT IF EXISTS fk_cam_vagon;
 ALTER TABLE IF EXISTS ONLY public.camaras DROP CONSTRAINT IF EXISTS fk_cam_est;
 DROP INDEX IF EXISTS public.idx_usuarios_email;
 DROP INDEX IF EXISTS public.idx_rutas_codigo;
@@ -60,6 +61,8 @@ DROP INDEX IF EXISTS public.idx_despachos_estacion;
 DROP INDEX IF EXISTS public.idx_des_ruta_id;
 DROP INDEX IF EXISTS public.idx_des_est_id;
 DROP INDEX IF EXISTS public.idx_camaras_estacion;
+ALTER TABLE IF EXISTS ONLY public.vagones DROP CONSTRAINT IF EXISTS vagones_pkey;
+ALTER TABLE IF EXISTS ONLY public.vagon_rutas DROP CONSTRAINT IF EXISTS vagon_rutas_pkey;
 ALTER TABLE IF EXISTS ONLY public.usuarios DROP CONSTRAINT IF EXISTS usuarios_pkey;
 ALTER TABLE IF EXISTS ONLY public.usuarios DROP CONSTRAINT IF EXISTS usuarios_email_key;
 ALTER TABLE IF EXISTS ONLY public.rutas DROP CONSTRAINT IF EXISTS uq_rutas_codigo;
@@ -77,6 +80,8 @@ ALTER TABLE IF EXISTS ONLY public.conductores DROP CONSTRAINT IF EXISTS conducto
 ALTER TABLE IF EXISTS ONLY public.camaras DROP CONSTRAINT IF EXISTS camaras_pkey;
 ALTER TABLE IF EXISTS ONLY public.buses DROP CONSTRAINT IF EXISTS buses_placa_key;
 ALTER TABLE IF EXISTS ONLY public.buses DROP CONSTRAINT IF EXISTS buses_pkey;
+ALTER TABLE IF EXISTS public.vagones ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.vagon_rutas ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.usuarios ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.rutas ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.ruta_estaciones ALTER COLUMN id DROP DEFAULT;
@@ -87,6 +92,10 @@ ALTER TABLE IF EXISTS public.despachos ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.conductores ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.camaras ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.buses ALTER COLUMN id DROP DEFAULT;
+DROP SEQUENCE IF EXISTS public.vagones_id_seq;
+DROP TABLE IF EXISTS public.vagones;
+DROP SEQUENCE IF EXISTS public.vagon_rutas_id_seq;
+DROP TABLE IF EXISTS public.vagon_rutas;
 DROP SEQUENCE IF EXISTS public.usuarios_id_seq;
 DROP TABLE IF EXISTS public.usuarios;
 DROP SEQUENCE IF EXISTS public.rutas_id_seq;
@@ -154,7 +163,8 @@ CREATE TABLE public.camaras (
     latitud numeric(10,7),
     longitud numeric(10,7),
     creado_en timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    estacion_id integer
+    estacion_id integer,
+    vagon_id integer
 );
 
 
@@ -267,7 +277,9 @@ CREATE TABLE public.estaciones (
     aglomeracion character varying(20) DEFAULT 'Media'::character varying,
     capacidad integer DEFAULT 0,
     lat numeric(10,7),
-    lng numeric(10,7)
+    lng numeric(10,7),
+    direccion character varying(255),
+    portal character varying(120)
 );
 
 
@@ -341,6 +353,7 @@ CREATE TABLE public.reportes (
     estacion_id integer,
     ruta_id integer,
     usuario_id integer,
+    vagon_id integer,
     CONSTRAINT ck_rep_nivel CHECK (((nivel)::text = ANY ((ARRAY['Baja'::character varying, 'Media'::character varying, 'Alta'::character varying])::text[])))
 );
 
@@ -469,6 +482,71 @@ ALTER SEQUENCE public.usuarios_id_seq OWNED BY public.usuarios.id;
 
 
 --
+-- Name: vagon_rutas; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vagon_rutas (
+    id integer NOT NULL,
+    vagon_id integer NOT NULL,
+    ruta_id integer NOT NULL,
+    orden integer DEFAULT 0
+);
+
+
+--
+-- Name: vagon_rutas_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.vagon_rutas_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: vagon_rutas_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.vagon_rutas_id_seq OWNED BY public.vagon_rutas.id;
+
+
+--
+-- Name: vagones; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vagones (
+    id integer NOT NULL,
+    estacion_id integer NOT NULL,
+    nombre character varying(120) NOT NULL,
+    sentido character varying(20) DEFAULT 'Ida'::character varying NOT NULL,
+    activo boolean DEFAULT true
+);
+
+
+--
+-- Name: vagones_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.vagones_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: vagones_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.vagones_id_seq OWNED BY public.vagones.id;
+
+
+--
 -- Name: buses id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -539,6 +617,20 @@ ALTER TABLE ONLY public.usuarios ALTER COLUMN id SET DEFAULT nextval('public.usu
 
 
 --
+-- Name: vagon_rutas id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vagon_rutas ALTER COLUMN id SET DEFAULT nextval('public.vagon_rutas_id_seq'::regclass);
+
+
+--
+-- Name: vagones id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vagones ALTER COLUMN id SET DEFAULT nextval('public.vagones_id_seq'::regclass);
+
+
+--
 -- Data for Name: buses; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -563,13 +655,13 @@ COPY public.buses (id, placa, tipo, activo) FROM stdin;
 -- Data for Name: camaras; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.camaras (id, estacion, nombre, latitud, longitud, creado_en, estacion_id) FROM stdin;
-1	Portal Tunal	Camara 1	\N	\N	2026-11-05 20:00:15.062825	426
-2	Portal Usme	Camara 1	\N	\N	2026-11-05 20:00:15.062825	422
-5	Portal Tunal	Camara 2	\N	\N	2026-11-05 20:00:15.062825	426
-6	Portal Usme	Camara 2	\N	\N	2026-11-05 20:00:15.062825	422
-3	Zona Tibanica	Camara 1	\N	\N	2026-11-05 20:00:15.062825	\N
-4	Zona Leon XIII	Camara 1	\N	\N	2026-11-05 20:00:15.062825	\N
+COPY public.camaras (id, estacion, nombre, latitud, longitud, creado_en, estacion_id, vagon_id) FROM stdin;
+1	Portal Tunal	Camara 1	\N	\N	2026-11-05 20:00:15.062825	426	235
+2	Portal Usme	Camara 1	\N	\N	2026-11-05 20:00:15.062825	422	227
+5	Portal Tunal	Camara 2	\N	\N	2026-11-05 20:00:15.062825	426	235
+6	Portal Usme	Camara 2	\N	\N	2026-11-05 20:00:15.062825	422	227
+3	Portal Suba	Camara 1	\N	\N	2026-11-05 20:00:15.062825	431	245
+4	Temporal AV. Jiménez - Inter Eléctricas	Camara 1	\N	\N	2026-11-05 20:00:15.062825	394	141
 \.
 
 
@@ -592,6 +684,8 @@ COPY public.conductores (id, nombre, cedula, telefono, activo) FROM stdin;
 --
 
 COPY public.despachos (id, estacion, bus, operador, creado_en, ruta, tipo_bus, conductor, estacion_id, ruta_id, bus_id, conductor_id, operador_id) FROM stdin;
+12	Patio Bonito	BCO-105	jxhansrs@gmail.com	2026-11-19 20:30:19.906523	5 C	Biarticulado	1034567890	425	11	5	3	10
+13	Patio Bonito	BCO-105	jxhansrs@gmail.com	2026-11-19 20:30:38.84989	5 C	Biarticulado	1034567890	425	11	5	3	10
 9	Alcalá – Colegio S. Tomás Dominicos	B1	jxhansrs@gmail.com	2026-11-19 19:04:10.137399	8 G	Biarticulado		362	17	13	\N	10
 \.
 
@@ -600,160 +694,160 @@ COPY public.despachos (id, estacion, bus, operador, creado_en, ruta, tipo_bus, c
 -- Data for Name: estaciones; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeracion, capacidad, lat, lng) FROM stdin;
-309	AV. Chile	troncal	4.66635264	-74.07457455	E - NQS Central	Alta	344	4.6663526	-74.0745746
-310	CAN	troncal	4.64687639	-74.09904645	K - Calle 26	Media	260	4.6468764	-74.0990465
-311	Campín - UAN	troncal	4.64539756	-74.07871009	E - NQS Central	Media	272	4.6453976	-74.0787101
-312	San Diego	troncal	4.61089909	-74.07150007	L - Carrera Decima	Alta	288	4.6108991	-74.0715001
-313	Granja - Kr 77	troncal	4.69915096	-74.09601773	D - Calle 80	Alta	392	4.6991510	-74.0960177
-314	Ricaurte - NQS	troncal	4.61168378	-74.09386595	E - NQS Central	Alta	392	4.6116838	-74.0938660
-315	Quirigua	troncal	4.70672525	-74.10873932	D - Calle 80	Baja	152	4.7067253	-74.1087393
-316	Suba - Calle 100	troncal	4.68696834	-74.06444284	C - Suba	Alta	304	4.6869683	-74.0644428
-317	Calle 75 - Zona M	troncal	4.67015101	-74.07130492	E - NQS Central	Media	272	4.6701510	-74.0713049
-318	AV. Boyacá	troncal	4.69393268	-74.08713194	D - Calle 80	Alta	304	4.6939327	-74.0871319
-319	Calle 40 Sur	troncal	4.57579415	-74.12007924	H - Caracas Sur	Alta	392	4.5757942	-74.1200792
-320	AV. Américas - AV. Boyacá	troncal	4.63011780	-74.13422457	F - Americas	Media	272	4.6301178	-74.1342246
-321	Marsella	troncal	4.62967723	-74.13016385	F - Americas	Alta	320	4.6296772	-74.1301639
-322	Niza - Calle 127	troncal	4.71200123	-74.07230720	C - Suba	Baja	200	4.7120012	-74.0723072
-323	La Campiña	troncal	4.74265433	-74.09120046	C - Suba	Alta	352	4.7426543	-74.0912005
-324	Transversal 86	troncal	4.63419465	-74.15206784	F - Americas	Media	240	4.6341947	-74.1520678
-325	Corferias	troncal	4.63430649	-74.08970085	K - Calle 26	Media	252	4.6343065	-74.0897009
-326	Guatoque - Veraguas	troncal	4.60417101	-74.09493313	G - NQS Sur (ramal)	Media	240	4.6041710	-74.0949331
-327	CDS - Carrera 32	troncal	4.61613616	-74.09394954	F - Americas	Baja	168	4.6161362	-74.0939495
-328	Ciudad Universitaria - Lotería de Bogotá	troncal	4.63087543	-74.08352723	K - Calle 26	Media	260	4.6308754	-74.0835272
-329	Universidad Nacional	troncal	4.63712105	-74.07932618	E - NQS Central	Alta	412	4.6371211	-74.0793262
-330	Avenida Rojas - UNISALESIANA	troncal	4.66194444	-74.10877200	K - Calle 26	Alta	320	4.6619444	-74.1087720
-331	Tercer Milenio	troncal	4.59813501	-74.08383625	A - Caracas	Alta	320	4.5981350	-74.0838363
-332	Concejo de Bogotá	troncal	4.62598737	-74.08028966	K - Calle 26	Media	260	4.6259874	-74.0802897
-333	Cl38A sur - CENTRO MAYOR	troncal	4.59380944	-74.12375508	G - NQS Sur	Media	212	4.5938094	-74.1237551
-334	7 de Agosto	troncal	4.65729528	-74.07768646	E - NQS Central	Media	260	4.6572953	-74.0776865
-335	AV. 68	troncal	4.68610088	-74.08076896	D - Calle 80	Alta	296	4.6861009	-74.0807690
-336	Distrito Grafiti	troncal	4.62785005	-74.11158411	F - Americas	Media	272	4.6278501	-74.1115841
-337	Polo - FINCOMERCIO	troncal	4.67016265	-74.06433866	D - Calle 80	Alta	360	4.6701627	-74.0643387
-338	Tygua - San José	troncal	4.59978720	-74.08876139	G - NQS Sur (ramal)	Media	228	4.5997872	-74.0887614
-339	Quinta Paredes	troncal	4.63750353	-74.09313226	K - Calle 26	Media	260	4.6375035	-74.0931323
-340	Salitre - El Greco	troncal	4.65086482	-74.10164882	K - Calle 26	Media	260	4.6508648	-74.1016488
-341	Zona Industrial	troncal	4.62032526	-74.09868611	F - Americas	Baja	168	4.6203253	-74.0986861
-342	León XIII	troncal	4.59217281	-74.19313531	Zona Leon XIII	Media	224	4.5921728	-74.1931353
-343	Paloquemao	troncal	4.61692188	-74.08955344	E - NQS Central	Media	272	4.6169219	-74.0895534
-344	Carrera 90	troncal	4.70466646	-74.10457027	D - Calle 80	Alta	304	4.7046665	-74.1045703
-345	Gobernación	troncal	4.64283002	-74.09653771	K - Calle 26	Media	260	4.6428300	-74.0965377
-346	Terreros - Hospital Cardio Vascular	troncal	4.58896270	-74.19952261	Zona Leon XIII	Alta	356	4.5889627	-74.1995226
-347	Escuela Militar	troncal	4.67553501	-74.06980215	D - Calle 80	Media	272	4.6755350	-74.0698022
-348	Mandalay	troncal	4.63086366	-74.14129817	F - Americas	Media	240	4.6308637	-74.1412982
-349	AV. Cali	troncal	4.70248285	-74.10028965	D - Calle 80	Alta	304	4.7024829	-74.1002897
-350	Suba - TV. 91	troncal	4.73893679	-74.08699228	C - Suba	Media	264	4.7389368	-74.0869923
-351	Ricaurte - CL 13	troncal	4.61301798	-74.09047650	F - Americas	Alta	312	4.6130180	-74.0904765
-352	Restrepo	troncal	4.58184906	-74.10142878	H - Caracas Sur	Baja	200	4.5818491	-74.1014288
-353	Prado	troncal	4.71455843	-74.05255829	B - Autopista Norte	Media	248	4.7145584	-74.0525583
-354	Terminal	troncal	4.76881876	-74.04357255	B - Autopista Norte	Baja	152	4.7688188	-74.0435726
-355	Virrey	troncal	4.67599737	-74.05901952	B - Autopista Norte	Alta	352	4.6759974	-74.0590195
-356	Toberin - Foundever	troncal	4.74618498	-74.04725485	B - Autopista Norte	Alta	552	4.7461850	-74.0472549
-357	Pepe Sierra Universidad UTEL	troncal	4.69812689	-74.05530880	B - Autopista Norte	Baja	200	4.6981269	-74.0553088
-358	Calle 100 - Marketmedios	troncal	4.68394944	-74.05771230	B - Autopista Norte	Alta	392	4.6839494	-74.0577123
-359	Calle 142	troncal	4.72685009	-74.05050333	B - Autopista Norte	Baja	180	4.7268501	-74.0505033
-360	Portal Norte – Unicervantes	portal	4.75462286	-74.04604465	B - Autopista Norte	Baja	210	4.7546229	-74.0460447
-361	Calle 187	troncal	4.76333655	-74.04444370	B - Autopista Norte	Baja	152	4.7633366	-74.0444437
-362	Alcalá – Colegio S. Tomás Dominicos	troncal	4.72115820	-74.05145916	B - Autopista Norte	Alta	392	4.7211582	-74.0514592
-363	Calle 146	troncal	4.73089106	-74.04981123	B - Autopista Norte	Media	248	4.7308911	-74.0498112
-364	Calle 127	troncal	4.70463964	-74.05422516	B - Autopista Norte	Baja	200	4.7046396	-74.0542252
-365	Héroes - Colmena Seguros	troncal	4.66813603	-74.06030995	B - Autopista Norte	Media	264	4.6681360	-74.0603100
-366	Calle 161	troncal	4.74191530	-74.04800035	B - Autopista Norte	Baja	96	4.7419153	-74.0480004
-367	Calle 106 - Maletas Explora	troncal	4.69298260	-74.05618243	B - Autopista Norte	Media	248	4.6929826	-74.0561824
-368	Mazurén	troncal	4.73458855	-74.04922624	B - Autopista Norte	Media	248	4.7345886	-74.0492262
-369	Calle 45 - American School Way	troncal	4.63145241	-74.06787872	A - Caracas	Alta	320	4.6314524	-74.0678787
-370	Carrera 53	troncal	4.68180475	-74.07742142	D - Calle 80	Baja	152	4.6818048	-74.0774214
-371	La Castellana	troncal	4.67561116	-74.06444317	E - NQS Central	Media	232	4.6756112	-74.0644432
-372	AV. 1 Mayo	troncal	4.57693931	-74.09370940	L - Carrera Decima	Alta	384	4.5769393	-74.0937094
-373	De La Sabana	troncal	4.60542110	-74.08189427	F - Americas	Baja	168	4.6054211	-74.0818943
-374	La Despensa	troncal	4.59459382	-74.18811218	Zona Leon XIII	Media	224	4.5945938	-74.1881122
-375	Calle 72 - Areandina	troncal	4.65823755	-74.06206786	A - Caracas	Baja	0	4.6582376	-74.0620679
-376	Centro Memoria	troncal	4.62046499	-74.07632059	K - Calle 26	Media	260	4.6204650	-74.0763206
-377	Carrera 43 - Comapan	troncal	4.62278154	-74.10143788	F - Americas	Baja	168	4.6227815	-74.1014379
-378	Consuelo	troncal	4.56022730	-74.12387433	H - Caracas Sur	Baja	192	4.5602273	-74.1238743
-379	Temporal AV. Jiménez - Inter Eléctricas	troncal	4.60286688	-74.08040995	A - Caracas	Alta	288	4.6028669	-74.0804100
-380	Comuneros	troncal	4.60424998	-74.09986137	G - NQS Sur	Media	252	4.6042500	-74.0998614
-381	El Tiempo – Cámara de Comercio de Bogotá	troncal	4.65706705	-74.10564666	K - Calle 26	Media	240	4.6570671	-74.1056467
-382	Biblioteca Tintal	troncal	4.63790778	-74.15935249	F - Americas	Alta	304	4.6379078	-74.1593525
-383	Ciudad Jardín - UAN	troncal	4.58154254	-74.09035160	L - Carrera Decima	Media	264	4.5815425	-74.0903516
-384	Bicentenario	troncal	4.59402077	-74.08183542	L - Carrera Decima	Alta	384	4.5940208	-74.0818354
-385	Temporal Calle 57	troncal	4.64298162	-74.06582826	A - Caracas	Alta	320	4.6429816	-74.0658283
-386	Biblioteca	troncal	4.57030352	-74.13038868	Portal Tunal	Baja	60	4.5703035	-74.1303887
-387	AV. ElDorado	troncal	4.63066841	-74.07987857	E - NQS Central	Media	260	4.6306684	-74.0798786
-388	Calle 26 - Atrio	troncal	4.61665155	-74.07215846	A - Caracas	Baja	0	4.6166516	-74.0721585
-389	Alquería	troncal	4.59426993	-74.13426993	G - NQS Sur	Baja	204	4.5942699	-74.1342699
-390	Bosa	troncal	4.59688795	-74.18122500	G - NQS Sur	Media	272	4.5968880	-74.1812250
-391	CAD	troncal	4.62341573	-74.08418121	E - NQS Central	Media	272	4.6234157	-74.0841812
-392	Banderas	troncal	4.63129454	-74.14576996	F - Americas	Alta	608	4.6312945	-74.1457700
-393	Calle 19	troncal	4.60786462	-74.07686968	A - Caracas	Alta	320	4.6078646	-74.0768697
-394	Temporal AV. Jiménez - Inter Eléctricas	troncal	4.60305325	-74.07909278	J - Eje Ambiental	Media	272	4.6030533	-74.0790928
-395	Movistar Arena	troncal	4.65003985	-74.07836246	E - NQS Central	Media	272	4.6500399	-74.0783625
-396	Calle 76 - San Felipe	troncal	4.66302945	-74.06126126	A - Caracas	Alta	320	4.6630295	-74.0612613
-397	Calle 63	troncal	4.64840397	-74.06487053	A - Caracas	Baja	0	4.6484040	-74.0648705
-398	Calle 85	troncal	4.67231279	-74.05964363	B - Autopista Norte	Alta	320	4.6723128	-74.0596436
-399	NQS - Calle 30 S	troncal	4.59479847	-74.11788075	G - NQS Sur	Media	232	4.5947985	-74.1178808
-400	Country Sur	troncal	4.57141673	-74.09863413	L - Carrera Decima	Media	264	4.5714167	-74.0986341
-401	Carrera 47	troncal	4.67775575	-74.07325476	D - Calle 80	Alta	304	4.6777558	-74.0732548
-402	Portal 80	portal	4.70982949	-74.11050627	D - Calle 80	Baja	165	4.7098295	-74.1105063
-403	Olaya	troncal	4.57891519	-74.10736382	H - Caracas Sur	Alta	296	4.5789152	-74.1073638
-404	Molinos	troncal	4.55706456	-74.12182779	H - Caracas Sur	Alta	304	4.5570646	-74.1218278
-405	Nariño	troncal	4.58628471	-74.09392542	H - Caracas Sur	Baja	144	4.5862847	-74.0939254
-406	Gratamira	troncal	4.72745584	-74.07472334	C - Suba	Baja	144	4.7274558	-74.0747233
-407	Pradera - Plaza Central	troncal	4.62850646	-74.11867713	F - Americas	Baja	200	4.6285065	-74.1186771
-408	Las Nieves	troncal	4.60606534	-74.07432675	L - Carrera Decima	Media	264	4.6060653	-74.0743268
-409	Modelia	troncal	4.67502466	-74.11714710	K - Calle 26	Media	260	4.6750247	-74.1171471
-410	Portal El Dorado – C.C. Nuestro Bogotá	portal	4.68162203	-74.12139802	K - Calle 26	Media	216	4.6816220	-74.1213980
-411	Museo del Oro	troncal	4.60115298	-74.07290843	J - Eje Ambiental	Baja	144	4.6011530	-74.0729084
-412	General Santander	troncal	4.59355114	-74.12954496	G - NQS Sur	Alta	404	4.5935511	-74.1295450
-413	Portal 20 de Julio	portal	4.56571812	-74.09700841	L - Carrera Decima	Alta	350	4.5657181	-74.0970084
-414	Humedal Córdoba	troncal	4.70668982	-74.07117427	C - Suba	Baja	156	4.7066898	-74.0711743
-415	Parque	troncal	4.56832656	-74.13541451	Portal Tunal	Baja	60	4.5683266	-74.1354145
-416	Policarpa	troncal	4.58611582	-74.08701654	L - Carrera Decima	Media	264	4.5861158	-74.0870165
-417	Museo Nacional	troncal	4.61524490	-74.06921969	M - Carrera Septima	Media	240	4.6152449	-74.0692197
-418	Hospital	troncal	4.59505052	-74.08622629	H - Caracas Sur	Baja	96	4.5950505	-74.0862263
-419	Normandía	troncal	4.66900868	-74.11328003	K - Calle 26	Media	260	4.6690087	-74.1132800
-420	Perdomo	troncal	4.59578778	-74.16496973	G - NQS Sur	Baja	200	4.5957878	-74.1649697
-421	Hortúa	troncal	4.59084725	-74.09024600	H - Caracas Sur	Baja	192	4.5908473	-74.0902460
-422	Portal Usme	portal	4.53171458	-74.11939099	Portal Usme	Baja	210	4.5317146	-74.1193910
-423	Ferias	troncal	4.69088593	-74.08460127	D - Calle 80	Baja	152	4.6908859	-74.0846013
-424	Temporal Marly	troncal	4.63755905	-74.06678795	A - Caracas	Alta	320	4.6375591	-74.0667880
-425	Patio Bonito	troncal	4.63318028	-74.16461427	F - Americas	Alta	304	4.6331803	-74.1646143
-426	Portal Tunal	portal	4.56957146	-74.13924020	Portal Tunal	Baja	152	4.5695715	-74.1392402
-427	Fucha	troncal	4.58297258	-74.09940175	H - Caracas Sur	Baja	144	4.5829726	-74.0994018
-428	Minuto de Dios	troncal	4.69688160	-74.09193285	D - Calle 80	Alta	296	4.6968816	-74.0919329
-429	Portal Américas	portal	4.62938131	-74.17305846	F - Americas	Alta	342	4.6293813	-74.1730585
-430	Las Aguas - Centro Colombo Americano	troncal	4.60257976	-74.06840144	J - Eje Ambiental	Baja	120	4.6025798	-74.0684014
-431	Portal Suba	portal	4.74681507	-74.09427890	C - Suba	Alta	304	4.7468151	-74.0942789
-432	Suba - AV. Boyacá	troncal	4.72126716	-74.07471163	C - Suba	Baja	144	4.7212672	-74.0747116
-433	Santa Lucía	troncal	4.57096848	-74.12470872	H - Caracas Sur	Media	272	4.5709685	-74.1247087
-434	San Martín	troncal	4.67638966	-74.06717674	C - Suba	Baja	192	4.6763897	-74.0671767
-435	Universidades – CityU	troncal	4.60464623	-74.06731585	K - Calle 26	Media	260	4.6046462	-74.0673159
-436	Santa Isabel	troncal	4.60167503	-74.10261755	G - NQS Sur	Media	240	4.6016750	-74.1026176
-437	Suba - Calle 95	troncal	4.68469464	-74.06321827	C - Suba	Baja	144	4.6846946	-74.0632183
-438	Puente Aranda	troncal	4.62566974	-74.10463943	F - Americas	Baja	168	4.6256697	-74.1046394
-439	Quiroga	troncal	4.57680973	-74.11438051	H - Caracas Sur	Baja	144	4.5768097	-74.1143805
-440	Puentelargo	troncal	4.69340077	-74.06720874	C - Suba	Baja	200	4.6934008	-74.0672087
-441	San Victorino	troncal	4.60102943	-74.07742242	L - Carrera Decima	Alta	384	4.6010294	-74.0774224
-442	CC Paseo Villa del Río - Madelena	troncal	4.59628094	-74.15688105	G - NQS Sur	Baja	204	4.5962809	-74.1568811
-443	San Mateo - CC Unisur	troncal	4.58596064	-74.20544974	Zona Leon XIII	Alta	424	4.5859606	-74.2054497
-444	Sevillana	troncal	4.59510726	-74.14741029	G - NQS Sur	Baja	204	4.5951073	-74.1474103
-445	Rionegro	troncal	4.68035106	-74.06481662	C - Suba	Baja	144	4.6803511	-74.0648166
-446	Suba - Calle 116	troncal	4.69924111	-74.06984394	C - Suba	Baja	200	4.6992411	-74.0698439
-447	San Bernardo	troncal	4.59019556	-74.08432732	L - Carrera Decima	Media	264	4.5901956	-74.0843273
-448	SENA	troncal	4.59737051	-74.11064255	G - NQS Sur	Alta	304	4.5973705	-74.1106426
-449	San Facon Carrera 22	troncal	4.60973521	-74.08679478	F - Americas	Media	272	4.6097352	-74.0867948
-450	Socorro	troncal	4.56465328	-74.12558394	H - Caracas Sur	Baja	200	4.5646533	-74.1255839
-451	21 Ángeles	troncal	4.73550811	-74.08098652	C - Suba	Baja	144	4.7355081	-74.0809865
-452	Temporal Calle 34	troncal	4.62157551	-74.06971918	A - Caracas	Alta	320	4.6215755	-74.0697192
-453	Venecia	troncal	4.59556283	-74.14264921	G - NQS Sur	Baja	204	4.5955628	-74.1426492
-454	Danubio	troncal	4.54365433	-74.12085159	Portal Usme	Alta	304	4.5436543	-74.1208516
-455	Portal Sur - JFK Coop. Financiera	portal	4.59693995	-74.16929784	G - NQS Sur	Media	228	4.5969400	-74.1692978
-456	Temporal Calle 22	troncal	4.61001988	-74.07554139	A - Caracas	Alta	320	4.6100199	-74.0755414
-457	Temporal AV. 39	troncal	4.62689718	-74.06869679	A - Caracas	Alta	312	4.6268972	-74.0686968
-458	Temporal Flores – Areandina	troncal	4.65490299	-74.06300913	A - Caracas	Baja	192	4.6549030	-74.0630091
-459	Tibanica - Primavera	troncal	4.60672702	-74.20605303	Zona Tibanica	Alta	304	4.6067270	-74.2060530
-460	Los Laureles	troncal	4.61109139	-74.20232841	Zona Tibanica	Alta	304	4.6110914	-74.2023284
-461	Islandia	troncal	4.61434757	-74.19374374	Zona Tibanica	Alta	304	4.6143476	-74.1937437
+COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeracion, capacidad, lat, lng, direccion, portal) FROM stdin;
+312	San Diego	troncal	4.61089909	-74.07150007	L - Carrera Decima	Alta	288	4.6108991	-74.0715001	KR 10 - CL 23	Portal 20 de Julio
+314	Ricaurte - NQS	troncal	4.61168378	-74.09386595	E - NQS Central	Alta	392	4.6116838	-74.0938660	KR 30 - CL 10	Portal 20 de Julio
+316	Suba - Calle 100	troncal	4.68696834	-74.06444284	C - Suba	Alta	304	4.6869683	-74.0644428	AV Suba - CL 100	Portal Suba
+318	AV. Boyacá	troncal	4.69393268	-74.08713194	D - Calle 80	Alta	304	4.6939327	-74.0871319	TV 69 Bis	Portal 80
+317	Calle 75 - Zona M	troncal	4.67015101	-74.07130492	E - NQS Central	Media	272	4.6701510	-74.0713049	KR 30 - CL 75A	Portal 20 de Julio
+322	Niza - Calle 127	troncal	4.71200123	-74.07230720	C - Suba	Baja	200	4.7120012	-74.0723072	AV Suba - CL 127	Portal Suba
+320	AV. Américas - AV. Boyacá	troncal	4.63011780	-74.13422457	F - Americas	Media	272	4.6301178	-74.1342246	AV Americas - KR 71	Portal Américas
+321	Marsella	troncal	4.62967723	-74.13016385	F - Americas	Alta	320	4.6296772	-74.1301639	AV Americas - KR 69C	Portal Américas
+323	La Campiña	troncal	4.74265433	-74.09120046	C - Suba	Alta	352	4.7426543	-74.0912005	AV Suba - KR 98A	Portal Suba
+326	Guatoque - Veraguas	troncal	4.60417101	-74.09493313	G - NQS Sur (ramal)	Media	240	4.6041710	-74.0949331	KR 27	Portal Sur - JFK Coop. Financiera
+325	Corferias	troncal	4.63430649	-74.08970085	K - Calle 26	Media	252	4.6343065	-74.0897009	KR 43	Portal 20 de Julio
+335	AV. 68	troncal	4.68610088	-74.08076896	D - Calle 80	Alta	296	4.6861009	-74.0807690	KR 68D	Portal 80
+327	CDS - Carrera 32	troncal	4.61613616	-74.09394954	F - Americas	Baja	168	4.6161362	-74.0939495	AV Americas - KR 32	Portal Américas
+328	Ciudad Universitaria - Lotería de Bogotá	troncal	4.63087543	-74.08352723	K - Calle 26	Media	260	4.6308754	-74.0835272	KR 34	Portal 20 de Julio
+329	Universidad Nacional	troncal	4.63712105	-74.07932618	E - NQS Central	Alta	412	4.6371211	-74.0793262	KR 30 - CL 45	Portal 20 de Julio
+331	Tercer Milenio	troncal	4.59813501	-74.08383625	A - Caracas	Alta	320	4.5981350	-74.0838363	CL 8 - CL 6	Portal Norte – Unicervantes
+332	Concejo de Bogotá	troncal	4.62598737	-74.08028966	K - Calle 26	Media	260	4.6259874	-74.0802897	CL 38	Portal 20 de Julio
+337	Polo - FINCOMERCIO	troncal	4.67016265	-74.06433866	D - Calle 80	Alta	360	4.6701627	-74.0643387	TV 27	Portal 80
+334	7 de Agosto	troncal	4.65729528	-74.07768646	E - NQS Central	Media	260	4.6572953	-74.0776865	KR 30 - CL 63	Portal 20 de Julio
+344	Carrera 90	troncal	4.70466646	-74.10457027	D - Calle 80	Alta	304	4.7046665	-74.1045703	KR 90	Portal 80
+347	Escuela Militar	troncal	4.67553501	-74.06980215	D - Calle 80	Media	272	4.6755350	-74.0698022	KR 40	Portal 80
+339	Quinta Paredes	troncal	4.63750353	-74.09313226	K - Calle 26	Media	260	4.6375035	-74.0931323	KR 47	Portal 20 de Julio
+340	Salitre - El Greco	troncal	4.65086482	-74.10164882	K - Calle 26	Media	260	4.6508648	-74.1016488	KR 66	Portal 20 de Julio
+341	Zona Industrial	troncal	4.62032526	-74.09868611	F - Americas	Baja	168	4.6203253	-74.0986861	CL 13 - KR 38	Portal Américas
+342	León XIII	troncal	4.59217281	-74.19313531	Zona Leon XIII	Media	224	4.5921728	-74.1931353	Soacha	Portal Usme
+343	Paloquemao	troncal	4.61692188	-74.08955344	E - NQS Central	Media	272	4.6169219	-74.0895534	KR 30 - CL 19	Portal 20 de Julio
+349	AV. Cali	troncal	4.70248285	-74.10028965	D - Calle 80	Alta	304	4.7024829	-74.1002897	KR 86	Portal 80
+346	Terreros - Hospital Cardio Vascular	troncal	4.58896270	-74.19952261	Zona Leon XIII	Alta	356	4.5889627	-74.1995226	Soacha	Portal Usme
+350	Suba - TV. 91	troncal	4.73893679	-74.08699228	C - Suba	Media	264	4.7389368	-74.0869923	AV Suba KR 90	Portal Suba
+348	Mandalay	troncal	4.63086366	-74.14129817	F - Americas	Media	240	4.6308637	-74.1412982	AV Americas KR 73	Portal Américas
+353	Prado	troncal	4.71455843	-74.05255829	B - Autopista Norte	Media	248	4.7145584	-74.0525583	CL 128 B	Portal Norte – Unicervantes
+354	Terminal	troncal	4.76881876	-74.04357255	B - Autopista Norte	Baja	152	4.7688188	-74.0435726	CL 190	Portal Norte – Unicervantes
+351	Ricaurte - CL 13	troncal	4.61301798	-74.09047650	F - Americas	Alta	312	4.6130180	-74.0904765	CL 13 - KR 28	Portal Américas
+355	Virrey	troncal	4.67599737	-74.05901952	B - Autopista Norte	Alta	352	4.6759974	-74.0590195	CL 90	Portal Norte – Unicervantes
+358	Calle 100 - Marketmedios	troncal	4.68394944	-74.05771230	B - Autopista Norte	Alta	392	4.6839494	-74.0577123	CL 97	Portal Norte – Unicervantes
+359	Calle 142	troncal	4.72685009	-74.05050333	B - Autopista Norte	Baja	180	4.7268501	-74.0505033	CL 142	Portal Norte – Unicervantes
+360	Portal Norte – Unicervantes	portal	4.75462286	-74.04604465	B - Autopista Norte	Baja	210	4.7546229	-74.0460447	CL 173	Portal Norte – Unicervantes
+361	Calle 187	troncal	4.76333655	-74.04444370	B - Autopista Norte	Baja	152	4.7633366	-74.0444437	CL 184	Portal Norte – Unicervantes
+362	Alcalá – Colegio S. Tomás Dominicos	troncal	4.72115820	-74.05145916	B - Autopista Norte	Alta	392	4.7211582	-74.0514592	CL 137	Portal Norte – Unicervantes
+363	Calle 146	troncal	4.73089106	-74.04981123	B - Autopista Norte	Media	248	4.7308911	-74.0498112	CL 146	Portal Norte – Unicervantes
+364	Calle 127	troncal	4.70463964	-74.05422516	B - Autopista Norte	Baja	200	4.7046396	-74.0542252	CL 127	Portal Norte – Unicervantes
+365	Héroes - Colmena Seguros	troncal	4.66813603	-74.06030995	B - Autopista Norte	Media	264	4.6681360	-74.0603100	CL 80	Portal Norte – Unicervantes
+368	Mazurén	troncal	4.73458855	-74.04922624	B - Autopista Norte	Media	248	4.7345886	-74.0492262	CL 152	Portal Norte – Unicervantes
+370	Carrera 53	troncal	4.68180475	-74.07742142	D - Calle 80	Baja	152	4.6818048	-74.0774214	KR 53	Portal 80
+369	Calle 45 - American School Way	troncal	4.63145241	-74.06787872	A - Caracas	Alta	320	4.6314524	-74.0678787	CL 45 - CL 42A	Portal Norte – Unicervantes
+310	CAN	troncal	4.64687639	-74.09904645	K - Calle 26	Media	260	4.6468764	-74.0990465	KR 60	Portal 20 de Julio
+371	La Castellana	troncal	4.67561116	-74.06444317	E - NQS Central	Media	232	4.6756112	-74.0644432	KR 30 KR 24	Portal 20 de Julio
+372	AV. 1 Mayo	troncal	4.57693931	-74.09370940	L - Carrera Decima	Alta	384	4.5769393	-74.0937094	AV 1 De Mayo Con KR 7	Portal 20 de Julio
+374	La Despensa	troncal	4.59459382	-74.18811218	Zona Leon XIII	Media	224	4.5945938	-74.1881122	Soacha	Portal Usme
+315	Quirigua	troncal	4.70672525	-74.10873932	D - Calle 80	Baja	152	4.7067253	-74.1087393	KR 94	Portal 80
+311	Campín - UAN	troncal	4.64539756	-74.07871009	E - NQS Central	Media	272	4.6453976	-74.0787101	KR 30 - CL 53	Portal 20 de Julio
+386	Biblioteca	troncal	4.57030352	-74.13038868	Portal Tunal	Baja	60	4.5703035	-74.1303887	CL 48A Sur	Portal Tunal
+381	El Tiempo – Cámara de Comercio de Bogotá	troncal	4.65706705	-74.10564666	K - Calle 26	Media	240	4.6570671	-74.1056467	KR 68D	Portal 20 de Julio
+382	Biblioteca Tintal	troncal	4.63790778	-74.15935249	F - Americas	Alta	304	4.6379078	-74.1593525	AV Cali - CL 26 Sur	Portal Américas
+383	Ciudad Jardín - UAN	troncal	4.58154254	-74.09035160	L - Carrera Decima	Media	264	4.5815425	-74.0903516	KR 10 - CL 12 Sur	Portal 20 de Julio
+384	Bicentenario	troncal	4.59402077	-74.08183542	L - Carrera Decima	Alta	384	4.5940208	-74.0818354	KR 10 - CL 5	Portal 20 de Julio
+385	Temporal Calle 57	troncal	4.64298162	-74.06582826	A - Caracas	Alta	320	4.6429816	-74.0658283	CL 57 - CL 54	Portal Norte – Unicervantes
+389	Alquería	troncal	4.59426993	-74.13426993	G - NQS Sur	Baja	204	4.5942699	-74.1342699	Autosur - KR 48	Portal Sur - JFK Coop. Financiera
+387	AV. ElDorado	troncal	4.63066841	-74.07987857	E - NQS Central	Media	260	4.6306684	-74.0798786	KR 30 AV 28	Portal 20 de Julio
+390	Bosa	troncal	4.59688795	-74.18122500	G - NQS Sur	Media	272	4.5968880	-74.1812250	Soacha	Portal Sur - JFK Coop. Financiera
+399	NQS - Calle 30 S	troncal	4.59479847	-74.11788075	G - NQS Sur	Media	232	4.5947985	-74.1178808	Autosur - DG 26 Sur	Portal Sur - JFK Coop. Financiera
+391	CAD	troncal	4.62341573	-74.08418121	E - NQS Central	Media	272	4.6234157	-74.0841812	KR 30 - CL 26	Portal 20 de Julio
+392	Banderas	troncal	4.63129454	-74.14576996	F - Americas	Alta	608	4.6312945	-74.1457700	AV Americas - KR 78	Portal Américas
+393	Calle 19	troncal	4.60786462	-74.07686968	A - Caracas	Alta	320	4.6078646	-74.0768697	CL 19 - CL 17	Portal Norte – Unicervantes
+396	Calle 76 - San Felipe	troncal	4.66302945	-74.06126126	A - Caracas	Alta	320	4.6630295	-74.0612613	CL 76 - CL 74	Portal Norte – Unicervantes
+397	Calle 63	troncal	4.64840397	-74.06487053	A - Caracas	Baja	0	4.6484040	-74.0648705	CL 63 - CL 60	Portal Norte – Unicervantes
+401	Carrera 47	troncal	4.67775575	-74.07325476	D - Calle 80	Alta	304	4.6777558	-74.0732548	KR 46	Portal 80
+402	Portal 80	portal	4.70982949	-74.11050627	D - Calle 80	Baja	165	4.7098295	-74.1105063	KR 96	Portal 80
+403	Olaya	troncal	4.57891519	-74.10736382	H - Caracas Sur	Alta	296	4.5789152	-74.1073638	CL 24 Sur - CL 27 Sur	Portal Sur - JFK Coop. Financiera
+404	Molinos	troncal	4.55706456	-74.12182779	H - Caracas Sur	Alta	304	4.5570646	-74.1218278	KR 9A	Portal Sur - JFK Coop. Financiera
+405	Nariño	troncal	4.58628471	-74.09392542	H - Caracas Sur	Baja	144	4.5862847	-74.0939254	CL 8 Sur - CL 11 Sur	Portal Sur - JFK Coop. Financiera
+406	Gratamira	troncal	4.72745584	-74.07472334	C - Suba	Baja	144	4.7274558	-74.0747233	AV Suba - CL 135	Portal Suba
+414	Humedal Córdoba	troncal	4.70668982	-74.07117427	C - Suba	Baja	156	4.7066898	-74.0711743	AV Suba - CL 119	Portal Suba
+418	Hospital	troncal	4.59505052	-74.08622629	H - Caracas Sur	Baja	96	4.5950505	-74.0862263	CL 4 - CL 2	Portal Sur - JFK Coop. Financiera
+408	Las Nieves	troncal	4.60606534	-74.07432675	L - Carrera Decima	Media	264	4.6060653	-74.0743268	KR 10 - CL 18	Portal 20 de Julio
+409	Modelia	troncal	4.67502466	-74.11714710	K - Calle 26	Media	260	4.6750247	-74.1171471	KR 84	Portal 20 de Julio
+410	Portal El Dorado – C.C. Nuestro Bogotá	portal	4.68162203	-74.12139802	K - Calle 26	Media	216	4.6816220	-74.1213980	KR 87	Portal 20 de Julio
+411	Museo del Oro	troncal	4.60115298	-74.07290843	J - Eje Ambiental	Baja	144	4.6011530	-74.0729084	KR 2	Portal 20 de Julio
+413	Portal 20 de Julio	portal	4.56571812	-74.09700841	L - Carrera Decima	Alta	350	4.5657181	-74.0970084	KR 5 A CL 33 Sur	Portal 20 de Julio
+422	Portal Usme	portal	4.53171458	-74.11939099	Portal Usme	Baja	210	4.5317146	-74.1193910	CL 65C Sur	Portal Usme
+416	Policarpa	troncal	4.58611582	-74.08701654	L - Carrera Decima	Media	264	4.5861158	-74.0870165	KR 10 - CL 3 Sur	Portal 20 de Julio
+417	Museo Nacional	troncal	4.61524490	-74.06921969	M - Carrera Septima	Media	240	4.6152449	-74.0692197	KR 7 - CL 32	Portal Tunal
+423	Ferias	troncal	4.69088593	-74.08460127	D - Calle 80	Baja	152	4.6908859	-74.0846013	TV 67 Bis	Portal 80
+419	Normandía	troncal	4.66900868	-74.11328003	K - Calle 26	Media	260	4.6690087	-74.1132800	KR 73A	Portal 20 de Julio
+426	Portal Tunal	portal	4.56957146	-74.13924020	Portal Tunal	Baja	152	4.5695715	-74.1392402	AV Boyaca	Portal Tunal
+427	Fucha	troncal	4.58297258	-74.09940175	H - Caracas Sur	Baja	144	4.5829726	-74.0994018	CL 13 Sur - CL 16 Sur	Portal Sur - JFK Coop. Financiera
+428	Minuto de Dios	troncal	4.69688160	-74.09193285	D - Calle 80	Alta	296	4.6968816	-74.0919329	KR 73 A	Portal 80
+424	Temporal Marly	troncal	4.63755905	-74.06678795	A - Caracas	Alta	320	4.6375591	-74.0667880	CL 51 - CL 49	Portal Norte – Unicervantes
+431	Portal Suba	portal	4.74681507	-74.09427890	C - Suba	Alta	304	4.7468151	-74.0942789	AV Suba AV Cali	Portal Suba
+432	Suba - AV. Boyacá	troncal	4.72126716	-74.07471163	C - Suba	Baja	144	4.7212672	-74.0747116	AV Suba AV Boyaca	Portal Suba
+434	San Martín	troncal	4.67638966	-74.06717674	C - Suba	Baja	192	4.6763897	-74.0671767	AV Suba - CL 81	Portal Suba
+429	Portal Américas	portal	4.62938131	-74.17305846	F - Americas	Alta	342	4.6293813	-74.1730585	AV Cali - CL 43 Sur	Portal Américas
+436	Santa Isabel	troncal	4.60167503	-74.10261755	G - NQS Sur	Media	240	4.6016750	-74.1026176	KR 30 AV 3	Portal Sur - JFK Coop. Financiera
+439	Quiroga	troncal	4.57680973	-74.11438051	H - Caracas Sur	Baja	144	4.5768097	-74.1143805	CL 31 Sur - CL 32 Sur	Portal Sur - JFK Coop. Financiera
+440	Puentelargo	troncal	4.69340077	-74.06720874	C - Suba	Baja	200	4.6934008	-74.0672087	AV Suba TV 48	Portal Suba
+435	Universidades – CityU	troncal	4.60464623	-74.06731585	K - Calle 26	Media	260	4.6046462	-74.0673159	KR 3	Portal 20 de Julio
+377	Carrera 43 - Comapan	troncal	4.62278154	-74.10143788	F - Americas	Baja	168	4.6227815	-74.1014379	AV Americas - KR 43	Portal Américas
+438	Puente Aranda	troncal	4.62566974	-74.10463943	F - Americas	Baja	168	4.6256697	-74.1046394	CL 13 KR 47	Portal Américas
+441	San Victorino	troncal	4.60102943	-74.07742242	L - Carrera Decima	Alta	384	4.6010294	-74.0774224	KR 10 - CL 12	Portal 20 de Julio
+378	Consuelo	troncal	4.56022730	-74.12387433	H - Caracas Sur	Baja	192	4.5602273	-74.1238743	KR 11A - KR 10C	Portal Sur - JFK Coop. Financiera
+380	Comuneros	troncal	4.60424998	-74.09986137	G - NQS Sur	Media	252	4.6042500	-74.0998614	KR 30 - CL 6A	Portal Sur - JFK Coop. Financiera
+446	Suba - Calle 116	troncal	4.69924111	-74.06984394	C - Suba	Baja	200	4.6992411	-74.0698439	AV Suba CLL 114	Portal Suba
+448	SENA	troncal	4.59737051	-74.11064255	G - NQS Sur	Alta	304	4.5973705	-74.1106426	Autosur - CL 17 S	Portal Sur - JFK Coop. Financiera
+447	San Bernardo	troncal	4.59019556	-74.08432732	L - Carrera Decima	Media	264	4.5901956	-74.0843273	KR 10 - CL 1B Sur	Portal 20 de Julio
+450	Socorro	troncal	4.56465328	-74.12558394	H - Caracas Sur	Baja	200	4.5646533	-74.1255839	KR 13B - KR 13C	Portal Sur - JFK Coop. Financiera
+449	San Facon Carrera 22	troncal	4.60973521	-74.08679478	F - Americas	Media	272	4.6097352	-74.0867948	AV Americas - KR 22	Portal Américas
+451	21 Ángeles	troncal	4.73550811	-74.08098652	C - Suba	Baja	144	4.7355081	-74.0809865	AV Suba - CL 136	Portal Suba
+453	Venecia	troncal	4.59556283	-74.14264921	G - NQS Sur	Baja	204	4.5955628	-74.1426492	Autosur - AV 54	Portal Sur - JFK Coop. Financiera
+454	Danubio	troncal	4.54365433	-74.12085159	Portal Usme	Alta	304	4.5436543	-74.1208516	Av. Calle 51 Sur entre carrera 5 y calle 56 sur	Portal Usme
+455	Portal Sur - JFK Coop. Financiera	portal	4.59693995	-74.16929784	G - NQS Sur	Media	228	4.5969400	-74.1692978	Autosur - KR 82	Portal Sur - JFK Coop. Financiera
+456	Temporal Calle 22	troncal	4.61001988	-74.07554139	A - Caracas	Alta	320	4.6100199	-74.0755414	CL 24 - CL 22	Portal Norte – Unicervantes
+309	AV. Chile	troncal	4.66635264	-74.07457455	E - NQS Central	Alta	344	4.6663526	-74.0745746	KR 30 - CL 72	Portal 20 de Julio
+457	Temporal AV. 39	troncal	4.62689718	-74.06869679	A - Caracas	Alta	312	4.6268972	-74.0686968	AV 39 - AV Calle	Portal Norte – Unicervantes
+458	Temporal Flores – Areandina	troncal	4.65490299	-74.06300913	A - Caracas	Baja	192	4.6549030	-74.0630091	CL 69 - CL 67	Portal Norte – Unicervantes
+459	Tibanica - Primavera	troncal	4.60672702	-74.20605303	Zona Tibanica	Alta	304	4.6067270	-74.2060530	CL 78 A Y CL 78 F	Portal Usme
+460	Los Laureles	troncal	4.61109139	-74.20232841	Zona Tibanica	Alta	304	4.6110914	-74.2023284	Entre CL 80 J Y CL 81	Portal Usme
+461	Islandia	troncal	4.61434757	-74.19374374	Zona Tibanica	Alta	304	4.6143476	-74.1937437	KR 70 A Sur Y CL 69 Sur	Portal Usme
+333	Cl38A sur - CENTRO MAYOR	troncal	4.59380944	-74.12375508	G - NQS Sur	Media	212	4.5938094	-74.1237551	Autosur - KR 39A	Portal Sur - JFK Coop. Financiera
+319	Calle 40 Sur	troncal	4.57579415	-74.12007924	H - Caracas Sur	Alta	392	4.5757942	-74.1200792	CL 38 Sur - CL 40 Sur	Portal Sur - JFK Coop. Financiera
+352	Restrepo	troncal	4.58184906	-74.10142878	H - Caracas Sur	Baja	200	4.5818491	-74.1014288	CL 19 Sur - AV 1 De M	Portal Sur - JFK Coop. Financiera
+357	Pepe Sierra Universidad UTEL	troncal	4.69812689	-74.05530880	B - Autopista Norte	Baja	200	4.6981269	-74.0553088	CL 116	Portal Norte – Unicervantes
+366	Calle 161	troncal	4.74191530	-74.04800035	B - Autopista Norte	Baja	96	4.7419153	-74.0480004	CL 160	Portal Norte – Unicervantes
+415	Parque	troncal	4.56832656	-74.13541451	Portal Tunal	Baja	60	4.5683266	-74.1354145	CL 55 Sur	Portal Tunal
+420	Perdomo	troncal	4.59578778	-74.16496973	G - NQS Sur	Baja	200	4.5957878	-74.1649697	Autosur - KR 78C	Portal Sur - JFK Coop. Financiera
+437	Suba - Calle 95	troncal	4.68469464	-74.06321827	C - Suba	Baja	144	4.6846946	-74.0632183	AV Suba - CL 97	Portal Suba
+442	CC Paseo Villa del Río - Madelena	troncal	4.59628094	-74.15688105	G - NQS Sur	Baja	204	4.5962809	-74.1568811	Autosur - KR 67	Portal Sur - JFK Coop. Financiera
+444	Sevillana	troncal	4.59510726	-74.14741029	G - NQS Sur	Baja	204	4.5951073	-74.1474103	Sevillana	Portal Sur - JFK Coop. Financiera
+324	Transversal 86	troncal	4.63419465	-74.15206784	F - Americas	Media	240	4.6341947	-74.1520678	AV Americas - TV 86	Portal Américas
+330	Avenida Rojas - UNISALESIANA	troncal	4.66194444	-74.10877200	K - Calle 26	Alta	320	4.6619444	-74.1087720	CL 26 - KR 69 D	Portal 20 de Julio
+338	Tygua - San José	troncal	4.59978720	-74.08876139	G - NQS Sur (ramal)	Media	228	4.5997872	-74.0887614	KR 18	Portal Sur - JFK Coop. Financiera
+336	Distrito Grafiti	troncal	4.62785005	-74.11158411	F - Americas	Media	272	4.6278501	-74.1115841	Americas - KR 53A	Portal Américas
+345	Gobernación	troncal	4.64283002	-74.09653771	K - Calle 26	Media	260	4.6428300	-74.0965377	KR 54	Portal 20 de Julio
+373	De La Sabana	troncal	4.60542110	-74.08189427	F - Americas	Baja	168	4.6054211	-74.0818943	CL 13 - KR 16	Portal Américas
+375	Calle 72 - Areandina	troncal	4.65823755	-74.06206786	A - Caracas	Baja	0	4.6582376	-74.0620679	CL 72 - CL 70A	Portal Norte – Unicervantes
+376	Centro Memoria	troncal	4.62046499	-74.07632059	K - Calle 26	Media	260	4.6204650	-74.0763206	KR 20	Portal 20 de Julio
+388	Calle 26 - Atrio	troncal	4.61665155	-74.07215846	A - Caracas	Baja	0	4.6166516	-74.0721585	AV Calle 28 - CL 2	Portal Norte – Unicervantes
+394	Temporal AV. Jiménez - Inter Eléctricas	troncal	4.60305325	-74.07909278	J - Eje Ambiental	Media	272	4.6030533	-74.0790928	CL 13 - Caracas	Portal 20 de Julio
+400	Country Sur	troncal	4.57141673	-74.09863413	L - Carrera Decima	Media	264	4.5714167	-74.0986341	KR 10 - CL 28 Sur	Portal 20 de Julio
+407	Pradera - Plaza Central	troncal	4.62850646	-74.11867713	F - Americas	Baja	200	4.6285065	-74.1186771	AV Americas - KR 64	Portal Américas
+425	Patio Bonito	troncal	4.63318028	-74.16461427	F - Americas	Alta	304	4.6331803	-74.1646143	AV Cali - CL 40 Sur	Portal Américas
+430	Las Aguas - Centro Colombo Americano	troncal	4.60257976	-74.06840144	J - Eje Ambiental	Baja	120	4.6025798	-74.0684014	KR 3	Portal 20 de Julio
+443	San Mateo - CC Unisur	troncal	4.58596064	-74.20544974	Zona Leon XIII	Alta	424	4.5859606	-74.2054497	Soacha	Portal Usme
+356	Toberin - Foundever	troncal	4.74618498	-74.04725485	B - Autopista Norte	Alta	552	4.7461850	-74.0472549	CL 165	Portal Norte – Unicervantes
+367	Calle 106 - Maletas Explora	troncal	4.69298260	-74.05618243	B - Autopista Norte	Media	248	4.6929826	-74.0561824	CL 106	Portal Norte – Unicervantes
+398	Calle 85	troncal	4.67231279	-74.05964363	B - Autopista Norte	Alta	320	4.6723128	-74.0596436	CL 85	Portal Norte – Unicervantes
+412	General Santander	troncal	4.59355114	-74.12954496	G - NQS Sur	Alta	404	4.5935511	-74.1295450	Autosur - KR 43	Portal Sur - JFK Coop. Financiera
+433	Santa Lucía	troncal	4.57096848	-74.12470872	H - Caracas Sur	Media	272	4.5709685	-74.1247087	CL 46A Sur - Diagonal 4	Portal Sur - JFK Coop. Financiera
+313	Granja - Kr 77	troncal	4.69915096	-74.09601773	D - Calle 80	Alta	392	4.6991510	-74.0960177	KR 77 Bis	Portal 80
+395	Movistar Arena	troncal	4.65003985	-74.07836246	E - NQS Central	Media	272	4.6500399	-74.0783625	KR 30 - CL 57	Portal 20 de Julio
+421	Hortúa	troncal	4.59084725	-74.09024600	H - Caracas Sur	Baja	192	4.5908473	-74.0902460	CL 1 Sur - CL 3 Sur	Portal Sur - JFK Coop. Financiera
+445	Rionegro	troncal	4.68035106	-74.06481662	C - Suba	Baja	144	4.6803511	-74.0648166	AV Suba - CL 87	Portal Suba
+452	Temporal Calle 34	troncal	4.62157551	-74.06971918	A - Caracas	Alta	320	4.6215755	-74.0697192	AV Calle 34 - CL 3	Portal Norte – Unicervantes
+379	Temporal AV. Jiménez - Inter Eléctricas	troncal	4.60286688	-74.08040995	A - Caracas	Alta	288	4.6028669	-74.0804100	CL 13 - Caracas	Portal Norte – Unicervantes
 \.
 
 
@@ -767,6 +861,8 @@ COPY public.notificaciones (id, usuario, mensaje, tipo, creado_en, leido, usuari
 3	practica5@transmiflow.local	Tu reporte en Comuneros (ruta G11) fue atendido. Bus XYZ-789 en camino.	operador	2026-11-19 19:00:20.82182	f	35	18
 4	practica5@transmiflow.local	Tu reporte en Comuneros (ruta 4 H) fue atendido. Bus BCO-104 en camino.	operador	2026-11-19 19:42:13.786146	f	35	18
 5	practica5@transmiflow.local	Tu reporte en Comuneros (ruta G11) fue atendido. Bus BCO-101 en camino.	operador	2026-11-19 19:51:27.170141	f	35	18
+7	practica3@transmiflow.local	Tu reporte en Patio Bonito (ruta 5 C) fue atendido. Bus BCO-105 en camino.	operador	2026-11-19 20:30:19.909102	f	32	16
+8	practica3@transmiflow.local	Tu reporte en Patio Bonito (ruta 5 C) fue atendido. Bus BCO-105 en camino.	operador	2026-11-19 20:30:38.852136	f	32	16
 \.
 
 
@@ -774,14 +870,31 @@ COPY public.notificaciones (id, usuario, mensaje, tipo, creado_en, leido, usuari
 -- Data for Name: reportes; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.reportes (id, estacion, nivel, usuario, creado_en, ruta, estacion_id, ruta_id, usuario_id) FROM stdin;
-14	Portal Américas	Alta	practica1@transmiflow.local	2026-11-18 21:02:22.177271	B28	429	31	37
-15	Museo Nacional	Media	practica2@transmiflow.local	2026-11-18 20:55:22.178955	G47	417	72	36
-16	Patio Bonito	Alta	practica3@transmiflow.local	2026-11-18 20:48:22.179569	5 C	425	11	32
-17	Ricaurte - NQS	Media	practica4@transmiflow.local	2026-11-18 20:41:22.180118	B12	314	1	33
-18	Comuneros	Baja	practica5@transmiflow.local	2026-11-18 20:34:22.180599	G11	380	66	35
-19	Portal Norte – Unicervantes	Alta	practica6@transmiflow.local	2026-11-18 20:27:22.181188	B28	360	31	34
-30	Santa Lucía	Alta	johansrs32@gmail.com	2026-11-19 18:48:14.128189	D21	433	48	2
+COPY public.reportes (id, estacion, nivel, usuario, creado_en, ruta, estacion_id, ruta_id, usuario_id, vagon_id) FROM stdin;
+14	Portal Américas	Alta	practica1@transmiflow.local	2026-11-18 21:02:22.177271	B28	429	31	37	\N
+15	Museo Nacional	Media	practica2@transmiflow.local	2026-11-18 20:55:22.178955	G47	417	72	36	\N
+16	Patio Bonito	Alta	practica3@transmiflow.local	2026-11-18 20:48:22.179569	5 C	425	11	32	\N
+17	Ricaurte - NQS	Media	practica4@transmiflow.local	2026-11-18 20:41:22.180118	B12	314	1	33	\N
+18	Comuneros	Baja	practica5@transmiflow.local	2026-11-18 20:34:22.180599	G11	380	66	35	\N
+19	Portal Norte – Unicervantes	Alta	practica6@transmiflow.local	2026-11-18 20:27:22.181188	B28	360	31	34	\N
+39	Portal Américas	Alta	extra1@transmiflow.local	2026-11-19 19:47:24.966239	B28	429	31	42	\N
+40	Portal Américas	Alta	extra2@transmiflow.local	2026-11-19 18:47:24.967112	F28	429	61	44	\N
+41	Portal Norte – Unicervantes	Media	extra3@transmiflow.local	2026-11-19 17:47:24.967473	B28	360	31	41	\N
+42	Museo Nacional	Alta	extra4@transmiflow.local	2026-11-19 16:47:24.967751	G47	417	72	54	\N
+43	Museo Nacional	Media	extra5@transmiflow.local	2026-11-19 15:47:24.968033	2 M	417	5	46	\N
+44	Patio Bonito	Alta	extra6@transmiflow.local	2026-11-19 14:47:24.968343	5 C	425	11	45	\N
+45	Ricaurte - CL 13	Media	extra7@transmiflow.local	2026-11-19 13:47:24.968624	B12	351	1	55	\N
+46	Ricaurte - NQS	Alta	extra8@transmiflow.local	2026-11-19 12:47:24.968935	B12	314	1	43	\N
+47	Comuneros	Media	extra9@transmiflow.local	2026-11-19 11:47:24.969202	G11	380	66	52	\N
+30	Santa Lucía	Alta	johansrs32@gmail.com	2026-11-19 18:48:14.128189	D21	433	48	2	\N
+48	Santa Isabel	Baja	extra10@transmiflow.local	2026-11-19 10:47:24.969614	G11	436	66	49	\N
+49	Portal Suba	Alta	extra11@transmiflow.local	2026-11-19 09:47:24.969882	C19	431	40	51	\N
+50	Portal 80	Media	extra12@transmiflow.local	2026-11-19 08:47:24.970139	D10	402	46	48	\N
+51	Portal Tunal	Alta	extra13@transmiflow.local	2026-11-19 07:47:24.970387	K43	426	97	40	\N
+52	Portal Usme	Media	extra14@transmiflow.local	2026-11-19 06:47:24.970654	L41	422	105	50	\N
+53	Portal Sur - JFK Coop. Financiera	Alta	extra15@transmiflow.local	2026-11-19 05:47:24.9709	B46	455	32	56	\N
+54	Calle 26 - Atrio	Media	extra16@transmiflow.local	2026-11-19 04:47:24.971191	1 P	388	3	53	\N
+55	Temporal Calle 34	Alta	extra17@transmiflow.local	2026-11-19 03:47:24.971436	8 G	452	17	47	\N
 \.
 
 
@@ -4588,6 +4701,3993 @@ COPY public.usuarios (id, nombre, email, password, creado_en, rol, codigo_operad
 35	Usuario practica	practica5@transmiflow.local	$2b$10$practiceuserplaceholder0000000000000000000000000000000000000000000	2026-11-19 19:55:12.810913	usuario	\N
 36	Usuario practica	practica2@transmiflow.local	$2b$10$practiceuserplaceholder0000000000000000000000000000000000000000000	2026-11-19 19:55:12.810913	usuario	\N
 37	Usuario practica	practica1@transmiflow.local	$2b$10$practiceuserplaceholder0000000000000000000000000000000000000000000	2026-11-19 19:55:12.810913	usuario	\N
+40	Usuario practica	extra13@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+41	Usuario practica	extra3@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+42	Usuario practica	extra1@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+43	Usuario practica	extra8@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+44	Usuario practica	extra2@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+45	Usuario practica	extra6@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+46	Usuario practica	extra5@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+47	Usuario practica	extra17@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+48	Usuario practica	extra12@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+49	Usuario practica	extra10@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+50	Usuario practica	extra14@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+51	Usuario practica	extra11@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+52	Usuario practica	extra9@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+53	Usuario practica	extra16@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+54	Usuario practica	extra4@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+55	Usuario practica	extra7@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+56	Usuario practica	extra15@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+\.
+
+
+--
+-- Data for Name: vagon_rutas; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.vagon_rutas (id, vagon_id, ruta_id, orden) FROM stdin;
+1	2	9	23
+2	1	10	6
+3	2	19	23
+4	2	23	23
+5	2	1	23
+6	2	24	17
+7	2	26	19
+8	2	29	25
+9	2	31	25
+10	2	32	28
+11	2	35	28
+12	2	39	28
+13	2	41	21
+14	2	42	23
+15	1	44	15
+16	2	48	26
+17	2	49	23
+18	2	54	25
+19	1	60	14
+20	1	61	16
+21	1	62	2
+22	1	66	22
+23	1	67	16
+24	1	68	16
+25	1	69	14
+26	1	70	17
+27	1	73	9
+28	1	77	17
+29	1	79	14
+30	1	82	15
+31	1	90	16
+32	2	91	17
+33	1	95	18
+34	1	104	17
+35	1	123	16
+36	4	3	10
+37	3	4	7
+38	3	26	7
+39	3	28	7
+40	3	74	7
+41	3	81	7
+42	4	94	18
+43	4	95	30
+44	4	96	26
+45	4	97	28
+46	4	98	23
+47	4	99	27
+48	4	100	10
+49	4	101	16
+50	3	102	7
+51	3	116	7
+52	3	117	7
+53	3	118	6
+54	3	121	7
+55	6	9	20
+56	5	10	9
+57	6	19	20
+58	5	23	20
+59	6	1	20
+60	5	24	14
+61	5	26	16
+62	6	29	22
+63	6	31	22
+64	6	32	25
+65	6	35	25
+66	6	39	25
+67	5	41	18
+68	6	42	20
+69	5	44	12
+70	6	48	23
+71	6	49	20
+72	6	54	22
+73	6	55	25
+74	5	60	17
+75	5	61	19
+76	5	62	5
+77	6	66	25
+78	5	67	19
+79	6	68	19
+80	5	69	17
+81	6	70	20
+82	5	73	12
+83	5	77	20
+84	5	79	17
+85	5	82	18
+86	6	90	19
+87	6	91	20
+88	6	95	21
+89	6	104	20
+90	5	120	3
+91	5	123	19
+92	7	3	2
+93	8	4	15
+94	7	5	2
+95	8	6	10
+96	7	36	2
+97	7	44	2
+98	7	50	2
+99	7	52	10
+100	7	53	10
+101	7	63	2
+102	7	72	2
+103	7	85	3
+104	7	86	2
+105	8	89	26
+106	8	91	30
+107	8	92	26
+108	8	93	21
+109	7	94	10
+110	7	100	2
+111	7	101	8
+112	8	102	15
+113	8	106	18
+114	8	107	24
+115	7	108	2
+116	7	109	8
+117	8	110	19
+118	8	111	22
+119	8	112	10
+120	8	113	10
+121	8	114	18
+122	8	116	15
+123	8	118	12
+124	9	13	5
+125	10	14	12
+126	9	22	5
+127	9	34	5
+128	10	46	25
+129	10	47	40
+130	10	48	35
+131	10	49	32
+132	10	50	23
+133	10	51	27
+134	10	52	23
+135	10	53	27
+136	9	69	5
+137	9	78	5
+138	9	79	5
+139	9	89	5
+140	9	106	5
+141	9	107	5
+142	11	9	13
+143	12	10	16
+144	11	19	13
+145	11	23	13
+146	11	1	13
+147	11	24	7
+148	11	29	16
+149	11	31	16
+150	11	32	18
+151	11	35	18
+152	11	39	18
+153	11	41	11
+154	11	42	13
+155	11	48	16
+156	11	49	13
+157	12	54	16
+158	12	55	18
+159	12	56	18
+160	12	60	24
+161	12	61	26
+162	11	62	12
+163	12	66	32
+164	12	67	26
+165	12	68	26
+166	12	69	24
+167	12	70	27
+168	12	73	19
+169	12	74	17
+170	12	77	27
+171	12	79	24
+172	12	82	25
+173	12	90	25
+174	12	97	18
+175	11	98	13
+176	12	104	27
+177	11	120	10
+178	11	121	17
+179	12	123	26
+180	11	124	4
+181	13	13	2
+182	14	14	15
+183	13	22	2
+184	13	34	2
+185	14	46	28
+186	14	47	43
+187	14	48	38
+188	14	49	35
+189	14	50	26
+190	14	51	30
+191	14	52	26
+192	14	53	30
+193	13	69	2
+194	13	78	2
+195	13	79	2
+196	13	89	2
+197	13	106	2
+198	13	107	2
+199	16	15	11
+200	15	16	6
+201	15	33	11
+202	16	38	34
+203	16	39	34
+204	16	40	38
+205	16	41	27
+206	16	42	29
+207	16	43	19
+208	16	44	21
+209	15	45	8
+210	15	57	11
+211	15	70	11
+212	15	76	11
+213	15	77	11
+214	15	91	11
+215	15	104	11
+216	16	115	11
+217	18	9	24
+218	17	10	5
+219	18	19	24
+220	18	23	24
+221	18	1	24
+222	18	24	18
+223	18	26	20
+224	18	29	26
+225	18	31	26
+226	18	32	29
+227	18	35	29
+228	18	39	29
+229	18	41	22
+230	18	42	24
+231	18	44	16
+232	18	48	27
+233	18	49	24
+234	18	54	26
+235	17	60	13
+236	17	61	15
+237	17	62	1
+238	17	66	21
+239	17	67	15
+240	17	68	15
+241	17	69	13
+242	17	70	16
+243	17	73	8
+244	17	77	16
+245	17	79	13
+246	17	82	14
+247	17	90	15
+248	17	91	16
+249	17	95	17
+250	17	104	16
+251	17	123	15
+252	19	13	7
+253	20	14	10
+254	19	22	7
+255	19	34	7
+256	20	46	23
+257	20	47	38
+258	20	48	33
+259	20	49	30
+260	20	50	21
+261	20	51	25
+262	20	52	21
+263	20	53	25
+264	19	69	7
+265	19	78	7
+266	19	79	7
+267	19	89	7
+268	19	106	7
+269	19	107	7
+270	21	7	5
+271	22	8	18
+272	21	25	5
+273	21	30	5
+274	21	35	7
+275	21	37	7
+276	21	38	5
+277	21	39	7
+278	21	47	7
+279	21	48	5
+280	22	75	38
+281	22	76	40
+282	22	77	38
+283	22	78	38
+284	22	79	35
+285	22	80	38
+286	22	81	27
+287	22	82	36
+288	22	83	37
+289	22	84	38
+290	22	85	17
+291	22	86	13
+292	21	93	7
+293	21	99	7
+294	21	114	7
+295	23	11	7
+296	24	12	13
+297	23	20	7
+298	23	21	10
+299	23	29	7
+300	23	31	7
+301	23	40	7
+302	23	54	7
+303	24	57	42
+304	24	58	17
+305	24	59	17
+306	24	60	32
+307	24	61	34
+308	24	62	20
+309	24	63	17
+310	24	64	25
+311	24	65	10
+312	23	87	7
+313	23	88	3
+314	23	111	7
+315	24	125	27
+316	23	126	3
+317	25	11	8
+318	26	12	12
+319	25	20	8
+320	25	21	11
+321	25	29	8
+322	25	31	8
+323	25	40	8
+324	25	54	8
+325	26	57	41
+326	26	58	16
+327	26	59	16
+328	26	60	31
+329	26	61	33
+330	26	62	19
+331	26	63	16
+332	26	64	24
+333	26	65	11
+334	25	87	8
+335	25	88	4
+336	25	111	8
+337	26	125	26
+338	25	126	2
+339	27	15	7
+340	28	16	10
+341	27	33	7
+342	28	38	38
+343	28	39	38
+344	28	40	42
+345	28	41	31
+346	28	42	33
+347	28	43	23
+348	28	44	25
+349	28	45	12
+350	27	57	7
+351	27	70	7
+352	27	76	7
+353	27	77	7
+354	27	91	7
+355	27	104	7
+356	27	115	7
+357	29	15	2
+358	30	16	15
+359	29	33	2
+360	30	38	43
+361	30	39	43
+362	30	40	47
+363	30	41	36
+364	30	42	38
+365	30	43	28
+366	30	44	30
+367	30	45	17
+368	29	57	2
+369	29	70	2
+370	29	76	2
+371	29	77	2
+372	29	91	2
+373	29	104	2
+374	29	115	2
+375	31	11	4
+376	32	12	16
+377	31	20	4
+378	31	21	7
+379	31	29	4
+380	31	31	4
+381	31	40	4
+382	31	54	4
+383	32	57	45
+384	32	58	20
+385	32	60	35
+386	32	61	37
+387	32	62	23
+388	32	63	20
+389	32	64	28
+390	32	65	7
+391	31	87	4
+392	31	111	4
+393	32	125	30
+394	31	126	6
+395	33	3	7
+396	34	4	10
+397	34	7	22
+398	33	8	1
+399	33	26	10
+400	33	28	10
+401	33	44	8
+402	33	74	10
+403	33	81	10
+404	34	91	26
+405	34	94	15
+406	34	95	27
+407	34	96	23
+408	34	97	25
+409	34	98	20
+410	34	99	24
+411	33	100	7
+412	34	101	13
+413	33	102	10
+414	34	116	10
+415	34	117	10
+416	34	118	11
+417	33	121	10
+418	36	17	34
+419	35	18	1
+420	35	35	17
+421	35	39	17
+422	35	41	10
+423	35	48	15
+424	35	72	8
+425	36	77	28
+426	36	79	25
+427	36	82	26
+428	36	104	28
+429	36	105	18
+430	36	110	13
+431	35	119	4
+432	38	11	14
+433	37	12	6
+434	37	20	14
+435	37	21	17
+436	37	29	14
+437	37	31	14
+438	37	40	14
+439	38	54	14
+440	38	57	35
+441	37	58	10
+442	38	59	10
+443	38	60	25
+444	38	61	27
+445	37	62	13
+446	37	63	10
+447	38	64	18
+448	38	87	14
+449	38	88	10
+450	38	90	26
+451	38	111	14
+452	38	125	20
+453	39	3	6
+454	40	4	11
+455	40	7	21
+456	39	8	2
+457	39	26	11
+458	39	28	11
+459	39	44	6
+460	39	74	11
+461	39	81	11
+462	40	91	24
+463	40	94	14
+464	40	95	26
+465	40	96	22
+466	40	97	24
+467	40	98	19
+468	40	99	23
+469	39	100	6
+470	40	101	12
+471	39	102	11
+472	40	116	11
+473	40	117	11
+474	39	118	5
+475	39	121	11
+476	42	9	19
+477	41	10	10
+478	42	19	19
+479	41	23	19
+480	41	1	19
+481	41	24	13
+482	41	26	15
+483	42	29	21
+484	42	31	21
+485	42	32	24
+486	42	35	24
+487	42	39	24
+488	41	41	17
+489	41	42	19
+490	41	44	11
+491	42	48	22
+492	42	49	19
+493	42	54	21
+494	42	55	24
+495	41	60	18
+496	41	61	20
+497	41	62	6
+498	42	66	26
+499	42	67	20
+500	42	68	20
+501	41	69	18
+502	42	70	21
+503	41	73	13
+504	41	77	21
+505	41	79	18
+506	41	82	19
+507	42	90	20
+508	42	91	21
+509	42	95	22
+510	42	104	21
+511	41	120	4
+512	41	123	20
+513	44	3	13
+514	43	4	4
+515	43	26	4
+516	43	28	4
+517	43	74	4
+518	43	81	4
+519	44	94	21
+520	44	95	33
+521	44	96	29
+522	44	97	31
+523	44	98	26
+524	44	99	30
+525	44	100	13
+526	44	101	19
+527	43	102	4
+528	43	116	4
+529	43	117	4
+530	43	121	4
+531	46	7	13
+532	45	8	10
+533	46	11	19
+534	46	17	32
+535	45	18	3
+536	45	25	13
+537	45	27	9
+538	45	30	13
+539	45	35	15
+540	45	37	15
+541	45	38	13
+542	45	39	15
+543	45	41	8
+544	45	47	15
+545	45	48	13
+546	45	72	6
+547	46	75	30
+548	46	76	32
+549	46	77	30
+550	46	78	30
+551	46	79	27
+552	46	80	30
+553	46	81	19
+554	46	82	28
+555	46	83	29
+556	46	84	30
+557	45	85	9
+558	46	93	15
+559	45	99	15
+560	46	103	32
+561	46	104	30
+562	46	105	20
+563	46	110	15
+564	45	119	2
+565	47	3	5
+566	48	4	12
+567	48	7	20
+568	47	8	3
+569	48	9	17
+570	47	10	12
+571	48	19	17
+572	47	23	17
+573	47	1	17
+574	47	24	11
+575	47	26	14
+576	47	28	12
+577	47	29	19
+578	47	31	19
+579	48	32	22
+580	48	35	22
+581	47	39	22
+582	47	41	15
+583	47	42	17
+584	47	44	5
+585	48	48	20
+586	47	49	17
+587	48	54	19
+588	48	55	22
+589	48	60	20
+590	48	61	22
+591	47	62	8
+592	48	66	28
+593	48	67	22
+594	48	68	22
+595	48	69	20
+596	48	70	23
+597	47	73	15
+598	47	74	13
+599	48	77	23
+600	48	79	20
+601	47	81	12
+602	47	82	21
+603	48	90	22
+604	48	91	27
+605	48	94	13
+606	48	95	25
+607	48	96	21
+608	48	97	22
+609	48	98	17
+610	48	99	22
+611	47	100	5
+612	47	101	11
+613	47	102	12
+614	48	104	23
+615	48	116	12
+616	48	117	12
+617	47	118	4
+618	47	120	6
+619	47	121	13
+620	48	123	22
+621	49	9	8
+622	50	10	21
+623	49	19	8
+624	49	23	8
+625	49	1	8
+626	49	24	2
+627	49	32	13
+628	49	42	8
+629	49	49	8
+630	49	55	13
+631	50	56	13
+632	50	66	37
+633	50	67	31
+634	50	68	31
+635	50	69	29
+636	50	70	32
+637	50	72	13
+638	50	73	24
+639	50	74	22
+640	49	97	13
+641	49	98	8
+642	50	105	13
+643	49	110	8
+644	49	119	9
+645	50	120	15
+646	50	121	22
+647	50	123	31
+648	49	124	9
+649	52	9	22
+650	51	10	7
+651	52	19	22
+652	51	23	22
+653	52	1	22
+654	51	24	16
+655	51	26	18
+656	52	29	24
+657	52	31	24
+658	52	32	27
+659	52	35	27
+660	52	39	27
+661	52	41	20
+662	52	42	22
+663	51	44	14
+664	52	48	25
+665	52	49	22
+666	52	54	24
+667	52	55	27
+668	51	60	15
+669	51	61	17
+670	51	62	3
+671	52	66	23
+672	51	67	17
+673	52	68	17
+674	51	69	15
+675	51	70	18
+676	51	73	10
+677	51	77	18
+678	51	79	15
+679	51	82	16
+680	51	90	17
+681	52	91	18
+682	52	95	19
+683	51	104	18
+684	51	120	1
+685	51	123	17
+686	54	13	9
+687	53	14	8
+688	53	22	9
+689	53	34	9
+690	54	46	21
+691	54	47	36
+692	54	48	31
+693	54	49	28
+694	54	50	19
+695	54	51	23
+696	54	52	19
+697	54	53	23
+698	53	69	9
+699	53	78	9
+700	53	79	9
+701	53	89	9
+702	53	106	9
+703	53	107	9
+704	55	11	10
+705	56	12	10
+706	55	20	10
+707	55	21	13
+708	55	29	10
+709	55	31	10
+710	55	40	10
+711	55	54	10
+712	56	57	39
+713	56	58	14
+714	56	59	14
+715	56	60	29
+716	56	61	31
+717	56	62	17
+718	56	63	14
+719	56	64	22
+720	55	87	10
+721	55	88	6
+722	55	111	10
+723	56	125	24
+724	58	9	27
+725	57	10	2
+726	58	13	14
+727	57	14	3
+728	58	15	16
+729	57	16	1
+730	58	19	27
+731	58	21	36
+732	57	22	14
+733	58	23	27
+734	58	29	29
+735	58	33	16
+736	57	34	14
+737	58	38	29
+738	58	40	33
+739	57	43	14
+740	57	45	3
+741	58	46	16
+742	58	47	31
+743	58	50	14
+744	58	51	18
+745	58	52	14
+746	58	53	18
+747	57	57	16
+748	57	60	10
+749	57	66	18
+750	57	73	5
+751	57	76	16
+752	57	78	14
+753	57	89	14
+754	58	106	14
+755	57	107	14
+756	58	115	16
+757	57	125	1
+758	60	11	18
+759	60	17	33
+760	59	18	2
+761	59	27	8
+762	59	35	16
+763	59	39	16
+764	59	41	9
+765	59	48	14
+766	59	72	7
+767	60	77	29
+768	60	79	26
+769	60	82	27
+770	60	103	33
+771	60	104	29
+772	60	105	19
+773	60	110	14
+774	59	119	3
+775	61	3	8
+776	62	4	9
+777	61	26	9
+778	61	28	9
+779	61	44	7
+780	61	74	9
+781	61	81	9
+782	62	91	25
+783	62	94	16
+784	62	95	28
+785	62	96	24
+786	62	97	26
+787	62	98	21
+788	62	99	25
+789	61	100	8
+790	62	101	14
+791	61	102	9
+792	62	116	9
+793	61	117	9
+794	62	118	10
+795	61	121	9
+796	64	3	11
+797	63	4	6
+798	63	26	6
+799	63	28	6
+800	63	74	6
+801	63	81	6
+802	64	94	19
+803	64	95	31
+804	64	96	27
+805	64	97	29
+806	64	98	24
+807	64	99	28
+808	64	100	11
+809	64	101	17
+810	63	102	6
+811	63	116	6
+812	63	117	6
+813	64	118	7
+814	63	121	6
+815	66	11	13
+816	65	12	7
+817	65	20	13
+818	65	21	16
+819	65	29	13
+820	65	31	13
+821	65	40	13
+822	65	54	13
+823	66	57	36
+824	65	58	11
+825	66	59	11
+826	66	60	26
+827	66	61	28
+828	66	62	14
+829	65	63	11
+830	66	64	19
+831	66	87	13
+832	65	88	9
+833	66	111	13
+834	66	125	21
+835	67	32	3
+836	67	55	3
+837	67	56	3
+838	67	71	3
+839	67	97	3
+840	67	105	3
+841	68	119	19
+842	68	120	25
+843	68	121	32
+844	68	122	4
+845	68	123	41
+846	68	124	19
+847	70	9	15
+848	69	10	14
+849	69	19	15
+850	69	23	15
+851	69	1	15
+852	69	24	9
+853	69	29	17
+854	69	31	17
+855	69	32	20
+856	69	35	20
+857	69	39	20
+858	69	41	13
+859	69	42	15
+860	69	48	18
+861	69	49	15
+862	70	54	17
+863	70	55	20
+864	70	56	20
+865	70	60	22
+866	70	61	24
+867	69	62	10
+868	70	66	30
+869	70	67	24
+870	70	68	24
+871	70	69	22
+872	70	70	25
+873	70	73	17
+874	70	74	15
+875	70	77	25
+876	70	79	22
+877	70	82	23
+878	70	90	24
+879	70	97	20
+880	70	98	15
+881	70	104	25
+882	69	120	8
+883	69	121	15
+884	70	123	24
+885	69	124	2
+886	71	13	3
+887	72	14	14
+888	71	22	3
+889	71	34	3
+890	72	46	27
+891	72	47	42
+892	72	48	37
+893	72	49	34
+894	72	50	25
+895	72	51	29
+896	72	52	25
+897	72	53	29
+898	71	69	3
+899	71	78	3
+900	71	79	3
+901	71	89	3
+902	71	106	3
+903	71	107	3
+904	74	3	9
+905	73	4	8
+906	73	26	8
+907	73	28	8
+908	73	74	8
+909	73	81	8
+910	74	94	17
+911	74	95	29
+912	74	96	25
+913	74	97	27
+914	74	98	22
+915	74	99	26
+916	74	100	9
+917	74	101	15
+918	73	102	8
+919	73	116	8
+920	73	117	8
+921	74	118	9
+922	73	121	8
+923	75	32	2
+924	75	55	2
+925	75	56	2
+926	75	71	2
+927	75	97	2
+928	75	105	2
+929	76	119	20
+930	76	120	26
+931	76	121	33
+932	76	122	5
+933	76	123	42
+934	76	124	20
+935	78	9	25
+936	77	10	4
+937	78	13	12
+938	77	14	5
+939	78	15	15
+940	77	16	2
+941	78	19	25
+942	77	22	12
+943	78	23	25
+944	78	29	27
+945	78	33	15
+946	77	34	12
+947	78	38	30
+948	78	39	30
+949	78	40	34
+950	78	41	23
+951	78	42	25
+952	78	43	15
+953	78	44	17
+954	77	45	4
+955	78	46	18
+956	78	47	33
+957	78	48	28
+958	78	49	25
+959	78	50	16
+960	78	51	20
+961	78	52	16
+962	78	53	20
+963	77	57	15
+964	77	60	12
+965	77	66	20
+966	77	69	12
+967	77	70	15
+968	77	73	7
+969	77	76	15
+970	77	77	15
+971	77	78	12
+972	77	79	12
+973	77	89	12
+974	77	91	15
+975	77	104	15
+976	77	106	12
+977	77	107	12
+978	78	115	15
+979	79	11	6
+980	80	12	14
+981	79	20	6
+982	79	21	9
+983	79	29	6
+984	79	31	6
+985	79	40	6
+986	79	54	6
+987	80	57	43
+988	80	58	18
+989	80	59	18
+990	80	60	33
+991	80	61	35
+992	80	62	21
+993	80	63	18
+994	80	64	26
+995	80	65	9
+996	79	87	6
+997	79	88	2
+998	79	111	6
+999	80	125	28
+1000	79	126	4
+1001	81	13	4
+1002	82	14	13
+1003	81	22	4
+1004	81	34	4
+1005	82	46	26
+1006	82	47	41
+1007	82	48	36
+1008	82	49	33
+1009	82	50	24
+1010	82	51	28
+1011	82	52	24
+1012	82	53	28
+1013	81	69	4
+1014	81	78	4
+1015	81	79	4
+1016	81	89	4
+1017	81	106	4
+1018	81	107	4
+1019	83	15	3
+1020	84	16	14
+1021	83	33	3
+1022	84	38	42
+1023	84	39	42
+1024	84	40	46
+1025	84	41	35
+1026	84	42	37
+1027	84	43	27
+1028	84	44	29
+1029	84	45	16
+1030	83	57	3
+1031	83	70	3
+1032	83	76	3
+1033	83	77	3
+1034	83	91	3
+1035	83	104	3
+1036	83	115	3
+1037	85	9	14
+1038	86	10	15
+1039	86	11	15
+1040	85	12	5
+1041	85	19	14
+1042	85	20	15
+1043	85	21	18
+1044	85	23	14
+1045	85	1	14
+1046	85	24	8
+1047	85	29	15
+1048	85	31	15
+1049	85	32	19
+1050	85	35	19
+1051	85	39	19
+1052	85	40	15
+1053	85	41	12
+1054	85	42	14
+1055	85	48	17
+1056	85	49	14
+1057	86	54	15
+1058	86	55	19
+1059	86	56	19
+1060	86	57	34
+1061	85	58	9
+1062	85	59	9
+1063	86	60	23
+1064	86	61	25
+1065	85	62	11
+1066	85	63	9
+1067	86	64	17
+1068	86	66	31
+1069	86	67	25
+1070	86	68	25
+1071	86	69	23
+1072	86	70	26
+1073	86	73	18
+1074	86	74	16
+1075	86	77	26
+1076	86	79	23
+1077	86	82	24
+1078	86	87	15
+1079	86	88	11
+1080	86	90	27
+1081	86	97	19
+1082	85	98	14
+1083	86	104	26
+1084	86	111	15
+1085	85	120	9
+1086	85	121	16
+1087	86	123	25
+1088	85	124	3
+1089	86	125	19
+1090	87	7	8
+1091	88	8	15
+1092	87	25	8
+1093	87	30	8
+1094	87	35	10
+1095	87	37	10
+1096	87	38	8
+1097	87	39	10
+1098	87	47	10
+1099	87	48	8
+1100	88	75	35
+1101	88	76	37
+1102	88	77	35
+1103	88	78	35
+1104	88	79	32
+1105	88	80	35
+1106	88	81	24
+1107	88	82	33
+1108	88	83	34
+1109	88	84	35
+1110	88	85	14
+1111	87	93	10
+1112	87	99	10
+1113	89	17	10
+1114	90	18	25
+1115	90	22	22
+1116	90	23	35
+1117	90	1	31
+1118	90	24	25
+1119	90	25	35
+1120	90	26	27
+1121	90	27	31
+1122	90	28	31
+1123	90	29	37
+1124	90	30	35
+1125	90	31	33
+1126	90	32	36
+1127	90	33	24
+1128	90	34	22
+1129	90	35	36
+1130	90	36	20
+1131	90	37	37
+1132	89	43	6
+1133	89	46	8
+1134	89	51	10
+1135	89	60	2
+1136	89	61	8
+1137	89	66	10
+1138	89	67	8
+1139	89	68	8
+1140	89	75	8
+1141	89	80	8
+1142	89	82	7
+1143	89	83	7
+1144	89	84	8
+1145	89	90	8
+1146	89	92	8
+1147	89	95	10
+1148	89	96	2
+1149	89	103	10
+1150	89	123	8
+1151	91	17	1
+1152	92	18	34
+1153	92	23	44
+1154	92	26	36
+1155	92	27	40
+1156	92	34	31
+1157	91	51	1
+1158	91	66	1
+1159	91	95	1
+1160	91	103	1
+1161	93	17	15
+1162	94	18	20
+1163	94	22	17
+1164	94	23	30
+1165	94	25	30
+1166	94	27	26
+1167	94	28	26
+1168	94	29	32
+1169	94	30	30
+1170	94	33	19
+1171	94	34	17
+1172	94	36	15
+1173	94	37	32
+1174	93	43	11
+1175	93	46	13
+1176	93	51	15
+1177	93	60	7
+1178	93	66	15
+1179	93	75	13
+1180	93	80	13
+1181	93	83	12
+1182	93	84	13
+1183	93	92	13
+1184	93	96	7
+1185	93	103	15
+1186	95	17	4
+1187	96	18	31
+1188	96	22	28
+1189	96	23	41
+1190	96	1	37
+1191	96	24	31
+1192	96	25	41
+1193	96	26	33
+1194	96	27	37
+1195	96	30	41
+1196	96	31	39
+1197	96	32	42
+1198	96	34	28
+1199	96	35	42
+1200	96	36	26
+1201	96	37	43
+1202	95	46	2
+1203	95	51	4
+1204	95	61	2
+1205	95	66	4
+1206	95	67	2
+1207	95	68	2
+1208	95	75	2
+1209	95	80	2
+1210	95	82	1
+1211	95	83	1
+1212	95	84	2
+1213	95	90	2
+1214	95	92	2
+1215	95	95	4
+1216	95	103	4
+1217	95	123	2
+1218	97	17	12
+1219	98	18	23
+1220	98	22	20
+1221	98	23	33
+1222	98	1	29
+1223	98	24	23
+1224	98	25	33
+1225	98	26	25
+1226	98	27	29
+1227	98	28	29
+1228	98	29	35
+1229	98	30	33
+1230	98	31	31
+1231	98	32	34
+1232	98	33	22
+1233	98	34	20
+1234	98	35	34
+1235	98	36	18
+1236	98	37	35
+1237	97	43	8
+1238	97	46	10
+1239	97	51	12
+1240	97	60	4
+1241	97	61	10
+1242	97	66	12
+1243	97	67	10
+1244	97	68	10
+1245	97	75	10
+1246	97	80	10
+1247	97	82	9
+1248	97	83	9
+1249	97	84	10
+1250	97	90	10
+1251	97	92	10
+1252	97	95	12
+1253	97	96	4
+1254	97	103	12
+1255	97	123	10
+1256	99	17	14
+1257	100	18	21
+1258	100	22	18
+1259	100	23	31
+1260	100	1	27
+1261	100	24	21
+1262	100	25	31
+1263	100	26	23
+1264	100	27	27
+1265	100	28	27
+1266	100	29	33
+1267	100	30	31
+1268	100	31	29
+1269	100	32	32
+1270	100	33	20
+1271	100	34	18
+1272	100	35	32
+1273	100	36	16
+1274	100	37	33
+1275	99	43	10
+1276	99	46	12
+1277	99	51	14
+1278	99	60	6
+1279	99	61	12
+1280	99	66	14
+1281	99	67	12
+1282	99	68	12
+1283	99	75	12
+1284	99	80	12
+1285	99	82	11
+1286	99	83	11
+1287	99	84	12
+1288	99	90	12
+1289	99	92	12
+1290	99	95	14
+1291	99	96	6
+1292	99	103	14
+1293	99	123	12
+1294	101	17	8
+1295	102	18	27
+1296	102	22	24
+1297	102	23	37
+1298	102	1	33
+1299	102	24	27
+1300	102	25	37
+1301	102	26	29
+1302	102	27	33
+1303	102	30	37
+1304	102	31	35
+1305	102	32	38
+1306	102	33	26
+1307	102	34	24
+1308	102	35	38
+1309	102	36	22
+1310	102	37	39
+1311	101	43	4
+1312	101	46	6
+1313	101	51	8
+1314	101	61	6
+1315	101	66	8
+1316	101	67	6
+1317	101	68	6
+1318	101	75	6
+1319	101	80	6
+1320	101	82	5
+1321	101	83	5
+1322	101	84	6
+1323	101	90	6
+1324	101	92	6
+1325	101	95	8
+1326	101	103	8
+1327	101	123	6
+1328	103	17	3
+1329	104	18	32
+1330	104	22	29
+1331	104	23	42
+1332	104	1	38
+1333	104	24	32
+1334	104	25	42
+1335	104	26	34
+1336	104	27	38
+1337	104	30	42
+1338	104	31	40
+1339	104	32	43
+1340	104	34	29
+1341	104	36	27
+1342	104	37	44
+1343	103	46	1
+1344	103	51	3
+1345	103	61	1
+1346	103	66	3
+1347	103	67	1
+1348	103	68	1
+1349	103	75	1
+1350	103	80	1
+1351	103	84	1
+1352	103	90	1
+1353	103	92	1
+1354	103	95	3
+1355	103	103	3
+1356	103	123	1
+1357	105	17	2
+1358	106	18	33
+1359	106	23	43
+1360	106	26	35
+1361	106	27	39
+1362	106	34	30
+1363	105	51	2
+1364	105	66	2
+1365	105	95	2
+1366	105	103	2
+1367	107	17	9
+1368	108	18	26
+1369	108	22	23
+1370	108	23	36
+1371	108	1	32
+1372	108	24	26
+1373	108	25	36
+1374	108	26	28
+1375	108	27	32
+1376	108	28	32
+1377	108	29	38
+1378	108	30	36
+1379	108	31	34
+1380	108	32	37
+1381	108	33	25
+1382	108	34	23
+1383	108	35	37
+1384	108	36	21
+1385	108	37	38
+1386	107	43	5
+1387	107	46	7
+1388	107	51	9
+1389	107	60	1
+1390	107	61	7
+1391	107	66	9
+1392	107	67	7
+1393	107	68	7
+1394	107	75	7
+1395	107	80	7
+1396	107	82	6
+1397	107	83	6
+1398	107	84	7
+1399	107	90	7
+1400	107	92	7
+1401	107	95	9
+1402	107	96	1
+1403	107	103	9
+1404	107	123	7
+1405	109	17	7
+1406	110	18	28
+1407	110	22	25
+1408	110	23	38
+1409	110	1	34
+1410	110	24	28
+1411	110	25	38
+1412	110	26	30
+1413	110	27	34
+1414	110	30	38
+1415	110	31	36
+1416	110	32	39
+1417	110	33	27
+1418	110	34	25
+1419	110	35	39
+1420	110	36	23
+1421	110	37	40
+1422	109	43	3
+1423	109	46	5
+1424	109	51	7
+1425	109	61	5
+1426	109	66	7
+1427	109	67	5
+1428	109	68	5
+1429	109	75	5
+1430	109	80	5
+1431	109	82	4
+1432	109	83	4
+1433	109	84	5
+1434	109	90	5
+1435	109	92	5
+1436	109	95	7
+1437	109	103	7
+1438	109	123	5
+1439	111	17	11
+1440	112	18	24
+1441	112	22	21
+1442	112	23	34
+1443	112	1	30
+1444	112	24	24
+1445	112	25	34
+1446	112	26	26
+1447	112	27	30
+1448	112	28	30
+1449	112	29	36
+1450	112	30	34
+1451	112	31	32
+1452	112	32	35
+1453	112	33	23
+1454	112	34	21
+1455	112	35	35
+1456	112	36	19
+1457	112	37	36
+1458	111	43	7
+1459	111	46	9
+1460	111	51	11
+1461	111	60	3
+1462	111	61	9
+1463	111	66	11
+1464	111	67	9
+1465	111	68	9
+1466	111	75	9
+1467	111	80	9
+1468	111	82	8
+1469	111	83	8
+1470	111	84	9
+1471	111	90	9
+1472	111	92	9
+1473	111	95	11
+1474	111	96	3
+1475	111	103	11
+1476	111	123	9
+1477	114	9	28
+1478	113	10	1
+1479	114	13	15
+1480	113	14	2
+1481	113	17	17
+1482	114	18	18
+1483	114	19	28
+1484	114	21	35
+1485	114	22	15
+1486	114	23	28
+1487	114	25	28
+1488	114	27	24
+1489	114	28	24
+1490	114	29	30
+1491	114	30	28
+1492	114	33	17
+1493	113	34	15
+1494	113	36	13
+1495	114	37	30
+1496	114	38	28
+1497	114	40	32
+1498	113	43	13
+1499	113	45	2
+1500	114	46	15
+1501	114	47	30
+1502	113	50	13
+1503	114	51	17
+1504	113	52	13
+1505	114	53	17
+1506	113	57	17
+1507	113	60	9
+1508	113	66	17
+1509	113	73	4
+1510	113	75	15
+1511	113	76	17
+1512	113	78	15
+1513	113	80	15
+1514	113	83	14
+1515	113	84	15
+1516	114	89	15
+1517	114	92	15
+1518	113	96	9
+1519	113	103	17
+1520	114	106	15
+1521	113	107	15
+1522	114	115	17
+1523	113	125	2
+1524	115	17	5
+1525	116	18	30
+1526	116	22	27
+1527	116	23	40
+1528	116	1	36
+1529	116	24	30
+1530	116	25	40
+1531	116	26	32
+1532	116	27	36
+1533	116	30	40
+1534	116	31	38
+1535	116	32	41
+1536	116	33	29
+1537	116	34	27
+1538	116	35	41
+1539	116	36	25
+1540	116	37	42
+1541	115	43	1
+1542	115	46	3
+1543	115	51	5
+1544	115	61	3
+1545	115	66	5
+1546	115	67	3
+1547	115	68	3
+1548	115	75	3
+1549	115	80	3
+1550	115	82	2
+1551	115	83	2
+1552	115	84	3
+1553	115	90	3
+1554	115	92	3
+1555	115	95	5
+1556	115	103	5
+1557	115	123	3
+1558	117	17	13
+1559	118	18	22
+1560	118	22	19
+1561	118	23	32
+1562	118	1	28
+1563	118	24	22
+1564	118	25	32
+1565	118	26	24
+1566	118	27	28
+1567	118	28	28
+1568	118	29	34
+1569	118	30	32
+1570	118	31	30
+1571	118	32	33
+1572	118	33	21
+1573	118	34	19
+1574	118	35	33
+1575	118	36	17
+1576	118	37	34
+1577	117	43	9
+1578	117	46	11
+1579	117	51	13
+1580	117	60	5
+1581	117	61	11
+1582	117	66	13
+1583	117	67	11
+1584	117	68	11
+1585	117	75	11
+1586	117	80	11
+1587	117	82	10
+1588	117	83	10
+1589	117	84	11
+1590	117	90	11
+1591	117	92	11
+1592	117	95	13
+1593	117	96	5
+1594	117	103	13
+1595	117	123	11
+1596	119	17	6
+1597	120	18	29
+1598	120	22	26
+1599	120	23	39
+1600	120	1	35
+1601	120	24	29
+1602	120	25	39
+1603	120	26	31
+1604	120	27	35
+1605	120	30	39
+1606	120	31	37
+1607	120	32	40
+1608	120	33	28
+1609	120	34	26
+1610	120	35	40
+1611	120	36	24
+1612	120	37	41
+1613	119	43	2
+1614	119	46	4
+1615	119	51	6
+1616	119	61	4
+1617	119	66	6
+1618	119	67	4
+1619	119	68	4
+1620	119	75	4
+1621	119	80	4
+1622	119	82	3
+1623	119	83	3
+1624	119	84	4
+1625	119	90	4
+1626	119	92	4
+1627	119	95	6
+1628	119	103	6
+1629	119	123	4
+1630	122	17	24
+1631	121	18	11
+1632	122	20	25
+1633	122	21	28
+1634	121	25	21
+1635	121	27	17
+1636	122	28	17
+1637	121	30	21
+1638	121	36	6
+1639	122	37	23
+1640	121	38	21
+1641	122	40	25
+1642	122	47	23
+1643	121	50	6
+1644	121	53	15
+1645	121	57	24
+1646	121	64	7
+1647	122	75	22
+1648	122	76	24
+1649	121	78	22
+1650	122	80	22
+1651	122	83	21
+1652	121	84	22
+1653	122	89	22
+1654	122	92	22
+1655	121	96	16
+1656	121	101	5
+1657	122	103	24
+1658	122	107	21
+1659	121	109	5
+1660	122	113	14
+1661	122	117	18
+1662	121	125	9
+1663	124	13	10
+1664	123	14	7
+1665	123	22	10
+1666	123	34	10
+1667	124	46	20
+1668	124	47	35
+1669	124	48	30
+1670	124	49	27
+1671	124	50	18
+1672	124	51	22
+1673	124	52	18
+1674	124	53	22
+1675	123	69	10
+1676	123	78	10
+1677	123	79	10
+1678	123	89	10
+1679	123	106	10
+1680	123	107	10
+1681	126	1	26
+1682	126	24	20
+1683	126	26	22
+1684	126	31	28
+1685	126	32	31
+1686	126	35	31
+1687	125	61	13
+1688	125	67	13
+1689	125	68	13
+1690	125	82	12
+1691	125	90	13
+1692	125	95	15
+1693	125	123	13
+1694	128	5	9
+1695	127	6	3
+1696	127	27	3
+1697	127	41	3
+1698	127	52	3
+1699	127	53	3
+1700	127	86	9
+1701	127	94	3
+1702	128	102	22
+1703	128	103	38
+1704	128	104	35
+1705	128	106	25
+1706	128	107	31
+1707	128	108	9
+1708	128	109	15
+1709	127	112	3
+1710	127	113	3
+1711	128	114	11
+1712	130	11	17
+1713	129	12	3
+1714	130	20	17
+1715	130	21	20
+1716	129	40	17
+1717	130	57	32
+1718	129	58	7
+1719	129	59	7
+1720	129	63	7
+1721	129	64	15
+1722	130	87	17
+1723	130	88	13
+1724	130	90	29
+1725	130	111	17
+1726	129	125	17
+1727	131	32	4
+1728	131	55	4
+1729	131	56	4
+1730	132	71	4
+1731	131	97	4
+1732	131	105	4
+1733	132	119	18
+1734	132	120	24
+1735	132	121	31
+1736	131	122	3
+1737	132	123	40
+1738	132	124	18
+1739	134	17	19
+1740	133	18	16
+1741	134	19	30
+1742	134	20	30
+1743	134	21	33
+1744	134	25	26
+1745	134	27	22
+1746	134	28	22
+1747	134	30	26
+1748	133	36	11
+1749	134	37	28
+1750	134	38	26
+1751	134	40	30
+1752	134	47	28
+1753	133	50	11
+1754	133	57	19
+1755	133	64	2
+1756	133	73	2
+1757	133	75	17
+1758	133	76	19
+1759	133	78	17
+1760	133	80	17
+1761	133	83	16
+1762	133	84	17
+1763	134	89	17
+1764	134	92	17
+1765	133	96	11
+1766	133	103	19
+1767	133	125	4
+1768	135	3	4
+1769	136	4	13
+1770	136	7	19
+1771	135	8	4
+1772	135	28	13
+1773	135	44	4
+1774	135	81	13
+1775	136	91	28
+1776	135	94	12
+1777	136	96	20
+1778	136	99	21
+1779	135	100	4
+1780	135	101	10
+1781	136	102	13
+1782	136	116	13
+1783	136	117	13
+1784	135	118	3
+1785	138	11	12
+1786	137	12	8
+1787	137	20	12
+1788	137	21	15
+1789	137	29	12
+1790	137	31	12
+1791	137	40	12
+1792	137	54	12
+1793	138	57	37
+1794	138	58	12
+1795	138	59	12
+1796	138	60	27
+1797	138	61	29
+1798	138	62	15
+1799	138	63	12
+1800	138	64	20
+1801	138	87	12
+1802	137	88	8
+1803	138	111	12
+1804	138	125	22
+1805	139	35	4
+1806	139	37	4
+1807	139	39	4
+1808	139	47	4
+1809	140	77	41
+1810	140	78	41
+1811	140	81	30
+1812	140	82	39
+1813	140	84	41
+1814	140	85	20
+1815	140	86	16
+1816	139	93	4
+1817	139	99	4
+1818	139	114	4
+1819	142	7	14
+1820	141	8	9
+1821	142	11	20
+1822	141	12	2
+1823	142	17	31
+1824	141	18	4
+1825	142	20	18
+1826	142	21	21
+1827	141	25	14
+1828	141	27	10
+1829	141	30	14
+1830	141	37	16
+1831	141	38	14
+1832	141	40	18
+1833	141	47	16
+1834	142	57	31
+1835	141	58	6
+1836	141	59	6
+1837	141	63	6
+1838	141	64	14
+1839	142	75	29
+1840	142	76	31
+1841	142	78	29
+1842	142	80	29
+1843	142	81	18
+1844	142	83	28
+1845	142	84	29
+1846	141	85	8
+1847	142	87	18
+1848	142	88	14
+1849	142	90	30
+1850	142	93	16
+1851	141	99	16
+1852	142	103	31
+1853	142	111	18
+1854	141	125	16
+1855	143	9	12
+1856	144	10	17
+1857	143	19	12
+1858	143	23	12
+1859	143	1	12
+1860	143	24	6
+1861	143	32	17
+1862	143	42	12
+1863	143	49	12
+1864	144	55	17
+1865	144	56	17
+1866	144	66	33
+1867	144	67	27
+1868	144	68	27
+1869	144	69	25
+1870	144	70	28
+1871	143	72	9
+1872	144	73	20
+1873	144	74	18
+1874	143	97	17
+1875	143	98	12
+1876	144	105	17
+1877	144	110	12
+1878	143	119	5
+1879	143	120	11
+1880	144	121	18
+1881	144	123	27
+1882	143	124	5
+1883	146	3	12
+1884	145	4	5
+1885	145	26	5
+1886	145	28	5
+1887	145	74	5
+1888	145	81	5
+1889	146	94	20
+1890	146	95	32
+1891	146	96	28
+1892	146	97	30
+1893	146	98	25
+1894	146	99	29
+1895	146	100	12
+1896	146	101	18
+1897	145	102	5
+1898	145	116	5
+1899	145	117	5
+1900	145	121	5
+1901	147	11	3
+1902	148	12	17
+1903	147	20	3
+1904	147	21	6
+1905	147	29	3
+1906	147	31	3
+1907	147	40	3
+1908	147	54	3
+1909	148	57	46
+1910	148	58	21
+1911	148	60	36
+1912	148	61	38
+1913	148	62	24
+1914	148	63	21
+1915	148	64	29
+1916	147	65	6
+1917	147	87	3
+1918	147	111	3
+1919	148	125	31
+1920	148	126	7
+1921	150	5	8
+1922	149	6	4
+1923	149	27	4
+1924	149	41	4
+1925	149	52	4
+1926	149	53	4
+1927	149	86	8
+1928	149	94	4
+1929	150	102	21
+1930	150	103	37
+1931	150	104	34
+1932	150	106	24
+1933	150	107	30
+1934	150	108	8
+1935	150	109	14
+1936	149	112	4
+1937	149	113	4
+1938	150	114	12
+1939	151	5	5
+1940	152	6	7
+1941	151	27	7
+1942	151	41	7
+1943	151	52	7
+1944	151	53	7
+1945	151	72	5
+1946	151	86	5
+1947	151	94	7
+1948	152	102	18
+1949	152	103	34
+1950	152	104	31
+1951	152	105	21
+1952	152	106	21
+1953	152	107	27
+1954	151	108	5
+1955	152	109	11
+1956	152	110	16
+1957	152	112	7
+1958	151	113	7
+1959	152	114	15
+1960	151	119	1
+1961	154	17	22
+1962	153	18	13
+1963	154	20	27
+1964	154	21	30
+1965	154	25	23
+1966	153	27	19
+1967	154	28	19
+1968	154	30	23
+1969	153	36	8
+1970	154	37	25
+1971	154	38	23
+1972	154	40	27
+1973	154	47	25
+1974	153	50	8
+1975	153	57	22
+1976	153	64	5
+1977	153	75	20
+1978	153	76	22
+1979	153	78	20
+1980	153	80	20
+1981	153	83	19
+1982	153	84	20
+1983	154	89	20
+1984	154	92	20
+1985	153	96	14
+1986	153	101	3
+1987	154	103	22
+1988	154	107	19
+1989	153	109	3
+1990	153	125	7
+1991	155	7	3
+1992	156	8	20
+1993	155	25	3
+1994	155	30	3
+1995	155	38	3
+1996	155	48	3
+1997	156	75	40
+1998	156	76	42
+1999	156	79	37
+2000	156	80	40
+2001	156	83	39
+2002	158	9	18
+2003	157	10	11
+2004	158	19	18
+2005	157	23	18
+2006	157	1	18
+2007	157	24	12
+2008	157	26	12
+2009	158	29	20
+2010	157	31	20
+2011	158	32	23
+2012	158	35	23
+2013	158	39	23
+2014	157	41	16
+2015	157	42	18
+2016	157	44	9
+2017	158	48	21
+2018	157	49	18
+2019	158	54	20
+2020	158	55	23
+2021	157	60	19
+2022	158	61	21
+2023	157	62	7
+2024	158	66	27
+2025	158	67	21
+2026	158	68	21
+2027	158	69	19
+2028	158	70	22
+2029	157	73	14
+2030	157	74	12
+2031	157	77	22
+2032	157	79	19
+2033	157	82	20
+2034	158	90	21
+2035	158	91	22
+2036	158	95	23
+2037	158	97	23
+2038	158	98	18
+2039	158	104	22
+2040	157	120	5
+2041	157	121	12
+2042	157	123	21
+2043	159	3	3
+2044	160	4	14
+2045	160	7	18
+2046	159	8	5
+2047	160	17	27
+2048	159	18	8
+2049	160	20	22
+2050	160	21	25
+2051	159	25	18
+2052	159	27	14
+2053	159	28	14
+2054	159	30	18
+2055	159	36	3
+2056	159	37	20
+2057	159	38	18
+2058	159	40	22
+2059	159	44	3
+2060	159	47	20
+2061	159	50	3
+2062	159	53	12
+2063	160	57	27
+2064	159	64	10
+2065	160	75	25
+2066	160	76	27
+2067	160	78	25
+2068	160	80	25
+2069	159	81	14
+2070	160	83	24
+2071	160	84	25
+2072	159	85	4
+2073	160	89	25
+2074	160	91	29
+2075	160	92	25
+2076	160	93	20
+2077	159	94	11
+2078	160	96	19
+2079	160	99	20
+2080	159	100	3
+2081	159	101	9
+2082	160	102	14
+2083	160	103	27
+2084	160	113	11
+2085	160	116	14
+2086	160	117	15
+2087	159	118	2
+2088	159	125	12
+2089	161	9	6
+2090	162	10	23
+2091	161	19	6
+2092	161	23	6
+2093	161	1	6
+2094	161	32	11
+2095	161	42	6
+2096	161	49	6
+2097	161	55	11
+2098	162	56	11
+2099	162	66	39
+2100	162	67	33
+2101	162	69	31
+2102	162	70	34
+2103	162	72	15
+2104	162	73	26
+2105	162	74	24
+2106	161	97	11
+2107	161	98	6
+2108	162	105	11
+2109	161	110	6
+2110	162	119	11
+2111	162	120	17
+2112	162	121	24
+2113	162	123	33
+2114	162	124	11
+2115	163	32	5
+2116	163	55	5
+2117	163	56	5
+2118	164	71	5
+2119	163	97	5
+2120	163	105	5
+2121	164	119	17
+2122	164	120	23
+2123	164	121	30
+2124	163	122	2
+2125	164	123	39
+2126	164	124	17
+2127	166	9	16
+2128	165	10	13
+2129	166	19	16
+2130	165	23	16
+2131	165	1	16
+2132	165	24	10
+2133	165	26	13
+2134	165	29	18
+2135	165	31	18
+2136	165	32	21
+2137	165	35	21
+2138	165	39	21
+2139	165	41	14
+2140	165	42	16
+2141	165	44	10
+2142	165	48	19
+2143	165	49	16
+2144	166	54	18
+2145	166	55	21
+2146	166	56	21
+2147	166	60	21
+2148	166	61	23
+2149	165	62	9
+2150	166	66	29
+2151	166	67	23
+2152	166	68	23
+2153	166	69	21
+2154	166	70	24
+2155	166	73	16
+2156	165	74	14
+2157	166	77	24
+2158	166	79	21
+2159	166	82	22
+2160	166	90	23
+2161	166	91	23
+2162	166	95	24
+2163	166	97	21
+2164	166	98	16
+2165	166	104	24
+2166	165	120	7
+2167	165	121	14
+2168	166	123	23
+2169	165	124	1
+2170	167	11	5
+2171	168	12	15
+2172	167	20	5
+2173	167	21	8
+2174	167	29	5
+2175	167	31	5
+2176	167	40	5
+2177	167	54	5
+2178	168	57	44
+2179	168	58	19
+2180	168	59	19
+2181	168	60	34
+2182	168	61	36
+2183	168	62	22
+2184	168	63	19
+2185	168	64	27
+2186	168	65	8
+2187	167	87	5
+2188	167	88	1
+2189	167	111	5
+2190	168	125	29
+2191	167	126	5
+2192	170	7	16
+2193	169	8	7
+2194	170	17	29
+2195	169	18	6
+2196	170	20	20
+2197	170	21	23
+2198	169	25	16
+2199	169	27	12
+2200	169	30	16
+2201	169	37	18
+2202	169	38	16
+2203	169	40	20
+2204	169	47	18
+2205	170	57	29
+2206	169	64	12
+2207	170	75	27
+2208	170	76	29
+2209	170	78	27
+2210	170	80	27
+2211	169	81	16
+2212	170	83	26
+2213	170	84	27
+2214	169	85	6
+2215	170	93	18
+2216	170	99	18
+2217	170	103	29
+2218	169	125	14
+2219	172	7	15
+2220	171	8	8
+2221	172	11	22
+2222	171	12	1
+2223	172	17	30
+2224	171	18	5
+2225	172	20	19
+2226	172	21	22
+2227	171	25	15
+2228	171	27	11
+2229	171	30	15
+2230	171	37	17
+2231	171	38	15
+2232	171	40	19
+2233	171	47	17
+2234	172	57	30
+2235	171	58	5
+2236	171	59	5
+2237	171	63	5
+2238	171	64	13
+2239	172	75	28
+2240	172	76	30
+2241	172	78	28
+2242	172	80	28
+2243	172	81	17
+2244	172	83	27
+2245	172	84	28
+2246	171	85	7
+2247	172	87	19
+2248	172	88	15
+2249	172	90	31
+2250	172	93	17
+2251	172	99	17
+2252	172	103	30
+2253	172	111	19
+2254	171	125	15
+2255	174	9	21
+2256	173	10	8
+2257	174	19	21
+2258	173	23	21
+2259	174	1	21
+2260	173	24	15
+2261	173	26	17
+2262	174	29	23
+2263	174	31	23
+2264	174	32	26
+2265	174	35	26
+2266	174	39	26
+2267	174	41	19
+2268	174	42	21
+2269	173	44	13
+2270	174	48	24
+2271	174	49	21
+2272	174	54	23
+2273	174	55	26
+2274	173	60	16
+2275	173	61	18
+2276	173	62	4
+2277	174	66	24
+2278	173	67	18
+2279	174	68	18
+2280	173	69	16
+2281	173	70	19
+2282	173	73	11
+2283	173	77	19
+2284	173	79	16
+2285	173	82	17
+2286	174	90	18
+2287	174	91	19
+2288	174	95	20
+2289	174	104	19
+2290	173	120	2
+2291	173	123	18
+2292	176	13	16
+2293	175	14	1
+2294	176	17	18
+2295	175	18	17
+2296	176	19	29
+2297	176	20	31
+2298	176	21	34
+2299	176	25	27
+2300	176	27	23
+2301	176	28	23
+2302	176	30	27
+2303	175	36	12
+2304	176	37	29
+2305	176	38	27
+2306	176	40	31
+2307	175	45	1
+2308	176	47	29
+2309	175	50	12
+2310	175	52	12
+2311	176	53	16
+2312	175	57	18
+2313	175	64	1
+2314	175	73	3
+2315	175	75	16
+2316	175	76	18
+2317	175	78	16
+2318	175	80	16
+2319	175	83	15
+2320	175	84	16
+2321	176	89	16
+2322	176	92	16
+2323	175	96	10
+2324	175	103	18
+2325	175	125	3
+2326	178	17	21
+2327	177	18	14
+2328	178	20	28
+2329	178	21	31
+2330	178	25	24
+2331	177	27	20
+2332	178	28	20
+2333	178	30	24
+2334	177	36	9
+2335	178	37	26
+2336	178	38	24
+2337	178	40	28
+2338	178	47	26
+2339	177	50	9
+2340	177	57	21
+2341	177	64	4
+2342	177	75	19
+2343	177	76	21
+2344	177	78	19
+2345	177	80	19
+2346	177	83	18
+2347	177	84	19
+2348	178	89	19
+2349	178	92	19
+2350	177	96	13
+2351	177	101	2
+2352	178	103	21
+2353	178	107	18
+2354	177	109	2
+2355	177	125	6
+2356	179	17	16
+2357	180	18	19
+2358	180	22	16
+2359	180	23	29
+2360	180	25	29
+2361	180	27	25
+2362	180	28	25
+2363	180	29	31
+2364	180	30	29
+2365	180	33	18
+2366	180	34	16
+2367	180	36	14
+2368	180	37	31
+2369	179	43	12
+2370	179	46	14
+2371	180	51	16
+2372	179	60	8
+2373	179	66	16
+2374	179	75	14
+2375	179	80	14
+2376	179	83	13
+2377	179	84	14
+2378	179	92	14
+2379	179	96	8
+2380	179	103	16
+2381	180	106	16
+2382	179	107	16
+2383	180	115	18
+2384	181	9	9
+2385	182	10	20
+2386	181	19	9
+2387	181	23	9
+2388	181	1	9
+2389	181	24	3
+2390	181	32	14
+2391	181	42	9
+2392	181	49	9
+2393	182	55	14
+2394	182	56	14
+2395	182	66	36
+2396	182	67	30
+2397	182	68	30
+2398	182	69	28
+2399	182	70	31
+2400	182	72	12
+2401	182	73	23
+2402	182	74	21
+2403	181	97	14
+2404	181	98	9
+2405	182	105	14
+2406	181	110	9
+2407	181	119	8
+2408	182	120	14
+2409	182	121	21
+2410	182	123	30
+2411	181	124	8
+2412	184	5	10
+2413	183	6	2
+2414	183	27	2
+2415	183	41	2
+2416	183	52	2
+2417	183	53	2
+2418	184	86	10
+2419	183	94	2
+2420	184	102	23
+2421	184	103	39
+2422	184	104	36
+2423	184	106	26
+2424	184	107	32
+2425	184	108	10
+2426	184	109	16
+2427	183	112	2
+2428	183	113	2
+2429	184	114	10
+2430	186	13	11
+2431	185	14	6
+2432	185	22	11
+2433	185	34	11
+2434	186	46	19
+2435	186	47	34
+2436	186	48	29
+2437	186	49	26
+2438	186	50	17
+2439	186	51	21
+2440	186	52	17
+2441	186	53	21
+2442	185	69	11
+2443	185	78	11
+2444	185	79	11
+2445	185	89	11
+2446	185	106	11
+2447	185	107	11
+2448	187	13	1
+2449	188	14	16
+2450	187	22	1
+2451	187	34	1
+2452	188	46	29
+2453	188	47	44
+2454	188	48	39
+2455	188	49	36
+2456	188	50	27
+2457	188	51	31
+2458	188	52	27
+2459	188	53	31
+2460	187	69	1
+2461	187	78	1
+2462	187	79	1
+2463	187	89	1
+2464	187	106	1
+2465	187	107	1
+2466	189	7	7
+2467	190	8	16
+2468	189	25	7
+2469	189	30	7
+2470	189	35	9
+2471	189	37	9
+2472	189	38	7
+2473	189	39	9
+2474	189	47	9
+2475	189	48	7
+2476	190	75	36
+2477	190	76	38
+2478	190	77	36
+2479	190	78	36
+2480	190	79	33
+2481	190	80	36
+2482	190	81	25
+2483	190	82	34
+2484	190	83	35
+2485	190	84	36
+2486	190	85	15
+2487	190	86	11
+2488	189	93	9
+2489	189	99	9
+2490	189	114	9
+2491	191	35	3
+2492	191	37	3
+2493	191	39	3
+2494	191	47	3
+2495	192	77	42
+2496	192	78	42
+2497	192	81	31
+2498	192	82	40
+2499	192	84	42
+2500	192	85	21
+2501	192	86	17
+2502	191	93	3
+2503	191	99	3
+2504	191	114	3
+2505	193	7	10
+2506	194	8	13
+2507	193	25	10
+2508	193	30	10
+2509	193	35	12
+2510	193	37	12
+2511	193	38	10
+2512	193	39	12
+2513	193	47	12
+2514	193	48	10
+2515	194	75	33
+2516	194	76	35
+2517	194	77	33
+2518	194	78	33
+2519	194	79	30
+2520	194	80	33
+2521	194	81	22
+2522	194	82	31
+2523	194	83	32
+2524	194	84	33
+2525	194	85	12
+2526	194	93	12
+2527	193	99	12
+2528	195	15	5
+2529	196	16	12
+2530	195	33	5
+2531	196	38	40
+2532	196	39	40
+2533	196	40	44
+2534	196	41	33
+2535	196	42	35
+2536	196	43	25
+2537	196	44	27
+2538	196	45	14
+2539	195	57	5
+2540	195	70	5
+2541	195	76	5
+2542	195	77	5
+2543	195	91	5
+2544	195	104	5
+2545	195	115	5
+2546	197	11	9
+2547	198	12	11
+2548	197	20	9
+2549	197	21	12
+2550	197	29	9
+2551	197	31	9
+2552	197	40	9
+2553	197	54	9
+2554	198	57	40
+2555	198	58	15
+2556	198	59	15
+2557	198	60	30
+2558	198	61	32
+2559	198	62	18
+2560	198	63	15
+2561	198	64	23
+2562	198	65	12
+2563	197	87	9
+2564	197	88	5
+2565	197	111	9
+2566	198	118	8
+2567	198	125	25
+2568	197	126	1
+2569	199	5	3
+2570	200	6	9
+2571	199	52	9
+2572	199	53	9
+2573	199	63	3
+2574	199	72	3
+2575	199	86	3
+2576	199	94	9
+2577	200	102	16
+2578	200	106	19
+2579	200	107	25
+2580	199	108	3
+2581	200	109	9
+2582	200	110	18
+2583	200	111	21
+2584	200	112	9
+2585	200	113	9
+2586	200	114	17
+2587	202	3	15
+2588	201	4	2
+2589	201	26	2
+2590	201	28	2
+2591	201	74	2
+2592	201	81	2
+2593	202	94	23
+2594	202	95	35
+2595	202	96	31
+2596	202	97	33
+2597	202	98	28
+2598	202	99	32
+2599	202	100	15
+2600	202	101	21
+2601	201	102	2
+2602	201	116	2
+2603	201	117	2
+2604	201	121	2
+2605	204	3	16
+2606	203	4	1
+2607	203	26	1
+2608	203	28	1
+2609	203	74	1
+2610	203	81	1
+2611	204	94	24
+2612	204	95	36
+2613	204	96	32
+2614	204	97	34
+2615	204	98	29
+2616	204	99	33
+2617	204	100	16
+2618	204	101	22
+2619	203	102	1
+2620	203	116	1
+2621	203	117	1
+2622	203	121	1
+2623	205	58	3
+2624	205	59	3
+2625	206	87	21
+2626	206	88	17
+2627	206	90	33
+2628	207	9	7
+2629	208	10	22
+2630	207	19	7
+2631	207	23	7
+2632	207	1	7
+2633	207	24	1
+2634	207	32	12
+2635	207	42	7
+2636	207	49	7
+2637	207	55	12
+2638	208	56	12
+2639	208	66	38
+2640	208	67	32
+2641	208	68	32
+2642	208	69	30
+2643	208	70	33
+2644	208	72	14
+2645	208	73	25
+2646	208	74	23
+2647	207	97	12
+2648	207	98	7
+2649	208	105	12
+2650	207	110	7
+2651	207	119	10
+2652	208	120	16
+2653	208	121	23
+2654	208	123	32
+2655	207	124	10
+2656	210	5	11
+2657	209	6	1
+2658	209	27	1
+2659	209	41	1
+2660	209	52	1
+2661	209	53	1
+2662	209	94	1
+2663	210	102	24
+2664	210	103	40
+2665	210	104	37
+2666	210	106	27
+2667	210	107	33
+2668	210	108	11
+2669	210	109	17
+2670	209	112	1
+2671	209	113	1
+2672	211	15	8
+2673	212	16	9
+2674	211	33	8
+2675	212	38	37
+2676	212	39	37
+2677	212	40	41
+2678	212	41	30
+2679	212	42	32
+2680	212	43	22
+2681	212	44	24
+2682	212	45	11
+2683	211	57	8
+2684	211	70	8
+2685	211	76	8
+2686	211	77	8
+2687	211	91	8
+2688	211	104	8
+2689	211	115	8
+2690	213	7	2
+2691	214	8	21
+2692	213	25	2
+2693	213	30	2
+2694	213	38	2
+2695	213	48	2
+2696	214	75	41
+2697	214	76	43
+2698	214	79	38
+2699	214	80	41
+2700	214	83	40
+2701	216	5	7
+2702	215	6	5
+2703	215	27	5
+2704	215	41	5
+2705	215	52	5
+2706	215	53	5
+2707	215	86	7
+2708	215	94	5
+2709	216	102	20
+2710	216	103	36
+2711	216	104	33
+2712	216	106	23
+2713	216	107	29
+2714	216	108	7
+2715	216	109	13
+2716	215	112	5
+2717	215	113	5
+2718	216	114	13
+2719	217	5	1
+2720	218	6	11
+2721	217	52	11
+2722	217	53	11
+2723	217	63	1
+2724	217	72	1
+2725	217	86	1
+2726	217	100	1
+2727	217	101	7
+2728	218	106	17
+2729	218	107	23
+2730	217	108	1
+2731	217	109	7
+2732	218	110	20
+2733	218	111	23
+2734	218	112	11
+2735	218	114	19
+2736	218	116	16
+2737	217	118	1
+2738	220	7	12
+2739	219	8	11
+2740	219	25	12
+2741	219	30	12
+2742	219	35	14
+2743	219	37	14
+2744	219	38	12
+2745	219	39	14
+2746	219	47	14
+2747	219	48	12
+2748	220	75	31
+2749	220	76	33
+2750	220	77	31
+2751	220	78	31
+2752	220	79	28
+2753	220	80	31
+2754	220	81	20
+2755	220	82	29
+2756	220	83	30
+2757	220	84	31
+2758	219	85	10
+2759	220	93	14
+2760	219	99	14
+2761	222	3	14
+2762	221	4	3
+2763	221	26	3
+2764	221	28	3
+2765	221	74	3
+2766	221	81	3
+2767	222	94	22
+2768	222	95	34
+2769	222	96	30
+2770	222	97	32
+2771	222	98	27
+2772	222	99	31
+2773	222	100	14
+2774	222	101	20
+2775	221	102	3
+2776	221	116	3
+2777	221	117	3
+2778	221	121	3
+2779	223	9	2
+2780	224	10	27
+2781	223	19	2
+2782	223	23	2
+2783	223	1	2
+2784	223	32	7
+2785	223	42	2
+2786	223	49	2
+2787	223	55	7
+2788	223	56	7
+2789	224	66	43
+2790	224	67	37
+2791	224	69	35
+2792	224	70	38
+2793	224	72	19
+2794	224	73	30
+2795	224	74	28
+2796	223	97	7
+2797	223	98	2
+2798	223	105	7
+2799	223	110	2
+2800	224	119	15
+2801	224	120	21
+2802	224	121	28
+2803	224	123	37
+2804	224	124	15
+2805	225	7	11
+2806	226	8	12
+2807	225	25	11
+2808	225	30	11
+2809	225	35	13
+2810	225	37	13
+2811	225	38	11
+2812	225	39	13
+2813	225	47	13
+2814	225	48	11
+2815	226	75	32
+2816	226	76	34
+2817	226	77	32
+2818	226	78	32
+2819	226	79	29
+2820	226	80	32
+2821	226	81	21
+2822	226	82	30
+2823	226	83	31
+2824	226	84	32
+2825	225	85	11
+2826	226	93	13
+2827	225	99	13
+2828	227	35	1
+2829	227	37	1
+2830	227	39	1
+2831	227	47	1
+2832	228	77	44
+2833	228	78	44
+2834	228	81	33
+2835	228	82	42
+2836	228	84	44
+2837	228	85	23
+2838	228	86	19
+2839	227	93	1
+2840	227	99	1
+2841	227	114	1
+2842	229	13	8
+2843	230	14	9
+2844	229	22	8
+2845	229	34	8
+2846	230	46	22
+2847	230	47	37
+2848	230	48	32
+2849	230	49	29
+2850	230	50	20
+2851	230	51	24
+2852	230	52	20
+2853	230	53	24
+2854	229	69	8
+2855	229	78	8
+2856	229	79	8
+2857	229	89	8
+2858	229	106	8
+2859	229	107	8
+2860	232	17	23
+2861	231	18	12
+2862	232	20	26
+2863	232	21	29
+2864	232	25	22
+2865	231	27	18
+2866	232	28	18
+2867	232	30	22
+2868	231	36	7
+2869	232	37	24
+2870	231	38	22
+2871	232	40	26
+2872	232	47	24
+2873	231	50	7
+2874	231	57	23
+2875	231	64	6
+2876	231	75	21
+2877	232	76	23
+2878	231	78	21
+2879	231	80	21
+2880	231	83	20
+2881	231	84	21
+2882	232	89	21
+2883	232	92	21
+2884	231	96	15
+2885	231	101	4
+2886	232	103	23
+2887	232	107	20
+2888	231	109	4
+2889	232	113	15
+2890	231	125	8
+2891	233	11	2
+2892	234	12	18
+2893	233	20	2
+2894	233	21	5
+2895	233	29	2
+2896	233	31	2
+2897	233	40	2
+2898	233	54	2
+2899	234	57	47
+2900	234	58	22
+2901	234	60	37
+2902	234	61	39
+2903	234	62	25
+2904	234	63	22
+2905	234	64	30
+2906	233	65	5
+2907	233	87	2
+2908	233	111	2
+2909	234	125	32
+2910	234	126	8
+2911	235	7	1
+2912	236	8	22
+2913	235	25	1
+2914	235	30	1
+2915	235	38	1
+2916	235	48	1
+2917	236	75	42
+2918	236	76	44
+2919	236	79	39
+2920	236	80	42
+2921	236	83	41
+2922	237	7	9
+2923	238	8	14
+2924	237	25	9
+2925	237	30	9
+2926	237	35	11
+2927	237	37	11
+2928	237	38	9
+2929	237	39	11
+2930	237	47	11
+2931	237	48	9
+2932	238	75	34
+2933	238	76	36
+2934	238	77	34
+2935	238	78	34
+2936	238	79	31
+2937	238	80	34
+2938	238	81	23
+2939	238	82	32
+2940	238	83	33
+2941	238	84	34
+2942	238	85	13
+2943	237	93	11
+2944	237	99	11
+2945	239	13	6
+2946	240	14	11
+2947	239	22	6
+2948	239	34	6
+2949	240	46	24
+2950	240	47	39
+2951	240	48	34
+2952	240	49	31
+2953	240	50	22
+2954	240	51	26
+2955	240	52	22
+2956	240	53	26
+2957	239	69	6
+2958	239	78	6
+2959	239	79	6
+2960	239	89	6
+2961	239	106	6
+2962	239	107	6
+2963	241	11	1
+2964	242	12	19
+2965	241	20	1
+2966	241	21	4
+2967	241	29	1
+2968	241	31	1
+2969	241	40	1
+2970	241	54	1
+2971	242	57	48
+2972	242	58	23
+2973	242	60	38
+2974	242	61	40
+2975	242	62	26
+2976	242	63	23
+2977	242	64	31
+2978	241	65	4
+2979	241	87	1
+2980	241	111	1
+2981	242	125	33
+2982	242	126	9
+2983	243	58	1
+2984	243	59	1
+2985	243	85	2
+2986	244	87	22
+2987	244	88	18
+2988	244	89	28
+2989	244	90	34
+2990	244	91	32
+2991	244	92	28
+2992	245	15	1
+2993	246	16	16
+2994	245	33	1
+2995	246	38	44
+2996	246	39	44
+2997	246	40	48
+2998	246	41	37
+2999	246	42	39
+3000	246	43	29
+3001	246	44	31
+3002	246	45	18
+3003	245	57	1
+3004	245	70	1
+3005	245	76	1
+3006	245	77	1
+3007	245	91	1
+3008	245	104	1
+3009	245	115	1
+3010	247	15	6
+3011	248	16	11
+3012	247	33	6
+3013	248	38	39
+3014	248	39	39
+3015	248	40	43
+3016	248	41	32
+3017	248	42	34
+3018	248	43	24
+3019	248	44	26
+3020	248	45	13
+3021	247	57	6
+3022	247	70	6
+3023	247	76	6
+3024	247	77	6
+3025	247	91	6
+3026	247	104	6
+3027	247	115	6
+3028	249	7	4
+3029	250	8	19
+3030	249	25	4
+3031	249	30	4
+3032	249	35	6
+3033	249	37	6
+3034	249	38	4
+3035	249	39	6
+3036	249	47	6
+3037	249	48	4
+3038	250	75	39
+3039	250	76	41
+3040	250	77	39
+3041	250	78	39
+3042	250	79	36
+3043	250	80	39
+3044	250	81	28
+3045	250	82	37
+3046	250	83	38
+3047	250	84	39
+3048	250	85	18
+3049	250	86	14
+3050	249	93	6
+3051	249	99	6
+3052	249	114	6
+3053	252	9	26
+3054	251	10	3
+3055	252	13	13
+3056	251	14	4
+3057	252	15	14
+3058	251	16	3
+3059	252	19	26
+3060	251	22	13
+3061	252	23	26
+3062	252	1	25
+3063	252	24	19
+3064	252	26	21
+3065	252	29	28
+3066	252	31	27
+3067	252	32	30
+3068	251	33	14
+3069	251	34	13
+3070	252	35	30
+3071	252	38	31
+3072	252	39	31
+3073	252	40	35
+3074	252	41	24
+3075	252	42	26
+3076	252	43	16
+3077	252	44	18
+3078	251	45	5
+3079	252	46	17
+3080	252	47	32
+3081	252	50	15
+3082	252	51	19
+3083	252	52	15
+3084	252	53	19
+3085	251	57	14
+3086	251	60	11
+3087	251	61	14
+3088	251	66	19
+3089	251	67	14
+3090	251	68	14
+3091	251	70	14
+3092	251	73	6
+3093	251	76	14
+3094	251	77	14
+3095	251	78	13
+3096	251	82	13
+3097	251	89	13
+3098	251	90	14
+3099	251	91	14
+3100	251	95	16
+3101	251	104	14
+3102	251	106	13
+3103	251	107	13
+3104	252	115	14
+3105	251	123	14
+3106	253	3	1
+3107	254	4	16
+3108	253	36	1
+3109	253	44	1
+3110	253	50	1
+3111	253	58	2
+3112	253	59	2
+3113	253	85	1
+3114	254	87	23
+3115	254	88	19
+3116	254	89	27
+3117	254	91	31
+3118	254	92	27
+3119	254	93	22
+3120	255	9	11
+3121	256	10	18
+3122	255	19	11
+3123	255	23	11
+3124	255	1	11
+3125	255	24	5
+3126	255	32	16
+3127	255	42	11
+3128	255	49	11
+3129	256	55	16
+3130	256	56	16
+3131	256	66	34
+3132	256	67	28
+3133	256	68	28
+3134	256	69	26
+3135	256	70	29
+3136	255	72	10
+3137	256	73	21
+3138	256	74	19
+3139	255	97	16
+3140	255	98	11
+3141	256	105	16
+3142	256	110	11
+3143	255	119	6
+3144	255	120	12
+3145	256	121	19
+3146	256	123	28
+3147	255	124	6
+3148	258	15	12
+3149	257	16	5
+3150	257	33	12
+3151	258	38	33
+3152	258	39	33
+3153	258	40	37
+3154	258	41	26
+3155	258	42	28
+3156	258	43	18
+3157	258	44	20
+3158	257	45	7
+3159	257	57	12
+3160	257	70	12
+3161	257	76	12
+3162	257	77	12
+3163	257	91	12
+3164	257	104	12
+3165	258	115	12
+3166	259	11	11
+3167	259	12	9
+3168	259	20	11
+3169	259	21	14
+3170	259	29	11
+3171	259	31	11
+3172	259	40	11
+3173	259	54	11
+3174	260	57	38
+3175	260	58	13
+3176	260	59	13
+3177	260	60	28
+3178	260	61	30
+3179	260	62	16
+3180	260	63	13
+3181	260	64	21
+3182	259	87	11
+3183	259	88	7
+3184	259	111	11
+3185	260	125	23
+3186	261	7	6
+3187	262	8	17
+3188	261	25	6
+3189	261	30	6
+3190	261	35	8
+3191	261	37	8
+3192	261	38	6
+3193	261	39	8
+3194	261	47	8
+3195	261	48	6
+3196	262	75	37
+3197	262	76	39
+3198	262	77	37
+3199	262	78	37
+3200	262	79	34
+3201	262	80	37
+3202	262	81	26
+3203	262	82	35
+3204	262	83	36
+3205	262	84	37
+3206	262	85	16
+3207	262	86	12
+3208	261	93	8
+3209	261	99	8
+3210	261	114	8
+3211	264	15	10
+3212	263	16	7
+3213	263	33	10
+3214	264	38	35
+3215	264	39	35
+3216	264	40	39
+3217	264	41	28
+3218	264	42	30
+3219	264	43	20
+3220	264	44	22
+3221	263	45	9
+3222	263	57	10
+3223	263	70	10
+3224	263	76	10
+3225	263	77	10
+3226	263	91	10
+3227	263	104	10
+3228	264	115	10
+3229	265	5	4
+3230	266	6	8
+3231	266	11	21
+3232	265	52	8
+3233	265	53	8
+3234	265	58	4
+3235	265	59	4
+3236	265	63	4
+3237	265	72	4
+3238	265	86	4
+3239	266	87	20
+3240	266	88	16
+3241	266	90	32
+3242	265	94	8
+3243	266	102	17
+3244	266	106	20
+3245	266	107	26
+3246	265	108	4
+3247	266	109	10
+3248	266	110	17
+3249	266	111	20
+3250	266	112	8
+3251	266	113	8
+3252	266	114	16
+3253	267	9	3
+3254	268	10	26
+3255	267	19	3
+3256	267	23	3
+3257	267	1	3
+3258	267	32	8
+3259	267	42	3
+3260	267	49	3
+3261	267	55	8
+3262	267	56	8
+3263	268	66	42
+3264	268	67	36
+3265	268	69	34
+3266	268	70	37
+3267	268	72	18
+3268	268	73	29
+3269	268	74	27
+3270	267	97	8
+3271	267	98	3
+3272	267	105	8
+3273	267	110	3
+3274	268	119	14
+3275	268	120	20
+3276	268	121	27
+3277	268	123	36
+3278	268	124	14
+3279	269	32	1
+3280	269	55	1
+3281	269	56	1
+3282	269	71	1
+3283	269	97	1
+3284	269	105	1
+3285	270	119	21
+3286	270	120	27
+3287	270	121	34
+3288	270	122	6
+3289	270	123	43
+3290	270	124	21
+3291	271	9	4
+3292	272	10	25
+3293	271	19	4
+3294	271	23	4
+3295	271	1	4
+3296	271	32	9
+3297	271	42	4
+3298	271	49	4
+3299	271	55	9
+3300	271	56	9
+3301	272	66	41
+3302	272	67	35
+3303	272	69	33
+3304	272	70	36
+3305	272	72	17
+3306	272	73	28
+3307	272	74	26
+3308	271	97	9
+3309	271	98	4
+3310	271	105	9
+3311	271	110	4
+3312	272	119	13
+3313	272	120	19
+3314	272	121	26
+3315	272	123	35
+3316	272	124	13
+3317	274	15	13
+3318	273	16	4
+3319	273	33	13
+3320	274	38	32
+3321	274	39	32
+3322	274	40	36
+3323	274	41	25
+3324	274	42	27
+3325	274	43	17
+3326	274	44	19
+3327	273	45	6
+3328	273	57	13
+3329	273	70	13
+3330	273	76	13
+3331	273	77	13
+3332	273	91	13
+3333	273	104	13
+3334	274	115	13
+3335	276	15	9
+3336	275	16	8
+3337	275	33	9
+3338	276	38	36
+3339	276	39	36
+3340	276	40	40
+3341	276	41	29
+3342	276	42	31
+3343	276	43	21
+3344	276	44	23
+3345	276	45	10
+3346	275	57	9
+3347	275	70	9
+3348	275	76	9
+3349	275	77	9
+3350	275	91	9
+3351	275	104	9
+3352	275	115	9
+3353	278	5	6
+3354	278	6	6
+3355	277	27	6
+3356	277	41	6
+3357	277	52	6
+3358	277	53	6
+3359	277	86	6
+3360	277	94	6
+3361	278	102	19
+3362	278	103	35
+3363	278	104	32
+3364	278	106	22
+3365	278	107	28
+3366	278	108	6
+3367	278	109	12
+3368	278	112	6
+3369	277	113	6
+3370	278	114	14
+3371	279	9	10
+3372	280	10	19
+3373	279	19	10
+3374	279	23	10
+3375	279	1	10
+3376	279	24	4
+3377	279	32	15
+3378	279	42	10
+3379	279	49	10
+3380	280	55	15
+3381	280	56	15
+3382	280	66	35
+3383	280	67	29
+3384	280	68	29
+3385	280	69	27
+3386	280	70	30
+3387	280	72	11
+3388	280	73	22
+3389	280	74	20
+3390	279	97	15
+3391	279	98	10
+3392	280	105	15
+3393	279	110	10
+3394	279	119	7
+3395	279	120	13
+3396	280	121	20
+3397	280	123	29
+3398	279	124	7
+3399	282	11	16
+3400	281	12	4
+3401	282	20	16
+3402	282	21	19
+3403	281	40	16
+3404	282	57	33
+3405	281	58	8
+3406	281	59	8
+3407	281	63	8
+3408	282	64	16
+3409	282	87	16
+3410	282	88	12
+3411	282	90	28
+3412	282	111	16
+3413	281	125	18
+3414	283	35	5
+3415	283	37	5
+3416	283	39	5
+3417	283	47	5
+3418	284	77	40
+3419	284	78	40
+3420	284	81	29
+3421	284	82	38
+3422	284	84	40
+3423	284	85	19
+3424	284	86	15
+3425	283	93	5
+3426	283	99	5
+3427	283	114	5
+3428	285	15	4
+3429	286	16	13
+3430	285	33	4
+3431	286	38	41
+3432	286	39	41
+3433	286	40	45
+3434	286	41	34
+3435	286	42	36
+3436	286	43	26
+3437	286	44	28
+3438	286	45	15
+3439	285	57	4
+3440	285	70	4
+3441	285	76	4
+3442	285	77	4
+3443	285	91	4
+3444	285	104	4
+3445	285	115	4
+3446	288	17	26
+3447	287	18	9
+3448	288	20	23
+3449	288	21	26
+3450	287	25	19
+3451	287	27	15
+3452	287	28	15
+3453	287	30	19
+3454	287	36	4
+3455	287	37	21
+3456	287	38	19
+3457	287	40	23
+3458	287	47	21
+3459	287	50	4
+3460	287	53	13
+3461	288	57	26
+3462	287	64	9
+3463	288	75	24
+3464	288	76	26
+3465	288	78	24
+3466	288	80	24
+3467	288	83	23
+3468	288	84	24
+3469	288	89	24
+3470	288	92	24
+3471	288	96	18
+3472	288	103	26
+3473	288	113	12
+3474	288	117	16
+3475	287	125	11
+3476	289	9	5
+3477	290	10	24
+3478	289	19	5
+3479	289	23	5
+3480	289	1	5
+3481	289	32	10
+3482	289	42	5
+3483	289	49	5
+3484	289	55	10
+3485	289	56	10
+3486	290	66	40
+3487	290	67	34
+3488	290	69	32
+3489	290	70	35
+3490	290	72	16
+3491	290	73	27
+3492	290	74	25
+3493	289	97	10
+3494	289	98	5
+3495	289	105	10
+3496	289	110	5
+3497	290	119	12
+3498	290	120	18
+3499	290	121	25
+3500	290	123	34
+3501	290	124	12
+3502	291	35	2
+3503	291	37	2
+3504	291	39	2
+3505	291	47	2
+3506	292	77	43
+3507	292	78	43
+3508	292	81	32
+3509	292	82	41
+3510	292	84	43
+3511	292	85	22
+3512	292	86	18
+3513	291	93	2
+3514	291	99	2
+3515	291	114	2
+3516	293	9	1
+3517	294	10	28
+3518	293	19	1
+3519	293	23	1
+3520	293	1	1
+3521	293	32	6
+3522	293	42	1
+3523	293	49	1
+3524	293	55	6
+3525	293	56	6
+3526	294	66	44
+3527	294	67	38
+3528	294	69	36
+3529	294	70	39
+3530	294	71	6
+3531	294	72	20
+3532	294	73	31
+3533	294	74	29
+3534	293	97	6
+3535	293	98	1
+3536	293	105	6
+3537	293	110	1
+3538	294	119	16
+3539	294	120	22
+3540	294	121	29
+3541	293	122	1
+3542	294	123	38
+3543	294	124	16
+3544	296	7	17
+3545	295	8	6
+3546	296	17	28
+3547	295	18	7
+3548	296	20	21
+3549	296	21	24
+3550	295	25	17
+3551	295	27	13
+3552	295	30	17
+3553	295	37	19
+3554	295	38	17
+3555	295	40	21
+3556	295	47	19
+3557	296	57	28
+3558	295	64	11
+3559	296	75	26
+3560	296	76	28
+3561	296	78	26
+3562	296	80	26
+3563	295	81	15
+3564	296	83	25
+3565	296	84	26
+3566	295	85	5
+3567	296	93	19
+3568	296	99	19
+3569	296	103	28
+3570	296	117	14
+3571	295	125	13
+3572	298	17	25
+3573	297	18	10
+3574	298	20	24
+3575	298	21	27
+3576	297	25	20
+3577	297	27	16
+3578	297	28	16
+3579	297	30	20
+3580	297	36	5
+3581	297	37	22
+3582	297	38	20
+3583	297	40	24
+3584	297	47	22
+3585	297	50	5
+3586	297	53	14
+3587	298	57	25
+3588	297	64	8
+3589	298	75	23
+3590	298	76	25
+3591	298	78	23
+3592	298	80	23
+3593	298	83	22
+3594	298	84	23
+3595	298	89	23
+3596	298	92	23
+3597	298	96	17
+3598	297	101	6
+3599	298	103	25
+3600	298	107	22
+3601	297	109	6
+3602	298	113	13
+3603	298	117	17
+3604	297	125	10
+3605	300	17	20
+3606	299	18	15
+3607	300	19	31
+3608	300	20	29
+3609	300	21	32
+3610	300	25	25
+3611	300	27	21
+3612	300	28	21
+3613	300	30	25
+3614	299	36	10
+3615	300	37	27
+3616	300	38	25
+3617	300	40	29
+3618	300	47	27
+3619	299	50	10
+3620	299	57	20
+3621	299	64	3
+3622	299	73	1
+3623	299	75	18
+3624	299	76	20
+3625	299	78	18
+3626	299	80	18
+3627	299	83	17
+3628	299	84	18
+3629	300	89	18
+3630	300	92	18
+3631	299	96	12
+3632	299	101	1
+3633	299	103	20
+3634	300	107	17
+3635	299	109	1
+3636	299	125	5
+3637	301	21	1
+3638	301	65	1
+3639	302	125	36
+3640	302	126	12
+3641	303	21	2
+3642	303	65	2
+3643	304	125	35
+3644	304	126	11
+3645	305	21	3
+3646	305	65	3
+3647	306	125	34
+3648	306	126	10
+\.
+
+
+--
+-- Data for Name: vagones; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.vagones (id, estacion_id, nombre, sentido, activo) FROM stdin;
+1	309	Vagón 1 · Ida	Ida	t
+2	309	Vagón 2 · Vuelta	Vuelta	t
+3	310	Vagón 1 · Ida	Ida	t
+4	310	Vagón 2 · Vuelta	Vuelta	t
+5	311	Vagón 1 · Ida	Ida	t
+6	311	Vagón 2 · Vuelta	Vuelta	t
+7	312	Vagón 1 · Ida	Ida	t
+8	312	Vagón 2 · Vuelta	Vuelta	t
+9	313	Vagón 1 · Ida	Ida	t
+10	313	Vagón 2 · Vuelta	Vuelta	t
+11	314	Vagón 1 · Ida	Ida	t
+12	314	Vagón 2 · Vuelta	Vuelta	t
+13	315	Vagón 1 · Ida	Ida	t
+14	315	Vagón 2 · Vuelta	Vuelta	t
+15	316	Vagón 1 · Ida	Ida	t
+16	316	Vagón 2 · Vuelta	Vuelta	t
+17	317	Vagón 1 · Ida	Ida	t
+18	317	Vagón 2 · Vuelta	Vuelta	t
+19	318	Vagón 1 · Ida	Ida	t
+20	318	Vagón 2 · Vuelta	Vuelta	t
+21	319	Vagón 1 · Ida	Ida	t
+22	319	Vagón 2 · Vuelta	Vuelta	t
+23	320	Vagón 1 · Ida	Ida	t
+24	320	Vagón 2 · Vuelta	Vuelta	t
+25	321	Vagón 1 · Ida	Ida	t
+26	321	Vagón 2 · Vuelta	Vuelta	t
+27	322	Vagón 1 · Ida	Ida	t
+28	322	Vagón 2 · Vuelta	Vuelta	t
+29	323	Vagón 1 · Ida	Ida	t
+30	323	Vagón 2 · Vuelta	Vuelta	t
+31	324	Vagón 1 · Ida	Ida	t
+32	324	Vagón 2 · Vuelta	Vuelta	t
+33	325	Vagón 1 · Ida	Ida	t
+34	325	Vagón 2 · Vuelta	Vuelta	t
+35	326	Vagón 1 · Ida	Ida	t
+36	326	Vagón 2 · Vuelta	Vuelta	t
+37	327	Vagón 1 · Ida	Ida	t
+38	327	Vagón 2 · Vuelta	Vuelta	t
+39	328	Vagón 1 · Ida	Ida	t
+40	328	Vagón 2 · Vuelta	Vuelta	t
+41	329	Vagón 1 · Ida	Ida	t
+42	329	Vagón 2 · Vuelta	Vuelta	t
+43	330	Vagón 1 · Ida	Ida	t
+44	330	Vagón 2 · Vuelta	Vuelta	t
+45	331	Vagón 1 · Ida	Ida	t
+46	331	Vagón 2 · Vuelta	Vuelta	t
+47	332	Vagón 1 · Ida	Ida	t
+48	332	Vagón 2 · Vuelta	Vuelta	t
+49	333	Vagón 1 · Ida	Ida	t
+50	333	Vagón 2 · Vuelta	Vuelta	t
+51	334	Vagón 1 · Ida	Ida	t
+52	334	Vagón 2 · Vuelta	Vuelta	t
+53	335	Vagón 1 · Ida	Ida	t
+54	335	Vagón 2 · Vuelta	Vuelta	t
+55	336	Vagón 1 · Ida	Ida	t
+56	336	Vagón 2 · Vuelta	Vuelta	t
+57	337	Vagón 1 · Ida	Ida	t
+58	337	Vagón 2 · Vuelta	Vuelta	t
+59	338	Vagón 1 · Ida	Ida	t
+60	338	Vagón 2 · Vuelta	Vuelta	t
+61	339	Vagón 1 · Ida	Ida	t
+62	339	Vagón 2 · Vuelta	Vuelta	t
+63	340	Vagón 1 · Ida	Ida	t
+64	340	Vagón 2 · Vuelta	Vuelta	t
+65	341	Vagón 1 · Ida	Ida	t
+66	341	Vagón 2 · Vuelta	Vuelta	t
+67	342	Vagón 1 · Ida	Ida	t
+68	342	Vagón 2 · Vuelta	Vuelta	t
+69	343	Vagón 1 · Ida	Ida	t
+70	343	Vagón 2 · Vuelta	Vuelta	t
+71	344	Vagón 1 · Ida	Ida	t
+72	344	Vagón 2 · Vuelta	Vuelta	t
+73	345	Vagón 1 · Ida	Ida	t
+74	345	Vagón 2 · Vuelta	Vuelta	t
+75	346	Vagón 1 · Ida	Ida	t
+76	346	Vagón 2 · Vuelta	Vuelta	t
+77	347	Vagón 1 · Ida	Ida	t
+78	347	Vagón 2 · Vuelta	Vuelta	t
+79	348	Vagón 1 · Ida	Ida	t
+80	348	Vagón 2 · Vuelta	Vuelta	t
+81	349	Vagón 1 · Ida	Ida	t
+82	349	Vagón 2 · Vuelta	Vuelta	t
+83	350	Vagón 1 · Ida	Ida	t
+84	350	Vagón 2 · Vuelta	Vuelta	t
+85	351	Vagón 1 · Ida	Ida	t
+86	351	Vagón 2 · Vuelta	Vuelta	t
+87	352	Vagón 1 · Ida	Ida	t
+88	352	Vagón 2 · Vuelta	Vuelta	t
+89	353	Vagón 1 · Ida	Ida	t
+90	353	Vagón 2 · Vuelta	Vuelta	t
+91	354	Vagón 1 · Ida	Ida	t
+92	354	Vagón 2 · Vuelta	Vuelta	t
+93	355	Vagón 1 · Ida	Ida	t
+94	355	Vagón 2 · Vuelta	Vuelta	t
+95	356	Vagón 1 · Ida	Ida	t
+96	356	Vagón 2 · Vuelta	Vuelta	t
+97	357	Vagón 1 · Ida	Ida	t
+98	357	Vagón 2 · Vuelta	Vuelta	t
+99	358	Vagón 1 · Ida	Ida	t
+100	358	Vagón 2 · Vuelta	Vuelta	t
+101	359	Vagón 1 · Ida	Ida	t
+102	359	Vagón 2 · Vuelta	Vuelta	t
+103	360	Vagón 1 · Ida	Ida	t
+104	360	Vagón 2 · Vuelta	Vuelta	t
+105	361	Vagón 1 · Ida	Ida	t
+106	361	Vagón 2 · Vuelta	Vuelta	t
+107	362	Vagón 1 · Ida	Ida	t
+108	362	Vagón 2 · Vuelta	Vuelta	t
+109	363	Vagón 1 · Ida	Ida	t
+110	363	Vagón 2 · Vuelta	Vuelta	t
+111	364	Vagón 1 · Ida	Ida	t
+112	364	Vagón 2 · Vuelta	Vuelta	t
+113	365	Vagón 1 · Ida	Ida	t
+114	365	Vagón 2 · Vuelta	Vuelta	t
+115	366	Vagón 1 · Ida	Ida	t
+116	366	Vagón 2 · Vuelta	Vuelta	t
+117	367	Vagón 1 · Ida	Ida	t
+118	367	Vagón 2 · Vuelta	Vuelta	t
+119	368	Vagón 1 · Ida	Ida	t
+120	368	Vagón 2 · Vuelta	Vuelta	t
+121	369	Vagón 1 · Ida	Ida	t
+122	369	Vagón 2 · Vuelta	Vuelta	t
+123	370	Vagón 1 · Ida	Ida	t
+124	370	Vagón 2 · Vuelta	Vuelta	t
+125	371	Vagón 1 · Ida	Ida	t
+126	371	Vagón 2 · Vuelta	Vuelta	t
+127	372	Vagón 1 · Ida	Ida	t
+128	372	Vagón 2 · Vuelta	Vuelta	t
+129	373	Vagón 1 · Ida	Ida	t
+130	373	Vagón 2 · Vuelta	Vuelta	t
+131	374	Vagón 1 · Ida	Ida	t
+132	374	Vagón 2 · Vuelta	Vuelta	t
+133	375	Vagón 1 · Ida	Ida	t
+134	375	Vagón 2 · Vuelta	Vuelta	t
+135	376	Vagón 1 · Ida	Ida	t
+136	376	Vagón 2 · Vuelta	Vuelta	t
+137	377	Vagón 1 · Ida	Ida	t
+138	377	Vagón 2 · Vuelta	Vuelta	t
+139	378	Vagón 1 · Ida	Ida	t
+140	378	Vagón 2 · Vuelta	Vuelta	t
+141	379	Vagón 1 · Ida	Ida	t
+142	379	Vagón 2 · Vuelta	Vuelta	t
+143	380	Vagón 1 · Ida	Ida	t
+144	380	Vagón 2 · Vuelta	Vuelta	t
+145	381	Vagón 1 · Ida	Ida	t
+146	381	Vagón 2 · Vuelta	Vuelta	t
+147	382	Vagón 1 · Ida	Ida	t
+148	382	Vagón 2 · Vuelta	Vuelta	t
+149	383	Vagón 1 · Ida	Ida	t
+150	383	Vagón 2 · Vuelta	Vuelta	t
+151	384	Vagón 1 · Ida	Ida	t
+152	384	Vagón 2 · Vuelta	Vuelta	t
+153	385	Vagón 1 · Ida	Ida	t
+154	385	Vagón 2 · Vuelta	Vuelta	t
+155	386	Vagón 1 · Ida	Ida	t
+156	386	Vagón 2 · Vuelta	Vuelta	t
+157	387	Vagón 1 · Ida	Ida	t
+158	387	Vagón 2 · Vuelta	Vuelta	t
+159	388	Vagón 1 · Ida	Ida	t
+160	388	Vagón 2 · Vuelta	Vuelta	t
+161	389	Vagón 1 · Ida	Ida	t
+162	389	Vagón 2 · Vuelta	Vuelta	t
+163	390	Vagón 1 · Ida	Ida	t
+164	390	Vagón 2 · Vuelta	Vuelta	t
+165	391	Vagón 1 · Ida	Ida	t
+166	391	Vagón 2 · Vuelta	Vuelta	t
+167	392	Vagón 1 · Ida	Ida	t
+168	392	Vagón 2 · Vuelta	Vuelta	t
+169	393	Vagón 1 · Ida	Ida	t
+170	393	Vagón 2 · Vuelta	Vuelta	t
+171	394	Vagón 1 · Ida	Ida	t
+172	394	Vagón 2 · Vuelta	Vuelta	t
+173	395	Vagón 1 · Ida	Ida	t
+174	395	Vagón 2 · Vuelta	Vuelta	t
+175	396	Vagón 1 · Ida	Ida	t
+176	396	Vagón 2 · Vuelta	Vuelta	t
+177	397	Vagón 1 · Ida	Ida	t
+178	397	Vagón 2 · Vuelta	Vuelta	t
+179	398	Vagón 1 · Ida	Ida	t
+180	398	Vagón 2 · Vuelta	Vuelta	t
+181	399	Vagón 1 · Ida	Ida	t
+182	399	Vagón 2 · Vuelta	Vuelta	t
+183	400	Vagón 1 · Ida	Ida	t
+184	400	Vagón 2 · Vuelta	Vuelta	t
+185	401	Vagón 1 · Ida	Ida	t
+186	401	Vagón 2 · Vuelta	Vuelta	t
+187	402	Vagón 1 · Ida	Ida	t
+188	402	Vagón 2 · Vuelta	Vuelta	t
+189	403	Vagón 1 · Ida	Ida	t
+190	403	Vagón 2 · Vuelta	Vuelta	t
+191	404	Vagón 1 · Ida	Ida	t
+192	404	Vagón 2 · Vuelta	Vuelta	t
+193	405	Vagón 1 · Ida	Ida	t
+194	405	Vagón 2 · Vuelta	Vuelta	t
+195	406	Vagón 1 · Ida	Ida	t
+196	406	Vagón 2 · Vuelta	Vuelta	t
+197	407	Vagón 1 · Ida	Ida	t
+198	407	Vagón 2 · Vuelta	Vuelta	t
+199	408	Vagón 1 · Ida	Ida	t
+200	408	Vagón 2 · Vuelta	Vuelta	t
+201	409	Vagón 1 · Ida	Ida	t
+202	409	Vagón 2 · Vuelta	Vuelta	t
+203	410	Vagón 1 · Ida	Ida	t
+204	410	Vagón 2 · Vuelta	Vuelta	t
+205	411	Vagón 1 · Ida	Ida	t
+206	411	Vagón 2 · Vuelta	Vuelta	t
+207	412	Vagón 1 · Ida	Ida	t
+208	412	Vagón 2 · Vuelta	Vuelta	t
+209	413	Vagón 1 · Ida	Ida	t
+210	413	Vagón 2 · Vuelta	Vuelta	t
+211	414	Vagón 1 · Ida	Ida	t
+212	414	Vagón 2 · Vuelta	Vuelta	t
+213	415	Vagón 1 · Ida	Ida	t
+214	415	Vagón 2 · Vuelta	Vuelta	t
+215	416	Vagón 1 · Ida	Ida	t
+216	416	Vagón 2 · Vuelta	Vuelta	t
+217	417	Vagón 1 · Ida	Ida	t
+218	417	Vagón 2 · Vuelta	Vuelta	t
+219	418	Vagón 1 · Ida	Ida	t
+220	418	Vagón 2 · Vuelta	Vuelta	t
+221	419	Vagón 1 · Ida	Ida	t
+222	419	Vagón 2 · Vuelta	Vuelta	t
+223	420	Vagón 1 · Ida	Ida	t
+224	420	Vagón 2 · Vuelta	Vuelta	t
+225	421	Vagón 1 · Ida	Ida	t
+226	421	Vagón 2 · Vuelta	Vuelta	t
+227	422	Vagón 1 · Ida	Ida	t
+228	422	Vagón 2 · Vuelta	Vuelta	t
+229	423	Vagón 1 · Ida	Ida	t
+230	423	Vagón 2 · Vuelta	Vuelta	t
+231	424	Vagón 1 · Ida	Ida	t
+232	424	Vagón 2 · Vuelta	Vuelta	t
+233	425	Vagón 1 · Ida	Ida	t
+234	425	Vagón 2 · Vuelta	Vuelta	t
+235	426	Vagón 1 · Ida	Ida	t
+236	426	Vagón 2 · Vuelta	Vuelta	t
+237	427	Vagón 1 · Ida	Ida	t
+238	427	Vagón 2 · Vuelta	Vuelta	t
+239	428	Vagón 1 · Ida	Ida	t
+240	428	Vagón 2 · Vuelta	Vuelta	t
+241	429	Vagón 1 · Ida	Ida	t
+242	429	Vagón 2 · Vuelta	Vuelta	t
+243	430	Vagón 1 · Ida	Ida	t
+244	430	Vagón 2 · Vuelta	Vuelta	t
+245	431	Vagón 1 · Ida	Ida	t
+246	431	Vagón 2 · Vuelta	Vuelta	t
+247	432	Vagón 1 · Ida	Ida	t
+248	432	Vagón 2 · Vuelta	Vuelta	t
+249	433	Vagón 1 · Ida	Ida	t
+250	433	Vagón 2 · Vuelta	Vuelta	t
+251	434	Vagón 1 · Ida	Ida	t
+252	434	Vagón 2 · Vuelta	Vuelta	t
+253	435	Vagón 1 · Ida	Ida	t
+254	435	Vagón 2 · Vuelta	Vuelta	t
+255	436	Vagón 1 · Ida	Ida	t
+256	436	Vagón 2 · Vuelta	Vuelta	t
+257	437	Vagón 1 · Ida	Ida	t
+258	437	Vagón 2 · Vuelta	Vuelta	t
+259	438	Vagón 1 · Ida	Ida	t
+260	438	Vagón 2 · Vuelta	Vuelta	t
+261	439	Vagón 1 · Ida	Ida	t
+262	439	Vagón 2 · Vuelta	Vuelta	t
+263	440	Vagón 1 · Ida	Ida	t
+264	440	Vagón 2 · Vuelta	Vuelta	t
+265	441	Vagón 1 · Ida	Ida	t
+266	441	Vagón 2 · Vuelta	Vuelta	t
+267	442	Vagón 1 · Ida	Ida	t
+268	442	Vagón 2 · Vuelta	Vuelta	t
+269	443	Vagón 1 · Ida	Ida	t
+270	443	Vagón 2 · Vuelta	Vuelta	t
+271	444	Vagón 1 · Ida	Ida	t
+272	444	Vagón 2 · Vuelta	Vuelta	t
+273	445	Vagón 1 · Ida	Ida	t
+274	445	Vagón 2 · Vuelta	Vuelta	t
+275	446	Vagón 1 · Ida	Ida	t
+276	446	Vagón 2 · Vuelta	Vuelta	t
+277	447	Vagón 1 · Ida	Ida	t
+278	447	Vagón 2 · Vuelta	Vuelta	t
+279	448	Vagón 1 · Ida	Ida	t
+280	448	Vagón 2 · Vuelta	Vuelta	t
+281	449	Vagón 1 · Ida	Ida	t
+282	449	Vagón 2 · Vuelta	Vuelta	t
+283	450	Vagón 1 · Ida	Ida	t
+284	450	Vagón 2 · Vuelta	Vuelta	t
+285	451	Vagón 1 · Ida	Ida	t
+286	451	Vagón 2 · Vuelta	Vuelta	t
+287	452	Vagón 1 · Ida	Ida	t
+288	452	Vagón 2 · Vuelta	Vuelta	t
+289	453	Vagón 1 · Ida	Ida	t
+290	453	Vagón 2 · Vuelta	Vuelta	t
+291	454	Vagón 1 · Ida	Ida	t
+292	454	Vagón 2 · Vuelta	Vuelta	t
+293	455	Vagón 1 · Ida	Ida	t
+294	455	Vagón 2 · Vuelta	Vuelta	t
+295	456	Vagón 1 · Ida	Ida	t
+296	456	Vagón 2 · Vuelta	Vuelta	t
+297	457	Vagón 1 · Ida	Ida	t
+298	457	Vagón 2 · Vuelta	Vuelta	t
+299	458	Vagón 1 · Ida	Ida	t
+300	458	Vagón 2 · Vuelta	Vuelta	t
+301	459	Vagón 1 · Ida	Ida	t
+302	459	Vagón 2 · Vuelta	Vuelta	t
+303	460	Vagón 1 · Ida	Ida	t
+304	460	Vagón 2 · Vuelta	Vuelta	t
+305	461	Vagón 1 · Ida	Ida	t
+306	461	Vagón 2 · Vuelta	Vuelta	t
 \.
 
 
@@ -4616,7 +8716,7 @@ SELECT pg_catalog.setval('public.conductores_id_seq', 6, true);
 -- Name: despachos_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.despachos_id_seq', 11, true);
+SELECT pg_catalog.setval('public.despachos_id_seq', 13, true);
 
 
 --
@@ -4630,14 +8730,14 @@ SELECT pg_catalog.setval('public.estaciones_id_seq', 461, true);
 -- Name: notificaciones_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.notificaciones_id_seq', 6, true);
+SELECT pg_catalog.setval('public.notificaciones_id_seq', 8, true);
 
 
 --
 -- Name: reportes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.reportes_id_seq', 37, true);
+SELECT pg_catalog.setval('public.reportes_id_seq', 55, true);
 
 
 --
@@ -4658,7 +8758,21 @@ SELECT pg_catalog.setval('public.rutas_id_seq', 126, true);
 -- Name: usuarios_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.usuarios_id_seq', 38, true);
+SELECT pg_catalog.setval('public.usuarios_id_seq', 56, true);
+
+
+--
+-- Name: vagon_rutas_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.vagon_rutas_id_seq', 7296, true);
+
+
+--
+-- Name: vagones_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.vagones_id_seq', 612, true);
 
 
 --
@@ -4798,6 +8912,22 @@ ALTER TABLE ONLY public.usuarios
 
 
 --
+-- Name: vagon_rutas vagon_rutas_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vagon_rutas
+    ADD CONSTRAINT vagon_rutas_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: vagones vagones_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vagones
+    ADD CONSTRAINT vagones_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: idx_camaras_estacion; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4911,6 +9041,14 @@ ALTER TABLE ONLY public.camaras
 
 
 --
+-- Name: camaras fk_cam_vagon; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.camaras
+    ADD CONSTRAINT fk_cam_vagon FOREIGN KEY (vagon_id) REFERENCES public.vagones(id) ON DELETE SET NULL;
+
+
+--
 -- Name: despachos fk_des_bus; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4991,6 +9129,14 @@ ALTER TABLE ONLY public.reportes
 
 
 --
+-- Name: reportes fk_rep_vagon; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reportes
+    ADD CONSTRAINT fk_rep_vagon FOREIGN KEY (vagon_id) REFERENCES public.vagones(id) ON DELETE SET NULL;
+
+
+--
 -- Name: ruta_estaciones ruta_estaciones_estacion_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5007,8 +9153,32 @@ ALTER TABLE ONLY public.ruta_estaciones
 
 
 --
+-- Name: vagon_rutas vagon_rutas_ruta_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vagon_rutas
+    ADD CONSTRAINT vagon_rutas_ruta_id_fkey FOREIGN KEY (ruta_id) REFERENCES public.rutas(id) ON DELETE CASCADE;
+
+
+--
+-- Name: vagon_rutas vagon_rutas_vagon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vagon_rutas
+    ADD CONSTRAINT vagon_rutas_vagon_id_fkey FOREIGN KEY (vagon_id) REFERENCES public.vagones(id) ON DELETE CASCADE;
+
+
+--
+-- Name: vagones vagones_estacion_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vagones
+    ADD CONSTRAINT vagones_estacion_id_fkey FOREIGN KEY (estacion_id) REFERENCES public.estaciones(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict OgxZQZZlRMUPpGORjiuncw7lZoqKJagDomRb5PHaw82Gqebu8vZN0D4sONShRpg
+\unrestrict U4zzv8AlOTdaCTmlhZWlUdHb6OH8523qRvesJGFIel2jIK7KslVFsqdABot8QJL
 
