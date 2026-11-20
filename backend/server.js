@@ -50,8 +50,16 @@ app.use(function (req, res, next) {
   next();
 });
 
-// Servir el frontend (archivos estaticos)
-app.use(express.static(path.join(__dirname, 'public')));
+// Servir el frontend: sin cache para que siempre cargue el codigo actual
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: function (res, filePath) {
+    if (/\.(html|js|css)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 // ---------------------------------------------------------------
 // Montaje de los routers (API modular)

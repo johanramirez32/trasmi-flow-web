@@ -504,42 +504,79 @@
     }
 
     /** Agrupa los despachos por bus (bagón) con sus estaciones y rutas */
+    /** Organiza por bus (bagón): estaciones y rutas de cada bus, con nivel de aglomeración */
     function cargarBagones() {
       var cont = document.getElementById('opListaBagones');
       if (!cont) { return; }
-      fetch(API_URL + '/despachos')
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (data) {
-          var despachos = (data.despachos || []).slice(0, 100);
-          if (!despachos.length) {
-            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4 col-span-full">Aun no hay buses despachados.</p>';
-            return;
-          }
-          var porBus = {};
-          despachos.forEach(function (d) {
-            if (!porBus[d.bus]) { porBus[d.bus] = []; }
-            porBus[d.bus].push(d);
+      cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4 col-span-full">Cargando bagones...</p>';
+
+      Promise.all([
+        fetch(API_URL + '/despachos').then(function (r) { return r.json(); }),
+        fetch(API_URL + '/reportes?limite=100').then(function (r) { return r.json(); })
+      ]).then(function (res) {
+        var despachos = (res[0] && res[0].despachos) || [];
+        var reportes = res[1] || [];
+
+        function nivelDe(estacion, ruta) {
+          var reps = reportes.filter(function (x) {
+            return String(x.estacion).toLowerCase() === String(estacion).toLowerCase() &&
+                   (x.ruta || '') === (ruta || '');
           });
-          cont.innerHTML = Object.keys(porBus).map(function (bus) {
-            var items = porBus[bus];
-            var ultimo = items[0];
-            return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
-              '<div class="flex items-center justify-between gap-2">' +
-                '<p class="text-white font-black text-xs">&#128661; ' + escHtml(bus) + ' <span class="text-slate-500 text-[10px]">' + escHtml(ultimo.tipo_bus || 'Bus normal') + '</span></p>' +
-                '<span class="text-[10px] text-slate-400">' + items.length + ' despacho(s)</span>' +
-              '</div>' +
-              '<p class="text-[10px] text-slate-500 mt-0.5">Conductor: ' + escHtml(ultimo.conductor || 'NO INDICADO') + '</p>' +
-              '<div class="mt-2 space-y-1">' + items.map(function (d) {
-                return '<div class="text-[10px] text-slate-300 pl-2 border-l-2 border-brand-red">' +
-                  escHtml(d.estacion) + ' · Ruta ' + escHtml(d.ruta || 'SIN RUTA') +
-                  ' <span class="text-slate-500">' + tiempoRelativo(d.creado_en) + '</span></div>';
-              }).join('') + '</div>' +
-            '</div>';
-          }).join('');
-        })
-        .catch(function () {
-          cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4 col-span-full">No se pudieron cargar los despachos.</p>';
-        });
+          if (reps.some(function (x) { return x.nivel === 'Alta'; })) { return { nivel: 'Alta', pct: 85, n: reps.length }; }
+          if (reps.some(function (x) { return x.nivel === 'Media'; })) { return { nivel: 'Media', pct: 55, n: reps.length }; }
+          return { nivel: 'Baja', pct: 30, n: reps.length };
+        }
+
+        // Buses disponibles + los que ya tiene historial
+        var buses = [];
+        ['B1','B2','B3','B4','B5','B6','B7','B8','B9','B10','B11','B12'].forEach(function (b) { buses.push(b); });
+        despachos.forEach(function (d) { if (d.bus && buses.indexOf(d.bus) === -1) { buses.push(d.bus); } });
+
+        if (!buses.length) {
+          cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4 col-span-full">No hay buses.</p>';
+          return;
+        }
+
+        cont.innerHTML = buses.map(function (bus) {
+          var items = despachos.filter(function (d) { return d.bus === bus; });
+          var ultimo = items[0] || {};
+          var porEstacion = {};
+          items.forEach(function (d) {
+            if (!porEstacion[d.estacion]) { porEstacion[d.estacion] = []; }
+            if (porEstacion[d.estacion].indexOf(d.ruta) === -1) {
+              porEstacion[d.estacion].push(d.ruta || 'SIN RUTA');
+            }
+          });
+
+          var estacionesHtml = Object.keys(porEstacion).length
+            ? Object.keys(porEstacion).map(function (estacion) {
+                var rutasHtml = porEstacion[estacion].map(function (ruta) {
+                  var info = nivelDe(estacion, ruta);
+                  var color = COLOR_NIVEL[info.nivel];
+                  return '<div class="flex items-center justify-between gap-2 pl-2 border-l-2 mt-1" style="border-color:' + color + ';background:' + color + '12">' +
+                    '<span class="text-[10px] font-bold text-white">Ruta ' + escHtml(ruta) + '</span>' +
+                    '<span class="text-[9px] font-black" style="color:' + color + '">' + info.nivel + ' ' + info.pct + '%</span>' +
+                  '</div>';
+                }).join('');
+                return '<div class="mt-2">' +
+                  '<p class="text-[10px] text-slate-300 font-bold">📍 ' + escHtml(estacion) + '</p>' + rutasHtml +
+                '</div>';
+              }).join('')
+            : '<p class="text-[10px] text-slate-500 mt-2">Sin estaciones asignadas</p>';
+
+          return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<p class="text-white font-black text-xs">🚌 ' + escHtml(bus) +
+                ' <span class="text-slate-500 text-[10px]">' + escHtml(ultimo.tipo_bus || 'Bus normal') + '</span></p>' +
+              '<span class="text-[10px] text-slate-400">' + items.length + ' despacho(s)</span>' +
+            '</div>' +
+            '<p class="text-[10px] text-slate-500 mt-0.5">Conductor: ' + escHtml(ultimo.conductor || 'NO INDICADO') + '</p>' +
+            estacionesHtml +
+          '</div>';
+        }).join('');
+      }).catch(function () {
+        cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4 col-span-full">No se pudieron cargar los bagones.</p>';
+      });
     }
 
     /** Carga las rutas que los usuarios reportaron como problematicas */
