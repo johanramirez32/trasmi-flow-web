@@ -11,7 +11,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict U4zzv8AlOTdaCTmlhZWlUdHb6OH8523qRvesJGFIel2jIK7KslVFsqdABot8QJL
+\restrict XCMhhlShSgVD4I9Hq7Eews8vDL8hvobl1T8mUjNKjGJ3MO3JUJY71g2g22tFoME
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -695,13 +695,10 @@ COPY public.despachos (id, estacion, bus, operador, creado_en, ruta, tipo_bus, c
 --
 
 COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeracion, capacidad, lat, lng, direccion, portal) FROM stdin;
-312	San Diego	troncal	4.61089909	-74.07150007	L - Carrera Decima	Alta	288	4.6108991	-74.0715001	KR 10 - CL 23	Portal 20 de Julio
-314	Ricaurte - NQS	troncal	4.61168378	-74.09386595	E - NQS Central	Alta	392	4.6116838	-74.0938660	KR 30 - CL 10	Portal 20 de Julio
 316	Suba - Calle 100	troncal	4.68696834	-74.06444284	C - Suba	Alta	304	4.6869683	-74.0644428	AV Suba - CL 100	Portal Suba
 318	AV. Boyacá	troncal	4.69393268	-74.08713194	D - Calle 80	Alta	304	4.6939327	-74.0871319	TV 69 Bis	Portal 80
 317	Calle 75 - Zona M	troncal	4.67015101	-74.07130492	E - NQS Central	Media	272	4.6701510	-74.0713049	KR 30 - CL 75A	Portal 20 de Julio
 322	Niza - Calle 127	troncal	4.71200123	-74.07230720	C - Suba	Baja	200	4.7120012	-74.0723072	AV Suba - CL 127	Portal Suba
-320	AV. Américas - AV. Boyacá	troncal	4.63011780	-74.13422457	F - Americas	Media	272	4.6301178	-74.1342246	AV Americas - KR 71	Portal Américas
 321	Marsella	troncal	4.62967723	-74.13016385	F - Americas	Alta	320	4.6296772	-74.1301639	AV Americas - KR 69C	Portal Américas
 323	La Campiña	troncal	4.74265433	-74.09120046	C - Suba	Alta	352	4.7426543	-74.0912005	AV Suba - KR 98A	Portal Suba
 326	Guatoque - Veraguas	troncal	4.60417101	-74.09493313	G - NQS Sur (ramal)	Media	240	4.6041710	-74.0949331	KR 27	Portal Sur - JFK Coop. Financiera
@@ -746,8 +743,8 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 374	La Despensa	troncal	4.59459382	-74.18811218	Zona Leon XIII	Media	224	4.5945938	-74.1881122	Soacha	Portal Usme
 315	Quirigua	troncal	4.70672525	-74.10873932	D - Calle 80	Baja	152	4.7067253	-74.1087393	KR 94	Portal 80
 311	Campín - UAN	troncal	4.64539756	-74.07871009	E - NQS Central	Media	272	4.6453976	-74.0787101	KR 30 - CL 53	Portal 20 de Julio
-386	Biblioteca	troncal	4.57030352	-74.13038868	Portal Tunal	Baja	60	4.5703035	-74.1303887	CL 48A Sur	Portal Tunal
-381	El Tiempo – Cámara de Comercio de Bogotá	troncal	4.65706705	-74.10564666	K - Calle 26	Media	240	4.6570671	-74.1056467	KR 68D	Portal 20 de Julio
+312	San Diego	troncal	4.61089909	-74.07150007	L - Carrera Decima	Alta	288	4.6108991	-74.0715001	KR 10 - CL 23	Portal 20 de Julio
+314	Ricaurte - NQS	troncal	4.61168378	-74.09386595	E - NQS Central	Alta	392	4.6116838	-74.0938660	KR 30 - CL 10	Portal 20 de Julio
 382	Biblioteca Tintal	troncal	4.63790778	-74.15935249	F - Americas	Alta	304	4.6379078	-74.1593525	AV Cali - CL 26 Sur	Portal Américas
 383	Ciudad Jardín - UAN	troncal	4.58154254	-74.09035160	L - Carrera Decima	Media	264	4.5815425	-74.0903516	KR 10 - CL 12 Sur	Portal 20 de Julio
 384	Bicentenario	troncal	4.59402077	-74.08183542	L - Carrera Decima	Alta	384	4.5940208	-74.0818354	KR 10 - CL 5	Portal 20 de Julio
@@ -796,8 +793,8 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 441	San Victorino	troncal	4.60102943	-74.07742242	L - Carrera Decima	Alta	384	4.6010294	-74.0774224	KR 10 - CL 12	Portal 20 de Julio
 378	Consuelo	troncal	4.56022730	-74.12387433	H - Caracas Sur	Baja	192	4.5602273	-74.1238743	KR 11A - KR 10C	Portal Sur - JFK Coop. Financiera
 380	Comuneros	troncal	4.60424998	-74.09986137	G - NQS Sur	Media	252	4.6042500	-74.0998614	KR 30 - CL 6A	Portal Sur - JFK Coop. Financiera
-446	Suba - Calle 116	troncal	4.69924111	-74.06984394	C - Suba	Baja	200	4.6992411	-74.0698439	AV Suba CLL 114	Portal Suba
-448	SENA	troncal	4.59737051	-74.11064255	G - NQS Sur	Alta	304	4.5973705	-74.1106426	Autosur - CL 17 S	Portal Sur - JFK Coop. Financiera
+386	Biblioteca	troncal	4.57030352	-74.13038868	Portal Tunal	Baja	60	4.5703035	-74.1303887	CL 48A Sur	Portal Tunal
+381	El Tiempo – Cámara de Comercio de Bogotá	troncal	4.65706705	-74.10564666	K - Calle 26	Media	240	4.6570671	-74.1056467	KR 68D	Portal 20 de Julio
 447	San Bernardo	troncal	4.59019556	-74.08432732	L - Carrera Decima	Media	264	4.5901956	-74.0843273	KR 10 - CL 1B Sur	Portal 20 de Julio
 450	Socorro	troncal	4.56465328	-74.12558394	H - Caracas Sur	Baja	200	4.5646533	-74.1255839	KR 13B - KR 13C	Portal Sur - JFK Coop. Financiera
 449	San Facon Carrera 22	troncal	4.60973521	-74.08679478	F - Americas	Media	272	4.6097352	-74.0867948	AV Americas - KR 22	Portal Américas
@@ -825,7 +822,6 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 324	Transversal 86	troncal	4.63419465	-74.15206784	F - Americas	Media	240	4.6341947	-74.1520678	AV Americas - TV 86	Portal Américas
 330	Avenida Rojas - UNISALESIANA	troncal	4.66194444	-74.10877200	K - Calle 26	Alta	320	4.6619444	-74.1087720	CL 26 - KR 69 D	Portal 20 de Julio
 338	Tygua - San José	troncal	4.59978720	-74.08876139	G - NQS Sur (ramal)	Media	228	4.5997872	-74.0887614	KR 18	Portal Sur - JFK Coop. Financiera
-336	Distrito Grafiti	troncal	4.62785005	-74.11158411	F - Americas	Media	272	4.6278501	-74.1115841	Americas - KR 53A	Portal Américas
 345	Gobernación	troncal	4.64283002	-74.09653771	K - Calle 26	Media	260	4.6428300	-74.0965377	KR 54	Portal 20 de Julio
 373	De La Sabana	troncal	4.60542110	-74.08189427	F - Americas	Baja	168	4.6054211	-74.0818943	CL 13 - KR 16	Portal Américas
 375	Calle 72 - Areandina	troncal	4.65823755	-74.06206786	A - Caracas	Baja	0	4.6582376	-74.0620679	CL 72 - CL 70A	Portal Norte – Unicervantes
@@ -844,6 +840,10 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 433	Santa Lucía	troncal	4.57096848	-74.12470872	H - Caracas Sur	Media	272	4.5709685	-74.1247087	CL 46A Sur - Diagonal 4	Portal Sur - JFK Coop. Financiera
 313	Granja - Kr 77	troncal	4.69915096	-74.09601773	D - Calle 80	Alta	392	4.6991510	-74.0960177	KR 77 Bis	Portal 80
 395	Movistar Arena	troncal	4.65003985	-74.07836246	E - NQS Central	Media	272	4.6500399	-74.0783625	KR 30 - CL 57	Portal 20 de Julio
+446	Suba - Calle 116	troncal	4.69924111	-74.06984394	C - Suba	Baja	200	4.6992411	-74.0698439	AV Suba CLL 114	Portal Suba
+336	Distrito Grafiti	troncal	4.62785005	-74.11158411	F - Americas	Media	272	4.6278501	-74.1115841	Americas - KR 53A	Portal Américas
+448	SENA	troncal	4.59737051	-74.11064255	G - NQS Sur	Alta	304	4.5973705	-74.1106426	Autosur - CL 17 S	Portal Sur - JFK Coop. Financiera
+320	AV. Américas - AV. Boyacá	troncal	4.63011780	-74.13422457	F - Americas	Media	272	4.6301178	-74.1342246	AV Americas - KR 71	Portal Américas
 421	Hortúa	troncal	4.59084725	-74.09024600	H - Caracas Sur	Baja	192	4.5908473	-74.0902460	CL 1 Sur - CL 3 Sur	Portal Sur - JFK Coop. Financiera
 445	Rionegro	troncal	4.68035106	-74.06481662	C - Suba	Baja	144	4.6803511	-74.0648166	AV Suba - CL 87	Portal Suba
 452	Temporal Calle 34	troncal	4.62157551	-74.06971918	A - Caracas	Alta	320	4.6215755	-74.0697192	AV Calle 34 - CL 3	Portal Norte – Unicervantes
@@ -863,6 +863,7 @@ COPY public.notificaciones (id, usuario, mensaje, tipo, creado_en, leido, usuari
 5	practica5@transmiflow.local	Tu reporte en Comuneros (ruta G11) fue atendido. Bus BCO-101 en camino.	operador	2026-11-19 19:51:27.170141	f	35	18
 7	practica3@transmiflow.local	Tu reporte en Patio Bonito (ruta 5 C) fue atendido. Bus BCO-105 en camino.	operador	2026-11-19 20:30:19.909102	f	32	16
 8	practica3@transmiflow.local	Tu reporte en Patio Bonito (ruta 5 C) fue atendido. Bus BCO-105 en camino.	operador	2026-11-19 20:30:38.852136	f	32	16
+9	extra1@transmiflow.local	Tu reporte en Portal Américas (ruta B28) fue tramitado por el operario.	operador	2026-11-19 20:57:58.422259	f	42	39
 \.
 
 
@@ -8730,14 +8731,14 @@ SELECT pg_catalog.setval('public.estaciones_id_seq', 461, true);
 -- Name: notificaciones_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.notificaciones_id_seq', 8, true);
+SELECT pg_catalog.setval('public.notificaciones_id_seq', 9, true);
 
 
 --
 -- Name: reportes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.reportes_id_seq', 55, true);
+SELECT pg_catalog.setval('public.reportes_id_seq', 56, true);
 
 
 --
@@ -8758,7 +8759,7 @@ SELECT pg_catalog.setval('public.rutas_id_seq', 126, true);
 -- Name: usuarios_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.usuarios_id_seq', 56, true);
+SELECT pg_catalog.setval('public.usuarios_id_seq', 60, true);
 
 
 --
@@ -9180,5 +9181,5 @@ ALTER TABLE ONLY public.vagones
 -- PostgreSQL database dump complete
 --
 
-\unrestrict U4zzv8AlOTdaCTmlhZWlUdHb6OH8523qRvesJGFIel2jIK7KslVFsqdABot8QJL
+\unrestrict XCMhhlShSgVD4I9Hq7Eews8vDL8hvobl1T8mUjNKjGJ3MO3JUJY71g2g22tFoME
 

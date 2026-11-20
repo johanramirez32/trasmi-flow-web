@@ -10,7 +10,8 @@ const express = require('express');
 const pool = getPool();
 const router = express.Router();
 
-const PESO = { Baja: 30, Media: 55, Alta: 85 };
+const PESO = { Baja: 30, Media: 60, Alta: 85 };
+function nivelDe(pct) { return pct < 50 ? 'Baja' : (pct < 75 ? 'Media' : 'Alta'); }
 
 async function aglomeracion(req, res) {
   try {
@@ -30,14 +31,14 @@ async function aglomeracion(req, res) {
       porRuta[kr].reportes++;
       if (p > porRuta[kr].porcentaje) {
         porRuta[kr].porcentaje = p;
-        porRuta[kr].nivel = x.nivel;
+        porRuta[kr].nivel = nivelDe(porRuta[kr].porcentaje);
       }
       if (!porEstacion[x.estacion]) {
         porEstacion[x.estacion] = { estacion: x.estacion, porcentaje: 0, nivel: 'Baja', reportes: 0, rutas: [] };
       }
       const e = porEstacion[x.estacion];
       e.reportes++;
-      if (p > e.porcentaje) { e.porcentaje = p; e.nivel = x.nivel; }
+      if (p > e.porcentaje) { e.porcentaje = p; e.nivel = nivelDe(e.porcentaje); }
       if (e.rutas.indexOf(x.ruta) === -1) { e.rutas.push(x.ruta); }
     });
 

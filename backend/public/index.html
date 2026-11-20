@@ -209,13 +209,30 @@
         <button type="button" onclick="alternarModoAuth()" id="btnAlternarAuth" class="text-brand-red font-bold hover:underline ml-1">Registrate aqui</button>
       </div>
 
-      <div class="space-y-2 pt-2 border-t border-brand-border">
-        <p class="text-center text-[10px] text-slate-500 uppercase tracking-wider">O ingresa con</p>
-        <div class="grid grid-cols-3 gap-2">
-          <button type="button" onclick="accesoSocial('Google')" class="px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-[11px] font-bold text-white hover:border-brand-red">Google</button>
-          <button type="button" onclick="accesoSocial('Facebook')" class="px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-[11px] font-bold text-white hover:border-brand-red">Facebook</button>
-          <button type="button" onclick="accesoSocial('Hotmail')" class="px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-[11px] font-bold text-white hover:border-brand-red">Hotmail</button>
+      <div class="pt-3 border-t border-brand-border">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="flex-grow h-px bg-brand-border"></div>
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">O continúa con</span>
+          <div class="flex-grow h-px bg-brand-border"></div>
         </div>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="accesoSocial('Google')" title="Ingresar con Google"
+            class="group flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl border border-brand-border bg-gradient-to-b from-white/[0.08] to-transparent hover:from-red-500/20 hover:border-red-400 transition-all duration-200 hover:-translate-y-0.5">
+            <span class="text-xl leading-none">🔴</span>
+            <span class="text-[10px] font-bold text-white group-hover:text-red-300">Google</span>
+          </button>
+          <button type="button" onclick="accesoSocial('Facebook')" title="Ingresar con Facebook"
+            class="group flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl border border-brand-border bg-gradient-to-b from-white/[0.08] to-transparent hover:from-blue-600/20 hover:border-blue-400 transition-all duration-200 hover:-translate-y-0.5">
+            <span class="text-xl leading-none text-blue-400">f</span>
+            <span class="text-[10px] font-bold text-white group-hover:text-blue-300">Facebook</span>
+          </button>
+          <button type="button" onclick="accesoSocial('Hotmail')" title="Ingresar con Hotmail"
+            class="group flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl border border-brand-border bg-gradient-to-b from-white/[0.08] to-transparent hover:from-sky-500/20 hover:border-sky-400 transition-all duration-200 hover:-translate-y-0.5">
+            <span class="text-xl leading-none text-sky-400">✉</span>
+            <span class="text-[10px] font-bold text-white group-hover:text-sky-300">Hotmail</span>
+          </button>
+        </div>
+        <p class="text-center text-[9px] text-slate-500 mt-2">Acceso disponible próximamente · usa tu correo y contraseña</p>
       </div>
     </div>
   </div>

@@ -256,7 +256,7 @@
             });
             var detalleRutas = rs.map(function (x) {
               var c = COLOR_NIVEL[x.nivel] || '#94a3b8';
-              var pct = x.nivel === 'Alta' ? 85 : (x.nivel === 'Media' ? 55 : 30);
+              var pct = x.nivel === 'Alta' ? 85 : (x.nivel === 'Media' ? 60 : 30);
               var args = (JSON.stringify(x.id) + ', ' + JSON.stringify(x.estacion) + ', ' + JSON.stringify(x.ruta || '')).replace(/"/g, '&quot;');
               return '<div class="mt-1.5">' +
                 '<button onclick="toggleDetalleReporte(' + args + ')" class="w-full flex items-center justify-between gap-2 pl-2 border-l-2 py-1 hover:bg-brand-dark/60 rounded" style="border-color:' + c + '">' +
@@ -971,7 +971,7 @@
           var nivel = 'Baja';
           if (reps.some(function (x) { return x.nivel === 'Alta'; })) { nivel = 'Alta'; }
           else if (reps.some(function (x) { return x.nivel === 'Media'; })) { nivel = 'Media'; }
-          return { nivel: nivel, pct: nivel === 'Alta' ? 85 : (nivel === 'Media' ? 55 : 30), reps: reps };
+          return { nivel: nivel, pct: nivel === 'Alta' ? 85 : (nivel === 'Media' ? 60 : 30), reps: reps };
         }
 
         if (!vagones.length) {

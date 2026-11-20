@@ -389,7 +389,8 @@
       var panel = document.getElementById('panelNotificaciones');
       if (!panel) { return; }
       var estabaAbierto = !panel.classList.contains('hidden');
-      panel.classList.toggle('hidden', !estabaAbierto);
+      // toggle(token, force): force=true añade la clase. Queremos lo contrario
+      panel.classList.toggle('hidden', estabaAbierto);
       if (!estabaAbierto) { actualizarNotifBadge(); }
     }
 
@@ -519,6 +520,7 @@
           localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
           localStorage.setItem(TOKEN_KEY, res.d.token || '');
           verificarAcceso();
+          actualizarNotifBadge();
         })
         .catch(function () {
           msg.textContent = 'No se pudo conectar con el servidor';
@@ -554,6 +556,7 @@
           localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
           localStorage.setItem(TOKEN_KEY, res.d.token || '');
           verificarAcceso();
+          actualizarNotifBadge();
         })
         .catch(function () {
           msg.textContent = 'No se pudo conectar con el servidor';
@@ -631,11 +634,35 @@
     // ARRANQUE
     // ==========================================================
     window.addEventListener('load', function () {
-      verificarAcceso();
       verificarConexion();
-      actualizarNotifBadge();
+      var usuario = localStorage.getItem('usuarioTransmiFlowReal');
+      var token = localStorage.getItem(TOKEN_KEY) || '';
+
+      function iniciar() {
+        verificarAcceso();
+        if (localStorage.getItem('usuarioTransmiFlowReal')) { actualizarNotifBadge(); }
+      }
+
+      if (usuario && token) {
+        // Validar token contra el servidor; si no sirve, limpiar sesion
+        fetch(API_URL + '/notificaciones', { headers: { Authorization: 'Bearer ' + token } })
+          .then(function (r) {
+            if (!r.ok) { throw new Error('Sesion vencida'); }
+            iniciar();
+          })
+          .catch(function () {
+            localStorage.removeItem('usuarioTransmiFlowReal');
+            localStorage.removeItem(TOKEN_KEY);
+            iniciar();
+          });
+      } else {
+        iniciar();
+      }
+
       if (window.__timerConexion) { clearInterval(window.__timerConexion); }
       window.__timerConexion = setInterval(verificarConexion, 30000);
       if (window.__timerAlertas) { clearInterval(window.__timerAlertas); }
-      window.__timerAlertas = setInterval(actualizarNotifBadge, 60000);
+      window.__timerAlertas = setInterval(function () {
+        if (localStorage.getItem('usuarioTransmiFlowReal')) { actualizarNotifBadge(); }
+      }, 60000);
     });

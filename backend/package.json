@@ -11,7 +11,7 @@
     "dev": "node --watch server.js",
     "cargar": "node cargar-estaciones.js",
     "exportar": "node exportar-estaciones.js",
-    "test": "node test/verificacion.js",
+    "test": "node test/ejecutar-verificacion.js",
     "test:vuln": "node test/vulnerabilidades.js"
   },
   "dependencies": {
