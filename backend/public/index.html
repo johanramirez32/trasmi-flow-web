@@ -495,39 +495,6 @@
                 <option value="">Buscar bus (despachar)...</option>
               </select>
             </div>
-            <p id="opMensajeDespacho" class="hidden text-center text-xs font-medium py-1"></p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Numero de placa del bus</label>
-                <input id="opPlacaBus" placeholder="Ej: ABC-123" class="w-full px-4 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
-              </div>
-              <div>
-                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tipo de bus</label>
-                <select id="opTipoBus" class="w-full px-4 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
-                  <option value="Bus normal">Bus normal</option>
-                  <option value="Biarticulado">Biarticulado</option>
-                </select>
-              </div>
-            </div>
-            <button onclick="enviarDespacho()" class="w-full px-4 py-3 bg-gradient-to-r from-brand-red to-brand-darkRed hover:opacity-95 text-white font-bold rounded-xl shadow-lg text-sm">
-              Despachar bus a estacion seleccionada
-            </button>
-          </div>
-
-          <!-- DOS PANELES: IZQUIERDA estaciones | DERECHA buses disponibles -->
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div class="bg-brand-dark/40 p-3 rounded-xl border border-brand-border space-y-2">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Estaciones (aglom + reportes)</span>
-              <div id="opListaEstacionesPanel" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
-                <p class="text-xs text-slate-400 text-center py-6">Cargando estaciones...</p>
-              </div>
-            </div>
-            <div class="bg-brand-dark/40 p-3 rounded-xl border border-brand-border space-y-2">
-              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Buses disponibles</span>
-              <div id="opListaBusesPanel" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
-                <p class="text-xs text-slate-400 text-center py-6">Cargando buses...</p>
-              </div>
-            </div>
           </div>
 
           <!-- CONFIRMAR DESPACHO -->
@@ -570,6 +537,23 @@
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Despachos por bus (bagones)</p>
             <div id="opListaBagones" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scroll pr-1">
               <p class="text-xs text-slate-400 text-center py-4 col-span-full">Cargando despachos...</p>
+            </div>
+          </div>
+
+
+          <!-- DOS PANELES: IZQUIERDA estaciones | DERECHA buses disponibles -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div class="bg-brand-dark/40 p-3 rounded-xl border border-brand-border space-y-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Estaciones (aglom + reportes)</span>
+              <div id="opListaEstacionesPanel" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+                <p class="text-xs text-slate-400 text-center py-6">Cargando estaciones...</p>
+              </div>
+            </div>
+            <div class="bg-brand-dark/40 p-3 rounded-xl border border-brand-border space-y-2">
+              <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Buses disponibles</span>
+              <div id="opListaBusesPanel" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
+                <p class="text-xs text-slate-400 text-center py-6">Cargando buses...</p>
+              </div>
             </div>
           </div>
 

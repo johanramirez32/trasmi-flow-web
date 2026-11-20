@@ -25,6 +25,7 @@
 
       if (vista === 'reportes') { cargarOperadorReportes(); cargarFrecuenciaBuses(); }
       if (vista === 'rutas') {
+        cargarOperadorSelects();
         var selRutas = document.getElementById('opSelectRutas');
         if (selRutas) { cargarOperadorRutas(selRutas.value); }
         cargarOperadorEstacionesPanel();
@@ -166,6 +167,17 @@
             }
             if (!existe) { select.value = ''; }
           });
+
+          // Bus selector: buses base disponibles para despacho
+          var selBus = document.getElementById('opInputBuscarBus');
+          if (selBus && selBus.options.length <= 1) {
+            var previoBus = selBus.value;
+            var nombres = ['B1','B2','B3','B4','B5','B6','B7','B8','B9','B10','B11','B12'];
+            selBus.innerHTML = '<option value="">Buscar bus (despachar)...</option>' + nombres.map(function (b) {
+              return '<option value="' + b + '">' + b + '</option>';
+            }).join('');
+            selBus.value = previoBus;
+          }
         })
         .catch(function () { /* se mantiene el estado actual del select */ });
     }
@@ -863,26 +875,39 @@
     }
 
     /** Despacha el bus con placa y tipo hacia la ruta indicada */
+    /** Al elegir un bus de la lista: lo coloca en el formulario de confirmacion */
     function enviarDespachoBus(bus, ruta) {
-      var placa = document.getElementById('opPlacaBus');
+      var placa = document.getElementById('opDespachoPlaca');
       if (placa) { placa.value = bus; }
-      var selRuta = document.getElementById('opSelectRutas');
-      if (ruta && selRuta) {
-        var est = estaciones.find(function (e) { return String(e.id) === String(selRuta.value); });
-        if (est) {
-          fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre) + '?id=' + encodeURIComponent(est.id))
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-              var found = (data.rutas || []).find(function (x) { return x.codigo === ruta; });
-              if (found) {
-                window.__rutaDespacho = ruta;
-              }
-            });
+
+      var selEst = document.getElementById('opDespachoEstacion');
+      var selRuta = document.getElementById('opDespachoRuta');
+      var est = estacionPorValor(selEst ? selEst.value : '');
+
+      function seleccionarRuta() {
+        if (!selRuta || !ruta) { return; }
+        for (var i = 0; i < selRuta.options.length; i++) {
+          if (selRuta.options[i].value === ruta) { selRuta.value = ruta; return; }
         }
       }
+
+      if (est) {
+        if (!selRuta || selRuta.options.length <= 1) {
+          cargarRutasDespacho();
+          setTimeout(seleccionarRuta, 1200);
+        } else {
+          seleccionarRuta();
+        }
+      }
+
+      var msg = document.getElementById('opMensajeConfirmar');
+      if (msg) {
+        msg.textContent = 'Bus ' + bus + (ruta ? ' · ruta ' + ruta : '') +
+          ' listo. Verifica placa, cedula y estacion, luego confirma el despacho.';
+        msg.className = 'text-center text-xs font-medium py-1 text-emerald-400';
+        msg.classList.remove('hidden');
+      }
       if (ruta) { window.__rutaDespacho = ruta; }
-      var msg = document.getElementById('opMensajeDespacho');
-      if (msg) { msg.textContent = 'Bus ' + bus + ' listo. Confirma placa y tipo, luego despacha.'; msg.classList.remove('hidden'); }
     }
 
     function cargarOperadorRutas(valor) {
