@@ -30,6 +30,7 @@ async function registrarDespacho(req, res) {
   const ruta = String(req.body.ruta || '').trim().slice(0, 20);
   const bus = String(req.body.bus || '').trim().slice(0, 20);
   const tipo = req.body.tipo_bus === 'Biarticulado' ? 'Biarticulado' : 'Bus normal';
+  const conductor = String(req.body.conductor || '').trim().slice(0, 30);
   const operador = req.usuario ? req.usuario.email : '';
 
   if (!estacion || !ruta || !bus) {
@@ -38,8 +39,8 @@ async function registrarDespacho(req, res) {
 
   try {
     const r = await pool.query(
-      'INSERT INTO despachos (estacion, ruta, bus, tipo_bus, operador) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [estacion, ruta, bus, tipo, operador]
+      'INSERT INTO despachos (estacion, ruta, bus, tipo_bus, conductor, operador) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [estacion, ruta, bus, tipo, conductor, operador]
     );
 
     await notificarReportesAtendidos(pool, estacion, ruta, bus);

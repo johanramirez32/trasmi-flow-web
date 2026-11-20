@@ -155,14 +155,33 @@
         });
     }
 
+    /** Al escribir/seleccionar estacion, cargar SOLO sus rutas */
+    function alCambiarEstacionReporte() {
+      var campo = document.getElementById('repEstacion');
+      var sel = document.getElementById('repRuta');
+      if (!campo || !sel) { return; }
+      var nombre = campo.value.trim();
+      if (!nombre) {
+        sel.innerHTML = '<option value="">Primero elige la estacion</option>';
+        return;
+      }
+      var n = nombre.toLowerCase();
+      var exacta = (estaciones || []).find(function (e) { return e.nombre.toLowerCase() === n; });
+      if (exacta) { cargarRutasDelReporte(exacta.nombre); return; }
+
+      // Si no es exacta, esperar a que elija una sugerencia
+      sel.innerHTML = '<option value="">Elige una estacion de la lista</option>';
+    }
+
     /** Autocompletado de estaciones al escribir */
     function sugerirEstaciones() {
       var texto = document.getElementById('repEstacion').value.trim();
       var caja  = document.getElementById('repSugerencias');
       if (!caja) return;
 
-      if (texto.length < 2) { caja.classList.add('hidden'); return; }
+      if (texto.length < 2) { caja.classList.add('hidden'); alCambiarEstacionReporte(); return; }
 
+      alCambiarEstacionReporte();
       var coincidencias = estaciones.filter(function (e) {
         return e.nombre.toLowerCase().indexOf(texto.toLowerCase()) !== -1;
       }).slice(0, 6);

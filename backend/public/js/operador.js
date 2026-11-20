@@ -30,6 +30,7 @@
         cargarOperadorEstacionesPanel();
         cargarOperadorBuses();
         cargarRutasReportadas();
+        cargarBagones();
       }
       if (vista === 'camaras') {
         var selCamaras = document.getElementById('opSelectCamaras');
@@ -148,7 +149,7 @@
       return fetch(API_URL + '/estaciones')
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (lista) {
-          ['opSelectEstacion', 'opSelectRutas', 'opSelectCamaras'].forEach(function (id) {
+          ['opSelectEstacion', 'opSelectRutas', 'opSelectCamaras', 'opDespachoEstacion'].forEach(function (id) {
             var select = document.getElementById(id);
             if (!select) return;
             var valorPrevio = select.value;
@@ -439,6 +440,108 @@
       return 30;
     }
 
+    /** Carga las rutas de la estacion elegida en el formulario de despacho */
+    function cargarRutasDespacho() {
+      var selEst = document.getElementById('opDespachoEstacion');
+      var selRuta = document.getElementById('opDespachoRuta');
+      if (!selEst || !selRuta) { return; }
+      var est = estacionPorValor(selEst.value);
+      if (!est) { selRuta.innerHTML = '<option value="">Selecciona ruta</option>'; return; }
+      fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre) + '?id=' + encodeURIComponent(est.id))
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var rutas = (data.rutas || []).slice(0, 200);
+          selRuta.innerHTML = '<option value="">Selecciona ruta</option>' + rutas.map(function (r) {
+            return '<option value="' + escHtml(r.codigo) + '">' + escHtml(r.codigo) + ' · ' +
+                   escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</option>';
+          }).join('');
+        })
+        .catch(function () { selRuta.innerHTML = '<option value="">No se pudieron cargar</option>'; });
+    }
+
+    /** Confirma el despacho con placa, cedula, estacion de inicio y ruta */
+    function confirmarDespacho() {
+      var msg = document.getElementById('opMensajeConfirmar');
+      function avisar(texto, color) {
+        if (!msg) { return; }
+        msg.textContent = texto;
+        msg.className = 'text-center text-xs font-medium py-1 ' + (color === 'ok' ? 'text-emerald-400' : 'text-red-400');
+        msg.classList.remove('hidden');
+      }
+      var placa = (document.getElementById('opDespachoPlaca') || {}).value || '';
+      var cedula = (document.getElementById('opDespachoConductor') || {}).value || '';
+      var estSel = (document.getElementById('opDespachoEstacion') || {}).value || '';
+      var ruta = (document.getElementById('opDespachoRuta') || {}).value || '';
+      var tipo = (document.getElementById('opDespachoTipo') || {}).value || 'Bus normal';
+      var est = estacionPorValor(estSel);
+      if (!placa.trim() || !cedula.trim() || !est || !ruta) {
+        avisar('Completa placa, cedula, estacion de inicio y ruta.', 'error');
+        return;
+      }
+      var usuario = {};
+      try { usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}'); } catch (e) { usuario = {}; }
+
+      fetch(API_URL + '/despacho', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          estacion: est.nombre, ruta: ruta, bus: placa.trim(),
+          tipo_bus: tipo, conductor: cedula.trim(),
+          operador: usuario.email || 'operario'
+        })
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { throw new Error(res.d.error || 'No se pudo despachar'); }
+          avisar('Bus ' + placa + ' despachado a ' + est.nombre + ' por la ruta ' + ruta + '.', 'ok');
+          window.__rutaDespacho = ruta;
+          cargarBagones();
+          cargarFrecuenciaBuses();
+          cargarOperadorReportes();
+          cargarOperadorBuses(est.id);
+        })
+        .catch(function (err) { avisar('No se pudo despachar: ' + err.message, 'error'); });
+    }
+
+    /** Agrupa los despachos por bus (bagón) con sus estaciones y rutas */
+    function cargarBagones() {
+      var cont = document.getElementById('opListaBagones');
+      if (!cont) { return; }
+      fetch(API_URL + '/despachos')
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+          var despachos = (data.despachos || []).slice(0, 100);
+          if (!despachos.length) {
+            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4 col-span-full">Aun no hay buses despachados.</p>';
+            return;
+          }
+          var porBus = {};
+          despachos.forEach(function (d) {
+            if (!porBus[d.bus]) { porBus[d.bus] = []; }
+            porBus[d.bus].push(d);
+          });
+          cont.innerHTML = Object.keys(porBus).map(function (bus) {
+            var items = porBus[bus];
+            var ultimo = items[0];
+            return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
+              '<div class="flex items-center justify-between gap-2">' +
+                '<p class="text-white font-black text-xs">&#128661; ' + escHtml(bus) + ' <span class="text-slate-500 text-[10px]">' + escHtml(ultimo.tipo_bus || 'Bus normal') + '</span></p>' +
+                '<span class="text-[10px] text-slate-400">' + items.length + ' despacho(s)</span>' +
+              '</div>' +
+              '<p class="text-[10px] text-slate-500 mt-0.5">Conductor: ' + escHtml(ultimo.conductor || 'NO INDICADO') + '</p>' +
+              '<div class="mt-2 space-y-1">' + items.map(function (d) {
+                return '<div class="text-[10px] text-slate-300 pl-2 border-l-2 border-brand-red">' +
+                  escHtml(d.estacion) + ' · Ruta ' + escHtml(d.ruta || 'SIN RUTA') +
+                  ' <span class="text-slate-500">' + tiempoRelativo(d.creado_en) + '</span></div>';
+              }).join('') + '</div>' +
+            '</div>';
+          }).join('');
+        })
+        .catch(function () {
+          cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4 col-span-full">No se pudieron cargar los despachos.</p>';
+        });
+    }
+
     /** Carga las rutas que los usuarios reportaron como problematicas */
     function cargarRutasReportadas() {
       var cont = document.getElementById('opListaRutasReportadas');
@@ -678,6 +781,15 @@
         ['B1','B2','B3','B4','B5','B6','B7','B8','B9','B10','B11','B12'].forEach(function (b) { buses.push(b); });
         despachos.forEach(function (d) { if (d.bus && buses.indexOf(d.bus) === -1) { buses.push(d.bus); } });
 
+        var selBus = document.getElementById('opInputBuscarBus');
+        if (selBus) {
+          var antes = selBus.value;
+          selBus.innerHTML = '<option value="">Buscar bus (despachar)...</option>' + buses.map(function (b) {
+            return '<option value="' + escHtml(b) + '">' + escHtml(b) + '</option>';
+          }).join('');
+          selBus.value = antes;
+        }
+
         if (!rutas.length) {
           cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No hay rutas en esta estacion.</p>';
           return;
@@ -694,7 +806,7 @@
           var pct = nivel === 'Alta' ? 85 : (nivel === 'Media' ? 55 : 30);
           var atendidos = reps.filter(function (x) { return x.atendido; }).length;
 
-          return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl mb-2" style="border-left:3px solid ' + color + '">' +
+          return '<div class="p-3 border border-brand-border rounded-xl mb-2" style="border-left:4px solid ' + color + ';background:' + color + '14">' +
             '<div class="flex items-center justify-between gap-2">' +
               '<p class="text-white font-black text-xs">Ruta ' + escHtml(r.codigo) + '</p>' +
               '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:' + color + '22;color:' + color + '">' + nivel + ' ' + pct + '%</span>' +
@@ -702,7 +814,8 @@
             '<p class="text-[10px] text-slate-400 mt-1 truncate">' + escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</p>' +
             '<p class="text-[10px] text-slate-400 mt-0.5">' + reps.length + ' reporte(s) · ' + atendidos + ' atendido(s) · ' + (r.estaciones || []).length + ' paradas</p>' +
             '<div class="grid grid-cols-3 gap-1 mt-2">' + buses.map(function (b) {
-              return '<button onclick="enviarDespachoBus(' + JSON.stringify(b) + ', ' + JSON.stringify(r.codigo) + ')" ' +
+              var args = (JSON.stringify(b) + ', ' + JSON.stringify(r.codigo)).replace(/"/g, '&quot;');
+              return '<button onclick="enviarDespachoBus(' + args + ')" ' +
                 'class="px-1 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">' + escHtml(b) + '</button>';
             }).join('') + '</div>' +
           '</div>';

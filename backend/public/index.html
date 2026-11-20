@@ -488,10 +488,10 @@
           <div class="bg-brand-dark p-3 rounded-xl border border-brand-border space-y-2">
             <label class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Buscar estacion o bus</label>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <select id="opInputBuscarEstacion" onchange="var s = document.getElementById('opSelectRutas'); if (s) { s.value = this.value; } cargarOperadorRutas(this.value);" class="w-full px-4 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+              <select id="opInputBuscarEstacion" onchange="var s = document.getElementById('opSelectRutas'); if (s) { s.value = this.value; } cargarOperadorRutas(this.value); cargarOperadorBuses(this.value); var d = document.getElementById('opDespachoEstacion'); if (d) { d.value = this.value; cargarRutasDespacho(); }" class="w-full px-4 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
                 <option value="">Buscar estacion...</option>
               </select>
-              <select id="opInputBuscarBus" onchange="var b = document.getElementById('opInputBus'); if (b) { b.value = this.value; } cargarOperadorBuses();" class="w-full px-4 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+              <select id="opInputBuscarBus" onchange="var p = document.getElementById('opPlacaBus'); if (p) { p.value = this.value; } var d = document.getElementById('opDespachoPlaca'); if (d) { d.value = this.value; }" class="w-full px-4 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
                 <option value="">Buscar bus (despachar)...</option>
               </select>
             </div>
@@ -527,6 +527,49 @@
               <div id="opListaBusesPanel" class="space-y-2 max-h-[420px] overflow-y-auto custom-scroll pr-1">
                 <p class="text-xs text-slate-400 text-center py-6">Cargando buses...</p>
               </div>
+            </div>
+          </div>
+
+          <!-- CONFIRMAR DESPACHO -->
+          <div class="bg-brand-dark/40 p-3 rounded-xl border border-brand-border space-y-2">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Confirmar despacho de bus</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Placa del bus</label>
+                <input id="opDespachoPlaca" placeholder="Ej: ABC-123" class="w-full px-3 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Cédula del conductor</label>
+                <input id="opDespachoConductor" placeholder="Ej: 1012345678" class="w-full px-3 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Estación de inicio</label>
+                <select id="opDespachoEstacion" onchange="cargarRutasDespacho()" class="w-full px-3 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+                  <option value="">Selecciona estación</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Ruta a despachar</label>
+                <select id="opDespachoRuta" class="w-full px-3 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+                  <option value="">Selecciona ruta</option>
+                </select>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="opDespachoTipo" class="px-3 py-2.5 bg-brand-card border border-brand-border rounded-xl text-white text-sm">
+                <option value="Bus normal">Bus normal</option>
+                <option value="Biarticulado">Biarticulado</option>
+              </select>
+              <button onclick="confirmarDespacho()" class="flex-1 px-4 py-2.5 bg-gradient-to-r from-brand-red to-brand-darkRed text-white font-bold rounded-xl text-sm">Despachar bus</button>
+            </div>
+            <p id="opMensajeConfirmar" class="hidden text-center text-xs font-medium py-1"></p>
+          </div>
+
+          <!-- DESPACHOS POR BUS (BAGONES) -->
+          <div class="space-y-2">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Despachos por bus (bagones)</p>
+            <div id="opListaBagones" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scroll pr-1">
+              <p class="text-xs text-slate-400 text-center py-4 col-span-full">Cargando despachos...</p>
             </div>
           </div>
 

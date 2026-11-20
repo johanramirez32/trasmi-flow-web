@@ -71,6 +71,7 @@ const ESQUEMA = [
    )`,
   `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS ruta VARCHAR(20)`,
   `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS tipo_bus VARCHAR(30) DEFAULT 'Bus normal'`,
+  `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS conductor VARCHAR(30)`,
   `CREATE INDEX IF NOT EXISTS idx_despachos_estacion ON despachos(estacion)`,
 
   // Modulo Operario: rutas del sistema (linea + estaciones que la sirven)
