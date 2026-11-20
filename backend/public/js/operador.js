@@ -326,7 +326,7 @@
                     '<p class="text-white font-semibold text-xs sm:text-sm truncate">' + escHtml(e.nombre) + '</p>' +
                     '<p class="text-[11px] text-slate-400 truncate">' + escHtml(e.troncal || '') + '</p>' +
                   '</div>' +
-                  '<span class="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0" style="background:' + color + '22;color:' + color + '">' + escHtml(e.aglomeracion || 'Media') + '</span>' +
+                  '<span class="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0" style="background:' + color + '22;color:' + color + '">' + escHtml(nivel) + '</span>' +
                 '</div>';
               }).join('');
               cont.innerHTML = html;
@@ -405,7 +405,7 @@
             buscar.innerHTML = '<option value="">Buscar estacion...</option>';
             (ests || []).forEach(function (e) {
               var opt = document.createElement('option');
-              opt.value = e.id;opt.value = e.id;xtContent = e.nombre + (e.troncal ? ' (' + e.troncal + ')' : '');
+              opt.value = e.id; opt.textContent = e.nombre + (e.troncal ? ' (' + e.troncal + ')' : '');
               buscar.appendChild(opt);
             });
             var existe = false;
@@ -413,8 +413,17 @@
             if (!existe) { buscar.value = ''; }
           }
 
+          // Ordenar por nivel de reportes (mayor aglomeracion primero)
+          ests.sort(function (a, b) {
+            function peso(e) {
+              var n = (niveles || []).find(function (x) { return x.estacion && x.estacion.toLowerCase() === (e.nombre || '').toLowerCase(); });
+              return n && n.nivel === 'Alta' ? 85 : (n && n.nivel === 'Media' ? 55 : 30);
+            }
+            return peso(b) - peso(a);
+          });
+
           cont.innerHTML = (ests || []).map(function (e) {
-            var color = COLOR_AGLOMERACION[e.aglomeracion] || '#94a3b8';
+            var color = COLOR_AGLOMERACION[nivel] || '#94a3b8';
             var nivel = 'Baja';
             var reportado = false;
             (niveles || []).forEach(function (n) {
@@ -845,6 +854,17 @@
           return;
         }
 
+        // Priorizar rutas con mayor aglomeracion reportada
+        function pesoRuta(r) {
+          var reps = reportes.filter(function (x) {
+            return String(x.estacion).toLowerCase() === String(est.nombre).toLowerCase() && (x.ruta || '') === (r.codigo || '');
+          });
+          if (reps.some(function (x) { return x.nivel === 'Alta'; })) { return 85; }
+          if (reps.some(function (x) { return x.nivel === 'Media'; })) { return 55; }
+          return 30;
+        }
+        rutas.sort(function (a, b) { return pesoRuta(b) - pesoRuta(a); });
+
         cont.innerHTML = rutas.map(function (r) {
           var reps = reportes.filter(function (x) {
             return String(x.estacion).toLowerCase() === String(est.nombre).toLowerCase() && (x.ruta || '') === (r.codigo || '');
@@ -871,6 +891,10 @@
                 '<p class="text-[10px] font-black text-white uppercase">Despachar ruta ' + escHtml(r.codigo) + '</p>' +
                 '<button onclick="cerrarDespachoRuta(\'' + rid + '\')" class="text-slate-400 hover:text-white text-xs">✕</button>' +
               '</div>' +
+              '<div class="p-2 rounded-lg bg-brand-dark/70 border border-brand-border">' +
+                '<p class="text-[10px] font-bold" style="color:' + color + '">Nivel ' + escHtml(nivel) + ' · ' + pct + '%</p>' +
+                '<p class="text-[9px] text-slate-400 mt-0.5">' + reps.length + ' reporte(s) · ' + escHtml(est.nombre) + '</p>' +
+              '</div>' +
               '<div>' +
                 '<label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Bus por placa</label>' +
                 '<select id="popPlaca-' + rid + '" onchange="actualizarTipoPopover(\'' + rid + '\')" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' + opcionesBus + '</select>' +
@@ -890,6 +914,13 @@
             '</div>' +
           '</div>';
         }).join('');
+
+        // Mostrar de una vez las opciones de la ruta prioritaria
+        if (rutas.length) {
+          setTimeout(function () {
+            toggleDespachoRuta(rutas[0].id, rutas[0].codigo);
+          }, 120);
+        }
       }).catch(function () {
         cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las rutas.</p>';
       });

@@ -288,68 +288,82 @@
         });
     }
 
-    /** Notificaciones del usuario (reportes atendidos por el operario) */
+    /** HTML de alertas: rutas con aglomeracion > 50% y niveles por estacion */
+    function htmlAlertasAglomeracion(datos) {
+      var rutas = datos.rutas || [];
+      var estaciones = (datos.estaciones || []).slice(0, 8);
+      var html = '';
+
+      html += '<div class="p-2.5 rounded-xl border ' + (rutas.length ? 'border-red-500/40 bg-red-500/10' : 'border-brand-border bg-brand-dark/60') + '">' +
+        '<p class="text-[10px] font-black uppercase tracking-wider ' + (rutas.length ? 'text-red-400' : 'text-slate-400') + '">' +
+          'Aglomeracion por ruta (' + rutas.length + ')</p>';
+      if (!rutas.length) {
+        html += '<p class="text-[10px] text-slate-400 mt-1">Ninguna ruta supera el 50%.</p>';
+      } else {
+        rutas.slice(0, 6).forEach(function (x) {
+          var color = x.nivel === 'Alta' ? '#ef4444' : '#f59e0b';
+          html += '<div class="mt-1.5 pl-2 border-l-2" style="border-color:' + color + '">' +
+            '<p class="text-[11px] text-white font-bold">Ruta ' + escHtml(x.ruta) + ' · ' + escHtml(x.estacion) + '</p>' +
+            '<p class="text-[10px]" style="color:' + color + '">' + escHtml(x.nivel) + ' ' + x.porcentaje + '% · ' + x.reportes + ' reporte(s)</p>' +
+          '</div>';
+        });
+      }
+      html += '</div>';
+
+      if (estaciones.length) {
+        html += '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-2 mb-1">Niveles por estacion</p>';
+        estaciones.forEach(function (e) {
+          var color = e.nivel === 'Alta' ? '#ef4444' : (e.nivel === 'Media' ? '#f59e0b' : '#22c55e');
+          html += '<div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-brand-dark/60 border border-brand-border mb-1">' +
+            '<span class="text-[10px] text-white truncate">' + escHtml(e.estacion) + '</span>' +
+            '<span class="text-[10px] font-black shrink-0" style="color:' + color + '">' + escHtml(e.nivel) + ' ' + e.porcentaje + '%</span>' +
+          '</div>';
+        });
+      }
+      return html;
+    }
+
+    /** Notificaciones y alertas de aglomeracion */
     function cargarNotificaciones() {
       var cont = document.getElementById('listaNotificaciones');
       if (!cont) { return Promise.resolve(); }
-
-      var usuario = {};
-      try { usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}'); } catch (e) { usuario = {}; }
-
-      return fetch(API_URL + '/notificaciones?usuario=' + encodeURIComponent(usuario.email || ''))
-        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (data) {
-          var notis = data.notificaciones || [];
-          if (!notis.length) {
-            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Sin notificaciones.</p>';
-            return;
-          }
-          cont.innerHTML = notis.map(function (n) {
-            return '<div class="p-3 bg-brand-card border border-brand-border rounded-xl flex gap-3 items-start">' +
-              '<span class="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style="background:#8b5cf6"></span>' +
-              '<div><p class="text-white font-semibold text-xs sm:text-sm">' + escHtml(n.mensaje) + '</p>' +
-              '<p class="text-[11px] text-slate-400 mt-0.5">' + escHtml(n.tipo) + '</p></div>' +
-            '</div>';
-          }).join('');
-        })
-        .catch(function (err) {
-          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las notificaciones.<br>' + escHtml(err.message) + '</p>';
-        });
-        actualizarNotifBadge();
+      return Promise.all([
+        fetch(API_URL + '/alertas/aglomeracion').then(function (r) { return r.ok ? r.json() : { rutas: [], estaciones: [] }; }),
+        fetch(API_URL + '/notificaciones').then(function (r) { return r.ok ? r.json() : { notificaciones: [] }; })
+      ]).then(function (res) {
+        var alertas = res[0];
+        var notis = res[1].notificaciones || [];
+        var html = htmlAlertasAglomeracion(alertas);
+        if (notis.length) {
+          html += '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-2 mb-1">Reportes atendidos</p>';
+          notis.slice(0, 5).forEach(function (n) {
+            html += '<div class="p-3 bg-brand-card border border-brand-border rounded-xl">' +
+              '<p class="text-white font-semibold text-xs">' + escHtml(n.mensaje) + '</p>' +
+              '<p class="text-[10px] text-slate-400 mt-0.5">' + escHtml(n.tipo || '') + '</p></div>';
+          });
+        }
+        cont.innerHTML = html;
+      }).catch(function () {
+        cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las alertas.</p>';
+      });
     }
 
-    /** Refresca el contador de notificaciones (campana) y llena el panel */
+    /** Refresca la campana con las alertas de aglomeracion */
     function actualizarNotifBadge() {
       var badge = document.getElementById('notifBadge');
-      var panel = document.getElementById('panelNotificaciones');
-      if (!badge) { return; }
-
-      var usuario = {};
-      try { usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}'); } catch (e) { usuario = {}; }
-
-      fetch(API_URL + '/notificaciones?usuario=' + encodeURIComponent(usuario.email || ''))
+      var cont = document.getElementById('listaNotifPanel');
+      fetch(API_URL + '/alertas/aglomeracion')
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(function (data) {
-          var notis = data.notificaciones || [];
-          var noLeidas = notis.filter(function (n) { return !n.leido; }).length;
-
-          if (noLeidas > 0) { badge.textContent = noLeidas; badge.classList.remove('hidden'); }
-          else { badge.textContent = '0'; badge.classList.add('hidden'); }
-
-          var cont = document.getElementById('listaNotifPanel');
-          if (!cont) { return; }
-          if (!notis.length) { cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-4">Sin notificaciones.</p>'; return; }
-          cont.innerHTML = notis.map(function (n) {
-            var leido = n.leido ? 'opacity-60' : '';
-            return '<button onclick="abrirNotificacion(' + n.id + ')" class="w-full text-left p-2 rounded-lg hover:bg-brand-card ' + leido + '">' +
-              '<p class="text-white font-semibold text-[11px]">' + escHtml(n.mensaje) + '</p>' +
-              '<p class="text-[10px] text-slate-400 mt-0.5">' + escHtml(n.tipo) + '</p>' +
-            '</button>';
-          }).join('');
+        .then(function (datos) {
+          var n = (datos.rutas || []).length;
+          if (badge) {
+            if (n > 0) { badge.textContent = n; badge.classList.remove('hidden'); }
+            else { badge.textContent = '0'; badge.classList.add('hidden'); }
+          }
+          if (cont) { cont.innerHTML = htmlAlertasAglomeracion(datos); }
         })
-        .catch(function (err) {
-          var cont = document.getElementById('listaNotifPanel');
-          if (cont) { cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-4">Sin notificaciones.</p>'; }
+        .catch(function () {
+          if (cont) { cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-4">Sin alertas.</p>'; }
         });
     }
 
@@ -359,7 +373,7 @@
       if (!panel) { return; }
       var estabaAbierto = !panel.classList.contains('hidden');
       panel.classList.toggle('hidden', !estabaAbierto);
-      if (!estabaAbierto) { marcarNotificacionesLeidas(); actualizarNotifBadge(); }
+      if (!estabaAbierto) { actualizarNotifBadge(); }
     }
 
     /** Marca todas las notificaciones del usuario como leidas */
@@ -602,6 +616,9 @@
     window.addEventListener('load', function () {
       verificarAcceso();
       verificarConexion();
+      actualizarNotifBadge();
       if (window.__timerConexion) { clearInterval(window.__timerConexion); }
       window.__timerConexion = setInterval(verificarConexion, 30000);
+      if (window.__timerAlertas) { clearInterval(window.__timerAlertas); }
+      window.__timerAlertas = setInterval(actualizarNotifBadge, 60000);
     });
