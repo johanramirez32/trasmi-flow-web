@@ -1,9 +1,9 @@
 /**
  * Controller de reportes: crea y lista los reportes de ocupacion.
- * Cada reporte indica estacion, RUTA y nivel de aglomeracion.
+ * Relaciones: estacion_id -> estaciones, ruta_id -> rutas, usuario_id -> usuarios.
  * POST /api/reportes
  * GET  /api/reportes
- * GET  /api/reportes/rutas   -> rutas reportadas por estacion (panel operativo)
+ * GET  /api/reportes/rutas
  */
 const { getPool } = require('../db');
 
@@ -24,16 +24,23 @@ async function crearReporte(req, res) {
   }
 
   try {
+    // Resolver llaves foraneas desde los nombres que envia el formulario
+    const est = await pool.query('SELECT id FROM estaciones WHERE LOWER(nombre) = LOWER($1) LIMIT 1', [estacion]);
+    const rut = await pool.query('SELECT id FROM rutas WHERE codigo = $1 LIMIT 1', [ruta]);
+    const usu = await pool.query('SELECT id FROM usuarios WHERE LOWER(email) = LOWER($1) LIMIT 1', [usuario]);
+
     const resultado = await pool.query(
-      'INSERT INTO reportes (estacion, ruta, nivel, usuario) VALUES ($1, $2, $3, $4) RETURNING id',
-      [estacion, ruta, nivel, usuario]
+      'INSERT INTO reportes (estacion, estacion_id, ruta, ruta_id, nivel, usuario, usuario_id) ' +
+      'VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+      [estacion, est.rows[0] ? est.rows[0].id : null,
+       ruta, rut.rows[0] ? rut.rows[0].id : null,
+       nivel, usuario, usu.rows[0] ? usu.rows[0].id : null]
     );
 
     const nuevo = await pool.query(
       'SELECT id, estacion, ruta, nivel, usuario, creado_en FROM reportes WHERE id = $1',
       [resultado.rows[0].id]
     );
-
     res.status(201).json({ mensaje: 'Reporte recibido', reporte: nuevo.rows[0] });
   } catch (err) {
     console.error(err);
@@ -41,17 +48,17 @@ async function crearReporte(req, res) {
   }
 }
 
-/** Lista reportes con su ruta y si ya fueron atendidos (notificacion generada por despacho) */
+/** Lista reportes con su ruta y si ya fueron atendidos (notificacion enlazada) */
 async function listarReportes(req, res) {
   try {
     const limite = Math.min(parseInt(req.query.limite, 10) || 25, 100);
-
     const r = await pool.query(
       `SELECT r.id, r.estacion, COALESCE(r.ruta, '') AS ruta, r.nivel, r.usuario, r.creado_en,
               EXISTS (
+                SELECT 1 FROM notificaciones n WHERE n.reporte_id = r.id
+              ) OR EXISTS (
                 SELECT 1 FROM notificaciones n
-                WHERE n.usuario = r.usuario
-                  AND n.mensaje LIKE '%' || r.estacion || '%'
+                WHERE n.usuario = r.usuario AND n.mensaje LIKE '%' || r.estacion || '%'
                   AND n.creado_en >= r.creado_en
               ) AS atendido
          FROM reportes r
@@ -72,18 +79,12 @@ async function rutasReportadas(req, res) {
     const r = await pool.query(
       `SELECT r.estacion, COALESCE(r.ruta, 'SIN RUTA') AS ruta,
               r.nivel, r.usuario, r.creado_en,
-              EXISTS (
-                SELECT 1 FROM notificaciones n
-                WHERE n.usuario = r.usuario
-                  AND n.mensaje LIKE '%' || r.estacion || '%'
-                  AND n.creado_en >= r.creado_en
-              ) AS atendido
+              EXISTS (SELECT 1 FROM notificaciones n WHERE n.reporte_id = r.id) AS atendido
          FROM reportes r
         ORDER BY r.creado_en DESC
         LIMIT 100`
     );
 
-    // Agrupar por estacion + ruta, quedandonos con el reporte mas reciente
     const grupos = {};
     r.rows.forEach(function (x) {
       const k = x.estacion + '|' + x.ruta;
@@ -99,8 +100,7 @@ async function rutasReportadas(req, res) {
       }
     });
 
-    const lista = Object.keys(grupos).map(function (k) { return grupos[k]; });
-    res.json({ rutas: lista });
+    res.json({ rutas: Object.keys(grupos).map(function (k) { return grupos[k]; }) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudieron cargar las rutas reportadas.' });

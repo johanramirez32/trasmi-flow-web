@@ -807,6 +807,7 @@
 
     /** Carga la lista de buses disponibles para despacho */
     /** Rutas de la estacion elegida con su nivel, % de reportes y buses para despachar */
+    /** Carga rutas de la estacion con mini-ventana de despacho anclada a cada ruta */
     function cargarOperadorBuses(valor) {
       var cont = document.getElementById('opListaBusesPanel');
       if (!cont) { return Promise.resolve(); }
@@ -816,28 +817,28 @@
         cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Elige una estacion en el panel de estaciones para ver sus rutas y buses.</p>';
         return Promise.resolve();
       }
+      cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Cargando rutas...</p>';
 
       return Promise.all([
         fetch(API_URL + '/rutas/estacion/' + encodeURIComponent(est.nombre) + '?id=' + encodeURIComponent(est.id)).then(function (r) { return r.json(); }),
         fetch(API_URL + '/reportes?limite=100').then(function (r) { return r.json(); }),
-        fetch(API_URL + '/despachos').then(function (r) { return r.json(); })
+        window.__flotaBuses ? Promise.resolve(window.__flotaBuses) : fetch(API_URL + '/flota/buses').then(function (r) { return r.json(); }),
+        window.__flotaConductores ? Promise.resolve(window.__flotaConductores) : fetch(API_URL + '/flota/conductores').then(function (r) { return r.json(); })
       ]).then(function (res) {
         var rutas = (res[0] && res[0].rutas) || [];
         var reportes = res[1] || [];
-        var despachos = (res[2] && res[2].despachos) || [];
+        window.__flotaBuses = res[2] || { buses: [] };
+        window.__flotaConductores = res[3] || { conductores: [] };
+        var buses = window.__flotaBuses.buses || [];
+        var conductores = window.__flotaConductores.conductores || [];
 
-        var buses = [];
-        ['B1','B2','B3','B4','B5','B6','B7','B8','B9','B10','B11','B12'].forEach(function (b) { buses.push(b); });
-        despachos.forEach(function (d) { if (d.bus && buses.indexOf(d.bus) === -1) { buses.push(d.bus); } });
-
-        var selBus = document.getElementById('opInputBuscarBus');
-        if (selBus) {
-          var antes = selBus.value;
-          selBus.innerHTML = '<option value="">Buscar bus (despachar)...</option>' + buses.map(function (b) {
-            return '<option value="' + escHtml(b) + '">' + escHtml(b) + '</option>';
-          }).join('');
-          selBus.value = antes;
-        }
+        var opcionesBus = '<option value="">Selecciona placa</option>' + buses.map(function (b) {
+          return '<option value="' + escHtml(b.placa) + '" data-tipo="' + escHtml(b.tipo) + '">' +
+                 escHtml(b.placa) + ' · ' + escHtml(b.tipo) + '</option>';
+        }).join('');
+        var opcionesConductor = '<option value="">Selecciona cedula</option>' + conductores.map(function (c) {
+          return '<option value="' + escHtml(c.cedula) + '">' + escHtml(c.cedula) + ' · ' + escHtml(c.nombre) + '</option>';
+        }).join('');
 
         if (!rutas.length) {
           cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">No hay rutas en esta estacion.</p>';
@@ -853,61 +854,126 @@
           else if (reps.some(function (x) { return x.nivel === 'Media'; })) { nivel = 'Media'; }
           var color = COLOR_NIVEL[nivel];
           var pct = nivel === 'Alta' ? 85 : (nivel === 'Media' ? 55 : 30);
-          var atendidos = reps.filter(function (x) { return x.atendido; }).length;
+          var rid = String(r.id).replace(/[^a-zA-Z0-9]/g, '');
+          var args = (JSON.stringify(r.id) + ', ' + JSON.stringify(r.codigo)).replace(/"/g, '&quot;');
 
-          return '<div class="p-3 border border-brand-border rounded-xl mb-2" style="border-left:4px solid ' + color + ';background:' + color + '14">' +
+          return '<div class="relative p-3 border border-brand-border rounded-xl mb-2" style="border-left:4px solid ' + color + ';background:' + color + '14">' +
             '<div class="flex items-center justify-between gap-2">' +
               '<p class="text-white font-black text-xs">Ruta ' + escHtml(r.codigo) + '</p>' +
               '<span class="text-[10px] font-black px-2 py-0.5 rounded-md" style="background:' + color + '22;color:' + color + '">' + nivel + ' ' + pct + '%</span>' +
             '</div>' +
             '<p class="text-[10px] text-slate-400 mt-1 truncate">' + escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</p>' +
-            '<p class="text-[10px] text-slate-400 mt-0.5">' + reps.length + ' reporte(s) · ' + atendidos + ' atendido(s) · ' + (r.estaciones || []).length + ' paradas</p>' +
-            '<div class="grid grid-cols-3 gap-1 mt-2">' + buses.map(function (b) {
-              var args = (JSON.stringify(b) + ', ' + JSON.stringify(r.codigo)).replace(/"/g, '&quot;');
-              return '<button onclick="enviarDespachoBus(' + args + ')" ' +
-                'class="px-1 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">' + escHtml(b) + '</button>';
-            }).join('') + '</div>' +
+            '<p class="text-[10px] text-slate-400 mt-0.5">' + reps.length + ' reporte(s) · ' + (r.estaciones || []).length + ' paradas · ' + escHtml(est.nombre) + '</p>' +
+            '<button onclick="toggleDespachoRuta(' + args + ')" class="mt-2 w-full px-3 py-1.5 bg-brand-dark border border-brand-border text-slate-300 text-[10px] font-bold rounded-lg hover:border-brand-red">Despachar bus ▾</button>' +
+
+            '<div id="popDespacho-' + rid + '" class="hidden absolute z-50 top-full left-2 mt-1 w-[94%] p-3 bg-brand-card border border-brand-red rounded-xl shadow-2xl space-y-2">' +
+              '<div class="flex items-center justify-between gap-2">' +
+                '<p class="text-[10px] font-black text-white uppercase">Despachar ruta ' + escHtml(r.codigo) + '</p>' +
+                '<button onclick="cerrarDespachoRuta(\'' + rid + '\')" class="text-slate-400 hover:text-white text-xs">✕</button>' +
+              '</div>' +
+              '<div>' +
+                '<label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Bus por placa</label>' +
+                '<select id="popPlaca-' + rid + '" onchange="actualizarTipoPopover(\'' + rid + '\')" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' + opcionesBus + '</select>' +
+              '</div>' +
+              '<div>' +
+                '<label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Conductor por cedula</label>' +
+                '<select id="popCedula-' + rid + '" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' + opcionesConductor + '</select>' +
+              '</div>' +
+              '<div>' +
+                '<label class="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tipo de bus</label>' +
+                '<select id="popTipo-' + rid + '" class="w-full px-2 py-2 bg-brand-dark border border-brand-border rounded-lg text-white text-[11px]">' +
+                  '<option value="Bus normal">Bus normal</option><option value="Biarticulado">Biarticulado</option>' +
+                '</select>' +
+              '</div>' +
+              '<button onclick="confirmarDespachoPopover(' + args + ')" class="w-full px-3 py-2 bg-gradient-to-r from-brand-red to-brand-darkRed text-white text-[10px] font-bold rounded-lg">Confirmar despacho</button>' +
+              '<p id="popMsg-' + rid + '" class="hidden text-[10px] text-center text-emerald-400"></p>' +
+            '</div>' +
           '</div>';
         }).join('');
       }).catch(function () {
-        cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las rutas y buses.</p>';
+        cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las rutas.</p>';
       });
     }
 
-    /** Despacha el bus con placa y tipo hacia la ruta indicada */
-    /** Al elegir un bus de la lista: lo coloca en el formulario de confirmacion */
-    function enviarDespachoBus(bus, ruta) {
-      var placa = document.getElementById('opDespachoPlaca');
-      if (placa) { placa.value = bus; }
+    /** Abre/cierra la mini-ventana de despacho de una ruta */
+    function toggleDespachoRuta(id, codigo) {
+      var rid = String(id).replace(/[^a-zA-Z0-9]/g, '');
+      var pop = document.getElementById('popDespacho-' + rid);
+      if (!pop) { return; }
+      var vaMostrar = pop.classList.contains('hidden');
+      // cerrar las demas
+      document.querySelectorAll('[id^="popDespacho-"]').forEach(function (p) { p.classList.add('hidden'); });
+      if (vaMostrar) {
+        pop.classList.remove('hidden');
+        window.__despachoContext = window.__despachoContext || {};
+        window.__despachoContext[rid] = { ruta: codigo };
+      } else {
+        pop.classList.add('hidden');
+      }
+    }
 
-      var selEst = document.getElementById('opDespachoEstacion');
-      var selRuta = document.getElementById('opDespachoRuta');
-      var est = estacionPorValor(selEst ? selEst.value : '');
+    function cerrarDespachoRuta(rid) {
+      var pop = document.getElementById('popDespacho-' + rid);
+      if (pop) { pop.classList.add('hidden'); }
+    }
 
-      function seleccionarRuta() {
-        if (!selRuta || !ruta) { return; }
-        for (var i = 0; i < selRuta.options.length; i++) {
-          if (selRuta.options[i].value === ruta) { selRuta.value = ruta; return; }
+    /** Al elegir placa, muestra automaticamente si es biarticulado */
+    function actualizarTipoPopover(rid) {
+      var sel = document.getElementById('popPlaca-' + rid);
+      var tipoSel = document.getElementById('popTipo-' + rid);
+      if (!sel || !tipoSel) { return; }
+      var opt = sel.options[sel.selectedIndex];
+      if (opt && opt.getAttribute('data-tipo')) { tipoSel.value = opt.getAttribute('data-tipo'); }
+    }
+
+    /** Confirma el despacho desde la mini-ventana de la ruta */
+    function confirmarDespachoPopover(id, codigo) {
+      var rid = String(id).replace(/[^a-zA-Z0-9]/g, '');
+      var placa = (document.getElementById('popPlaca-' + rid) || {}).value || '';
+      var cedula = (document.getElementById('popCedula-' + rid) || {}).value || '';
+      var tipo = (document.getElementById('popTipo-' + rid) || {}).value || 'Bus normal';
+      var msg = document.getElementById('popMsg-' + rid);
+      var estSel = document.getElementById('opInputBuscarEstacion');
+      var est = estacionPorValor(estSel ? estSel.value : '');
+      if (!placa || !cedula || !est || !codigo) {
+        if (msg) {
+          msg.textContent = 'Selecciona placa y conductor.';
+          msg.className = 'hidden text-[10px] text-center text-red-400';
+          msg.classList.remove('hidden');
         }
+        return;
       }
+      var usuario = {};
+      try { usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || '{}'); } catch (e) { usuario = {}; }
 
-      if (est) {
-        if (!selRuta || selRuta.options.length <= 1) {
-          cargarRutasDespacho();
-          setTimeout(seleccionarRuta, 1200);
-        } else {
-          seleccionarRuta();
-        }
-      }
-
-      var msg = document.getElementById('opMensajeConfirmar');
-      if (msg) {
-        msg.textContent = 'Bus ' + bus + (ruta ? ' · ruta ' + ruta : '') +
-          ' listo. Verifica placa, cedula y estacion, luego confirma el despacho.';
-        msg.className = 'text-center text-xs font-medium py-1 text-emerald-400';
-        msg.classList.remove('hidden');
-      }
-      if (ruta) { window.__rutaDespacho = ruta; }
+      fetch(API_URL + '/despacho', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          estacion: est.nombre, ruta: codigo, bus: placa,
+          conductor: cedula, tipo_bus: tipo,
+          operador: usuario.email || 'operario'
+        })
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { throw new Error(res.d.error || 'No se pudo despachar'); }
+          if (msg) {
+            msg.textContent = 'Bus ' + placa + ' despachado · ' + est.nombre + ' · Ruta ' + codigo;
+            msg.className = 'hidden text-[10px] text-center text-emerald-400';
+            msg.classList.remove('hidden');
+          }
+          cargarBagones();
+          cargarFrecuenciaBuses();
+          cargarOperadorReportes();
+        })
+        .catch(function (err) {
+          if (msg) {
+            msg.textContent = 'Error: ' + err.message;
+            msg.className = 'hidden text-[10px] text-center text-red-400';
+            msg.classList.remove('hidden');
+          }
+        });
     }
 
     function cargarOperadorRutas(valor) {

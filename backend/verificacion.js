@@ -136,6 +136,22 @@ async function ejecutarVerificaciones() {
     resultados.push(check('Integridad', 'Consulta de integridad', false, e.message));
   }
 
+  try {
+    const fk = await pool.query("SELECT COUNT(*)::int n FROM pg_constraint WHERE contype='f'");
+    resultados.push(check('Integridad', 'Llaves foraneas del modelo', fk.rows[0].n >= 10,
+      fk.rows[0].n + ' foreign keys activas'));
+    const rel = await pool.query(
+      "SELECT (SELECT COUNT(*)::int FROM reportes WHERE estacion_id IS NULL OR ruta_id IS NULL OR usuario_id IS NULL) AS rep, " +
+      "(SELECT COUNT(*)::int FROM despachos WHERE estacion_id IS NULL OR ruta_id IS NULL OR bus_id IS NULL) AS des, " +
+      "(SELECT COUNT(*)::int FROM notificaciones WHERE usuario_id IS NULL) AS noti");
+    const d = rel.rows[0];
+    resultados.push(check('Integridad', 'Registros relacionados correctamente',
+      d.rep === 0 && d.des === 0 && d.noti === 0,
+      'reportes sin FK: ' + d.rep + ', despachos sin FK: ' + d.des + ', notificaciones sin FK: ' + d.noti));
+  } catch (e) {
+    resultados.push(check('Integridad', 'Modelo relacional', false, e.message));
+  }
+
   const fallos = resultados.filter(function (r) { return !r.ok; });
   return {
     fecha: new Date().toISOString(),

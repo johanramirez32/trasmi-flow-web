@@ -75,6 +75,7 @@ app.use('/api/despacho',  require('./routes/despachosRouter'));
 app.use('/api/despachos', require('./routes/despachosRouter'));
 app.use('/api/rutas',     require('./routes/rutasRouter'));
 app.use('/api/camaras',   require('./routes/camarasRouter'));
+app.use('/api/flota',    require('./routes/flotaRouter'));
 app.use('/api/notificaciones', require('./routes/notificacionesRouter'));
 
 // Panel de verificacion: solo operario autenticado

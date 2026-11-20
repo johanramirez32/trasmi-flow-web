@@ -106,6 +106,21 @@ const ESQUEMA = [
    )`,
   `CREATE INDEX IF NOT EXISTS idx_camaras_estacion ON camaras(estacion)`,
 
+  // Flota de buses y conductores para despacho
+  `CREATE TABLE IF NOT EXISTS buses (
+     id      SERIAL PRIMARY KEY,
+     placa   VARCHAR(20) UNIQUE NOT NULL,
+     tipo    VARCHAR(30) DEFAULT 'Bus normal',
+     activo  BOOLEAN DEFAULT TRUE
+   )`,
+  `CREATE TABLE IF NOT EXISTS conductores (
+     id      SERIAL PRIMARY KEY,
+     nombre  VARCHAR(120) NOT NULL,
+     cedula  VARCHAR(20) UNIQUE NOT NULL,
+     telefono VARCHAR(20),
+     activo  BOOLEAN DEFAULT TRUE
+   )`,
+
   // Notificaciones: operario atendio un reporte
   `CREATE TABLE IF NOT EXISTS notificaciones (
      id         SERIAL PRIMARY KEY,
@@ -133,6 +148,44 @@ const ESQUEMA = [
   `CREATE INDEX IF NOT EXISTS idx_estaciones_nombre     ON estaciones(nombre)`,
   `CREATE INDEX IF NOT EXISTS idx_estaciones_troncal    ON estaciones(troncal)`,
   `CREATE INDEX IF NOT EXISTS idx_reportes_estacion    ON reportes(estacion)`,
+
+  // --- Normalizacion relacional: llaves foraneas e integridad ---
+  `ALTER TABLE reportes ADD COLUMN IF NOT EXISTS estacion_id INTEGER`,
+  `ALTER TABLE reportes ADD COLUMN IF NOT EXISTS ruta_id INTEGER`,
+  `ALTER TABLE reportes ADD COLUMN IF NOT EXISTS usuario_id INTEGER`,
+  `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS estacion_id INTEGER`,
+  `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS ruta_id INTEGER`,
+  `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS bus_id INTEGER`,
+  `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS conductor_id INTEGER`,
+  `ALTER TABLE despachos ADD COLUMN IF NOT EXISTS operador_id INTEGER`,
+  `ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS usuario_id INTEGER`,
+  `ALTER TABLE notificaciones ADD COLUMN IF NOT EXISTS reporte_id INTEGER`,
+  `ALTER TABLE camaras ADD COLUMN IF NOT EXISTS estacion_id INTEGER`,
+
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_rep_est') THEN ALTER TABLE reportes ADD CONSTRAINT fk_rep_est FOREIGN KEY (estacion_id) REFERENCES estaciones(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_rep_ruta') THEN ALTER TABLE reportes ADD CONSTRAINT fk_rep_ruta FOREIGN KEY (ruta_id) REFERENCES rutas(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_rep_usu') THEN ALTER TABLE reportes ADD CONSTRAINT fk_rep_usu FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_des_est') THEN ALTER TABLE despachos ADD CONSTRAINT fk_des_est FOREIGN KEY (estacion_id) REFERENCES estaciones(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_des_ruta') THEN ALTER TABLE despachos ADD CONSTRAINT fk_des_ruta FOREIGN KEY (ruta_id) REFERENCES rutas(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_des_bus') THEN ALTER TABLE despachos ADD CONSTRAINT fk_des_bus FOREIGN KEY (bus_id) REFERENCES buses(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_des_cond') THEN ALTER TABLE despachos ADD CONSTRAINT fk_des_cond FOREIGN KEY (conductor_id) REFERENCES conductores(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_des_op') THEN ALTER TABLE despachos ADD CONSTRAINT fk_des_op FOREIGN KEY (operador_id) REFERENCES usuarios(id) ON DELETE SET NULL; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_not_usu') THEN ALTER TABLE notificaciones ADD CONSTRAINT fk_not_usu FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_not_rep') THEN ALTER TABLE notificaciones ADD CONSTRAINT fk_not_rep FOREIGN KEY (reporte_id) REFERENCES reportes(id) ON DELETE CASCADE; END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_cam_est') THEN ALTER TABLE camaras ADD CONSTRAINT fk_cam_est FOREIGN KEY (estacion_id) REFERENCES estaciones(id) ON DELETE SET NULL; END IF; END $$;`,
+
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='uq_buses_placa') THEN ALTER TABLE buses ADD CONSTRAINT uq_buses_placa UNIQUE (placa); END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='uq_cond_cedula') THEN ALTER TABLE conductores ADD CONSTRAINT uq_cond_cedula UNIQUE (cedula); END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='uq_rutas_codigo') THEN ALTER TABLE rutas ADD CONSTRAINT uq_rutas_codigo UNIQUE (codigo); END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_rep_nivel') THEN ALTER TABLE reportes ADD CONSTRAINT ck_rep_nivel CHECK (nivel IN ('Baja','Media','Alta')); END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_usu_rol') THEN ALTER TABLE usuarios ADD CONSTRAINT ck_usu_rol CHECK (rol IN ('usuario','operario')); END IF; END $$;`,
+  `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='ck_des_tipo') THEN ALTER TABLE despachos ADD CONSTRAINT ck_des_tipo CHECK (tipo_bus IS NULL OR tipo_bus IN ('Bus normal','Biarticulado')); END IF; END $$;`,
+
+  `CREATE INDEX IF NOT EXISTS idx_rep_est_id ON reportes(estacion_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_rep_ruta_id ON reportes(ruta_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_des_est_id ON despachos(estacion_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_des_ruta_id ON despachos(ruta_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_not_usu_id ON notificaciones(usuario_id)`,
 ];
 
 // ---------------------------------------------------------------
@@ -290,6 +343,99 @@ async function arreglarReportes(pool) {
 }
 
 /**
+ * Siembra buses y conductores de prueba para el despacho.
+ */
+async function sembrarFlota(pool) {
+  try {
+    const b = await pool.query('SELECT COUNT(*)::int n FROM buses');
+    if (!b.rows[0].n) {
+      const placas = [
+        ['BCO-101','Bus normal'], ['BCO-102','Bus normal'], ['BCO-103','Bus normal'],
+        ['BCO-104','Biarticulado'], ['BCO-105','Biarticulado'], ['BCO-106','Bus normal'],
+        ['BCO-107','Bus normal'], ['BCO-108','Bus normal'], ['BCO-109','Biarticulado'],
+        ['BCO-110','Bus normal'], ['BCO-111','Bus normal'], ['BCO-112','Bus normal']
+      ];
+      for (const [placa, tipo] of placas) {
+        await pool.query('INSERT INTO buses (placa, tipo) VALUES ($1,$2)', [placa, tipo]);
+      }
+      console.log('   Buses de prueba creados: ' + placas.length);
+    }
+
+    const c = await pool.query('SELECT COUNT(*)::int n FROM conductores');
+    if (!c.rows[0].n) {
+      const conductores = [
+        ['Carlos Ramírez','1012345678','3001112233'],
+        ['María Gómez','1023456789','3002223344'],
+        ['Johan Sánchez','1034567890','3003334455'],
+        ['Andrés Torres','1045678901','3004445566'],
+        ['Laura Martínez','1056789012','3005556677'],
+        ['Diego Hernández','1067890123','3006667788']
+      ];
+      for (const [nombre, cedula, telefono] of conductores) {
+        await pool.query('INSERT INTO conductores (nombre, cedula, telefono) VALUES ($1,$2,$3)', [nombre, cedula, telefono]);
+      }
+      console.log('   Conductores de prueba creados: ' + conductores.length);
+    }
+  } catch (err) {
+    console.warn('   No se pudo sembrar la flota: ' + err.message);
+  }
+}
+
+/**
+ * Completa las llaves foraneas de registros existentes (creados antes de
+ * normalizar el modelo) usando las columnas de texto originales.
+ */
+async function normalizarRelaciones(pool) {
+  try {
+    // Crear referencias faltantes para datos heredados (texto sin FK)
+    await pool.query(`INSERT INTO buses (placa, tipo)
+      SELECT DISTINCT d.bus, COALESCE(d.tipo_bus,'Bus normal')
+        FROM despachos d
+       WHERE d.bus IS NOT NULL AND d.bus <> ''
+         AND NOT EXISTS (SELECT 1 FROM buses b WHERE b.placa = d.bus)`);
+    await pool.query(`INSERT INTO conductores (nombre, cedula)
+      SELECT DISTINCT 'Conductor importado', d.conductor
+        FROM despachos d
+       WHERE d.conductor IS NOT NULL AND d.conductor <> ''
+         AND NOT EXISTS (SELECT 1 FROM conductores c WHERE c.cedula = d.conductor)`);
+    await pool.query(`INSERT INTO usuarios (nombre, email, password, rol)
+      SELECT DISTINCT 'Usuario practica', r.usuario, '$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2', 'usuario'
+        FROM reportes r
+       WHERE r.usuario LIKE '%@%'
+         AND NOT EXISTS (SELECT 1 FROM usuarios u WHERE LOWER(u.email)=LOWER(r.usuario))`);
+
+    await pool.query(`UPDATE reportes r SET
+        estacion_id = (SELECT id FROM estaciones WHERE LOWER(nombre)=LOWER(r.estacion) LIMIT 1),
+        ruta_id = (SELECT id FROM rutas WHERE codigo=r.ruta LIMIT 1),
+        usuario_id = (SELECT id FROM usuarios WHERE LOWER(email)=LOWER(r.usuario) LIMIT 1)
+      WHERE estacion_id IS NULL OR ruta_id IS NULL OR usuario_id IS NULL`);
+
+    await pool.query(`UPDATE despachos d SET
+        estacion_id = (SELECT id FROM estaciones WHERE LOWER(nombre)=LOWER(d.estacion) LIMIT 1),
+        ruta_id = (SELECT id FROM rutas WHERE codigo=d.ruta LIMIT 1),
+        bus_id = (SELECT id FROM buses WHERE placa=d.bus LIMIT 1),
+        conductor_id = (SELECT id FROM conductores WHERE cedula=d.conductor LIMIT 1),
+        operador_id = (SELECT id FROM usuarios WHERE LOWER(email)=LOWER(d.operador) LIMIT 1)
+      WHERE estacion_id IS NULL OR ruta_id IS NULL OR bus_id IS NULL OR conductor_id IS NULL OR operador_id IS NULL`);
+
+    await pool.query(`UPDATE notificaciones n SET
+        usuario_id = (SELECT id FROM usuarios WHERE LOWER(email)=LOWER(n.usuario) LIMIT 1),
+        reporte_id = (SELECT r.id FROM reportes r WHERE LOWER(r.usuario)=LOWER(n.usuario)
+                      AND n.mensaje LIKE '%' || r.estacion || '%'
+                      ORDER BY r.creado_en DESC LIMIT 1)
+      WHERE usuario_id IS NULL`);
+
+    await pool.query(`UPDATE camaras c SET
+        estacion_id = (SELECT id FROM estaciones WHERE LOWER(nombre)=LOWER(c.estacion) LIMIT 1)
+      WHERE estacion_id IS NULL`);
+
+    console.log('   Relaciones normalizadas');
+  } catch (err) {
+    console.warn('   No se pudieron normalizar las relaciones: ' + err.message);
+  }
+}
+
+/**
  * Sincroniza las rutas oficiales de Transmilenio (servicio ArcGIS) con las
  * tablas rutas / ruta_estaciones de la base de datos.
  *
@@ -432,7 +578,9 @@ async function inicializar(pool, intentos = 5) {
   await sembrarSiEstaVacia(pool);
   await sembrarRutas(pool);
   await sembrarCamaras(pool);
+  await sembrarFlota(pool);
   await arreglarReportes(pool);
+  await normalizarRelaciones(pool);
   await sincronizarRutasOficiales(pool);
 }
 
