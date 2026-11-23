@@ -1,8 +1,8 @@
 -- ============================================================
 -- TransmiFlow - Volcado completo de la base de datos
--- Esquema + datos: estaciones (direccion y portal), rutas, ruta_estaciones,
--- vagones, vagon_rutas, usuarios, buses, conductores, despachos,
--- reportes, notificaciones y camaras.
+-- Esquema + datos: estaciones, rutas, ruta_estaciones, vagones,
+-- vagon_rutas, usuarios, buses, conductores, despachos, reportes,
+-- notificaciones y camaras.
 --
 -- Restaurar: psql -U postgres -d transmiflow_db -f transmiflow_dump.sql
 -- ============================================================
@@ -11,7 +11,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict XCMhhlShSgVD4I9Hq7Eews8vDL8hvobl1T8mUjNKjGJ3MO3JUJY71g2g22tFoME
+\restrict vCqvng2sUuRECoXjeXZ3PaAXZiVYiz9TEiqVk9MqPYcPjWH2UnDZbaxaXsX4xaj
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -695,38 +695,34 @@ COPY public.despachos (id, estacion, bus, operador, creado_en, ruta, tipo_bus, c
 --
 
 COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeracion, capacidad, lat, lng, direccion, portal) FROM stdin;
-316	Suba - Calle 100	troncal	4.68696834	-74.06444284	C - Suba	Alta	304	4.6869683	-74.0644428	AV Suba - CL 100	Portal Suba
-318	AV. Boyacá	troncal	4.69393268	-74.08713194	D - Calle 80	Alta	304	4.6939327	-74.0871319	TV 69 Bis	Portal 80
-317	Calle 75 - Zona M	troncal	4.67015101	-74.07130492	E - NQS Central	Media	272	4.6701510	-74.0713049	KR 30 - CL 75A	Portal 20 de Julio
-322	Niza - Calle 127	troncal	4.71200123	-74.07230720	C - Suba	Baja	200	4.7120012	-74.0723072	AV Suba - CL 127	Portal Suba
 321	Marsella	troncal	4.62967723	-74.13016385	F - Americas	Alta	320	4.6296772	-74.1301639	AV Americas - KR 69C	Portal Américas
 323	La Campiña	troncal	4.74265433	-74.09120046	C - Suba	Alta	352	4.7426543	-74.0912005	AV Suba - KR 98A	Portal Suba
 326	Guatoque - Veraguas	troncal	4.60417101	-74.09493313	G - NQS Sur (ramal)	Media	240	4.6041710	-74.0949331	KR 27	Portal Sur - JFK Coop. Financiera
 325	Corferias	troncal	4.63430649	-74.08970085	K - Calle 26	Media	252	4.6343065	-74.0897009	KR 43	Portal 20 de Julio
 335	AV. 68	troncal	4.68610088	-74.08076896	D - Calle 80	Alta	296	4.6861009	-74.0807690	KR 68D	Portal 80
 327	CDS - Carrera 32	troncal	4.61613616	-74.09394954	F - Americas	Baja	168	4.6161362	-74.0939495	AV Americas - KR 32	Portal Américas
-328	Ciudad Universitaria - Lotería de Bogotá	troncal	4.63087543	-74.08352723	K - Calle 26	Media	260	4.6308754	-74.0835272	KR 34	Portal 20 de Julio
 329	Universidad Nacional	troncal	4.63712105	-74.07932618	E - NQS Central	Alta	412	4.6371211	-74.0793262	KR 30 - CL 45	Portal 20 de Julio
+328	Ciudad Universitaria - Lotería de Bogotá	troncal	4.63087543	-74.08352723	K - Calle 26	Media	260	4.6308754	-74.0835272	KR 34	Portal 20 de Julio
 331	Tercer Milenio	troncal	4.59813501	-74.08383625	A - Caracas	Alta	320	4.5981350	-74.0838363	CL 8 - CL 6	Portal Norte – Unicervantes
 332	Concejo de Bogotá	troncal	4.62598737	-74.08028966	K - Calle 26	Media	260	4.6259874	-74.0802897	CL 38	Portal 20 de Julio
 337	Polo - FINCOMERCIO	troncal	4.67016265	-74.06433866	D - Calle 80	Alta	360	4.6701627	-74.0643387	TV 27	Portal 80
 334	7 de Agosto	troncal	4.65729528	-74.07768646	E - NQS Central	Media	260	4.6572953	-74.0776865	KR 30 - CL 63	Portal 20 de Julio
 344	Carrera 90	troncal	4.70466646	-74.10457027	D - Calle 80	Alta	304	4.7046665	-74.1045703	KR 90	Portal 80
 347	Escuela Militar	troncal	4.67553501	-74.06980215	D - Calle 80	Media	272	4.6755350	-74.0698022	KR 40	Portal 80
-339	Quinta Paredes	troncal	4.63750353	-74.09313226	K - Calle 26	Media	260	4.6375035	-74.0931323	KR 47	Portal 20 de Julio
 340	Salitre - El Greco	troncal	4.65086482	-74.10164882	K - Calle 26	Media	260	4.6508648	-74.1016488	KR 66	Portal 20 de Julio
+339	Quinta Paredes	troncal	4.63750353	-74.09313226	K - Calle 26	Media	260	4.6375035	-74.0931323	KR 47	Portal 20 de Julio
 341	Zona Industrial	troncal	4.62032526	-74.09868611	F - Americas	Baja	168	4.6203253	-74.0986861	CL 13 - KR 38	Portal Américas
 342	León XIII	troncal	4.59217281	-74.19313531	Zona Leon XIII	Media	224	4.5921728	-74.1931353	Soacha	Portal Usme
 343	Paloquemao	troncal	4.61692188	-74.08955344	E - NQS Central	Media	272	4.6169219	-74.0895534	KR 30 - CL 19	Portal 20 de Julio
 349	AV. Cali	troncal	4.70248285	-74.10028965	D - Calle 80	Alta	304	4.7024829	-74.1002897	KR 86	Portal 80
 346	Terreros - Hospital Cardio Vascular	troncal	4.58896270	-74.19952261	Zona Leon XIII	Alta	356	4.5889627	-74.1995226	Soacha	Portal Usme
-350	Suba - TV. 91	troncal	4.73893679	-74.08699228	C - Suba	Media	264	4.7389368	-74.0869923	AV Suba KR 90	Portal Suba
 348	Mandalay	troncal	4.63086366	-74.14129817	F - Americas	Media	240	4.6308637	-74.1412982	AV Americas KR 73	Portal Américas
+350	Suba - TV. 91	troncal	4.73893679	-74.08699228	C - Suba	Media	264	4.7389368	-74.0869923	AV Suba KR 90	Portal Suba
 353	Prado	troncal	4.71455843	-74.05255829	B - Autopista Norte	Media	248	4.7145584	-74.0525583	CL 128 B	Portal Norte – Unicervantes
 354	Terminal	troncal	4.76881876	-74.04357255	B - Autopista Norte	Baja	152	4.7688188	-74.0435726	CL 190	Portal Norte – Unicervantes
 351	Ricaurte - CL 13	troncal	4.61301798	-74.09047650	F - Americas	Alta	312	4.6130180	-74.0904765	CL 13 - KR 28	Portal Américas
-355	Virrey	troncal	4.67599737	-74.05901952	B - Autopista Norte	Alta	352	4.6759974	-74.0590195	CL 90	Portal Norte – Unicervantes
 358	Calle 100 - Marketmedios	troncal	4.68394944	-74.05771230	B - Autopista Norte	Alta	392	4.6839494	-74.0577123	CL 97	Portal Norte – Unicervantes
+355	Virrey	troncal	4.67599737	-74.05901952	B - Autopista Norte	Alta	352	4.6759974	-74.0590195	CL 90	Portal Norte – Unicervantes
 359	Calle 142	troncal	4.72685009	-74.05050333	B - Autopista Norte	Baja	180	4.7268501	-74.0505033	CL 142	Portal Norte – Unicervantes
 360	Portal Norte – Unicervantes	portal	4.75462286	-74.04604465	B - Autopista Norte	Baja	210	4.7546229	-74.0460447	CL 173	Portal Norte – Unicervantes
 361	Calle 187	troncal	4.76333655	-74.04444370	B - Autopista Norte	Baja	152	4.7633366	-74.0444437	CL 184	Portal Norte – Unicervantes
@@ -745,10 +741,10 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 311	Campín - UAN	troncal	4.64539756	-74.07871009	E - NQS Central	Media	272	4.6453976	-74.0787101	KR 30 - CL 53	Portal 20 de Julio
 312	San Diego	troncal	4.61089909	-74.07150007	L - Carrera Decima	Alta	288	4.6108991	-74.0715001	KR 10 - CL 23	Portal 20 de Julio
 314	Ricaurte - NQS	troncal	4.61168378	-74.09386595	E - NQS Central	Alta	392	4.6116838	-74.0938660	KR 30 - CL 10	Portal 20 de Julio
-382	Biblioteca Tintal	troncal	4.63790778	-74.15935249	F - Americas	Alta	304	4.6379078	-74.1593525	AV Cali - CL 26 Sur	Portal Américas
-383	Ciudad Jardín - UAN	troncal	4.58154254	-74.09035160	L - Carrera Decima	Media	264	4.5815425	-74.0903516	KR 10 - CL 12 Sur	Portal 20 de Julio
-384	Bicentenario	troncal	4.59402077	-74.08183542	L - Carrera Decima	Alta	384	4.5940208	-74.0818354	KR 10 - CL 5	Portal 20 de Julio
-385	Temporal Calle 57	troncal	4.64298162	-74.06582826	A - Caracas	Alta	320	4.6429816	-74.0658283	CL 57 - CL 54	Portal Norte – Unicervantes
+316	Suba - Calle 100	troncal	4.68696834	-74.06444284	C - Suba	Alta	304	4.6869683	-74.0644428	AV Suba - CL 100	Portal Suba
+318	AV. Boyacá	troncal	4.69393268	-74.08713194	D - Calle 80	Alta	304	4.6939327	-74.0871319	TV 69 Bis	Portal 80
+317	Calle 75 - Zona M	troncal	4.67015101	-74.07130492	E - NQS Central	Media	272	4.6701510	-74.0713049	KR 30 - CL 75A	Portal 20 de Julio
+322	Niza - Calle 127	troncal	4.71200123	-74.07230720	C - Suba	Baja	200	4.7120012	-74.0723072	AV Suba - CL 127	Portal Suba
 389	Alquería	troncal	4.59426993	-74.13426993	G - NQS Sur	Baja	204	4.5942699	-74.1342699	Autosur - KR 48	Portal Sur - JFK Coop. Financiera
 387	AV. ElDorado	troncal	4.63066841	-74.07987857	E - NQS Central	Media	260	4.6306684	-74.0798786	KR 30 AV 28	Portal 20 de Julio
 390	Bosa	troncal	4.59688795	-74.18122500	G - NQS Sur	Media	272	4.5968880	-74.1812250	Soacha	Portal Sur - JFK Coop. Financiera
@@ -779,8 +775,8 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 426	Portal Tunal	portal	4.56957146	-74.13924020	Portal Tunal	Baja	152	4.5695715	-74.1392402	AV Boyaca	Portal Tunal
 427	Fucha	troncal	4.58297258	-74.09940175	H - Caracas Sur	Baja	144	4.5829726	-74.0994018	CL 13 Sur - CL 16 Sur	Portal Sur - JFK Coop. Financiera
 428	Minuto de Dios	troncal	4.69688160	-74.09193285	D - Calle 80	Alta	296	4.6968816	-74.0919329	KR 73 A	Portal 80
-424	Temporal Marly	troncal	4.63755905	-74.06678795	A - Caracas	Alta	320	4.6375591	-74.0667880	CL 51 - CL 49	Portal Norte – Unicervantes
 431	Portal Suba	portal	4.74681507	-74.09427890	C - Suba	Alta	304	4.7468151	-74.0942789	AV Suba AV Cali	Portal Suba
+424	Temporal Marly	troncal	4.63755905	-74.06678795	A - Caracas	Alta	320	4.6375591	-74.0667880	CL 51 - CL 49	Portal Norte – Unicervantes
 432	Suba - AV. Boyacá	troncal	4.72126716	-74.07471163	C - Suba	Baja	144	4.7212672	-74.0747116	AV Suba AV Boyaca	Portal Suba
 434	San Martín	troncal	4.67638966	-74.06717674	C - Suba	Baja	192	4.6763897	-74.0671767	AV Suba - CL 81	Portal Suba
 429	Portal Américas	portal	4.62938131	-74.17305846	F - Americas	Alta	342	4.6293813	-74.1730585	AV Cali - CL 43 Sur	Portal Américas
@@ -795,10 +791,10 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 380	Comuneros	troncal	4.60424998	-74.09986137	G - NQS Sur	Media	252	4.6042500	-74.0998614	KR 30 - CL 6A	Portal Sur - JFK Coop. Financiera
 386	Biblioteca	troncal	4.57030352	-74.13038868	Portal Tunal	Baja	60	4.5703035	-74.1303887	CL 48A Sur	Portal Tunal
 381	El Tiempo – Cámara de Comercio de Bogotá	troncal	4.65706705	-74.10564666	K - Calle 26	Media	240	4.6570671	-74.1056467	KR 68D	Portal 20 de Julio
-447	San Bernardo	troncal	4.59019556	-74.08432732	L - Carrera Decima	Media	264	4.5901956	-74.0843273	KR 10 - CL 1B Sur	Portal 20 de Julio
-450	Socorro	troncal	4.56465328	-74.12558394	H - Caracas Sur	Baja	200	4.5646533	-74.1255839	KR 13B - KR 13C	Portal Sur - JFK Coop. Financiera
-449	San Facon Carrera 22	troncal	4.60973521	-74.08679478	F - Americas	Media	272	4.6097352	-74.0867948	AV Americas - KR 22	Portal Américas
-451	21 Ángeles	troncal	4.73550811	-74.08098652	C - Suba	Baja	144	4.7355081	-74.0809865	AV Suba - CL 136	Portal Suba
+382	Biblioteca Tintal	troncal	4.63790778	-74.15935249	F - Americas	Alta	304	4.6379078	-74.1593525	AV Cali - CL 26 Sur	Portal Américas
+383	Ciudad Jardín - UAN	troncal	4.58154254	-74.09035160	L - Carrera Decima	Media	264	4.5815425	-74.0903516	KR 10 - CL 12 Sur	Portal 20 de Julio
+384	Bicentenario	troncal	4.59402077	-74.08183542	L - Carrera Decima	Alta	384	4.5940208	-74.0818354	KR 10 - CL 5	Portal 20 de Julio
+385	Temporal Calle 57	troncal	4.64298162	-74.06582826	A - Caracas	Alta	320	4.6429816	-74.0658283	CL 57 - CL 54	Portal Norte – Unicervantes
 453	Venecia	troncal	4.59556283	-74.14264921	G - NQS Sur	Baja	204	4.5955628	-74.1426492	Autosur - AV 54	Portal Sur - JFK Coop. Financiera
 454	Danubio	troncal	4.54365433	-74.12085159	Portal Usme	Alta	304	4.5436543	-74.1208516	Av. Calle 51 Sur entre carrera 5 y calle 56 sur	Portal Usme
 455	Portal Sur - JFK Coop. Financiera	portal	4.59693995	-74.16929784	G - NQS Sur	Media	228	4.5969400	-74.1692978	Autosur - KR 82	Portal Sur - JFK Coop. Financiera
@@ -833,9 +829,9 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 425	Patio Bonito	troncal	4.63318028	-74.16461427	F - Americas	Alta	304	4.6331803	-74.1646143	AV Cali - CL 40 Sur	Portal Américas
 430	Las Aguas - Centro Colombo Americano	troncal	4.60257976	-74.06840144	J - Eje Ambiental	Baja	120	4.6025798	-74.0684014	KR 3	Portal 20 de Julio
 443	San Mateo - CC Unisur	troncal	4.58596064	-74.20544974	Zona Leon XIII	Alta	424	4.5859606	-74.2054497	Soacha	Portal Usme
+398	Calle 85	troncal	4.67231279	-74.05964363	B - Autopista Norte	Alta	320	4.6723128	-74.0596436	CL 85	Portal Norte – Unicervantes
 356	Toberin - Foundever	troncal	4.74618498	-74.04725485	B - Autopista Norte	Alta	552	4.7461850	-74.0472549	CL 165	Portal Norte – Unicervantes
 367	Calle 106 - Maletas Explora	troncal	4.69298260	-74.05618243	B - Autopista Norte	Media	248	4.6929826	-74.0561824	CL 106	Portal Norte – Unicervantes
-398	Calle 85	troncal	4.67231279	-74.05964363	B - Autopista Norte	Alta	320	4.6723128	-74.0596436	CL 85	Portal Norte – Unicervantes
 412	General Santander	troncal	4.59355114	-74.12954496	G - NQS Sur	Alta	404	4.5935511	-74.1295450	Autosur - KR 43	Portal Sur - JFK Coop. Financiera
 433	Santa Lucía	troncal	4.57096848	-74.12470872	H - Caracas Sur	Media	272	4.5709685	-74.1247087	CL 46A Sur - Diagonal 4	Portal Sur - JFK Coop. Financiera
 313	Granja - Kr 77	troncal	4.69915096	-74.09601773	D - Calle 80	Alta	392	4.6991510	-74.0960177	KR 77 Bis	Portal 80
@@ -843,10 +839,14 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 446	Suba - Calle 116	troncal	4.69924111	-74.06984394	C - Suba	Baja	200	4.6992411	-74.0698439	AV Suba CLL 114	Portal Suba
 336	Distrito Grafiti	troncal	4.62785005	-74.11158411	F - Americas	Media	272	4.6278501	-74.1115841	Americas - KR 53A	Portal Américas
 448	SENA	troncal	4.59737051	-74.11064255	G - NQS Sur	Alta	304	4.5973705	-74.1106426	Autosur - CL 17 S	Portal Sur - JFK Coop. Financiera
+447	San Bernardo	troncal	4.59019556	-74.08432732	L - Carrera Decima	Media	264	4.5901956	-74.0843273	KR 10 - CL 1B Sur	Portal 20 de Julio
+450	Socorro	troncal	4.56465328	-74.12558394	H - Caracas Sur	Baja	200	4.5646533	-74.1255839	KR 13B - KR 13C	Portal Sur - JFK Coop. Financiera
+449	San Facon Carrera 22	troncal	4.60973521	-74.08679478	F - Americas	Media	272	4.6097352	-74.0867948	AV Americas - KR 22	Portal Américas
+451	21 Ángeles	troncal	4.73550811	-74.08098652	C - Suba	Baja	144	4.7355081	-74.0809865	AV Suba - CL 136	Portal Suba
+452	Temporal Calle 34	troncal	4.62157551	-74.06971918	A - Caracas	Alta	320	4.6215755	-74.0697192	AV Calle 34 - CL 3	Portal Norte – Unicervantes
 320	AV. Américas - AV. Boyacá	troncal	4.63011780	-74.13422457	F - Americas	Media	272	4.6301178	-74.1342246	AV Americas - KR 71	Portal Américas
 421	Hortúa	troncal	4.59084725	-74.09024600	H - Caracas Sur	Baja	192	4.5908473	-74.0902460	CL 1 Sur - CL 3 Sur	Portal Sur - JFK Coop. Financiera
 445	Rionegro	troncal	4.68035106	-74.06481662	C - Suba	Baja	144	4.6803511	-74.0648166	AV Suba - CL 87	Portal Suba
-452	Temporal Calle 34	troncal	4.62157551	-74.06971918	A - Caracas	Alta	320	4.6215755	-74.0697192	AV Calle 34 - CL 3	Portal Norte – Unicervantes
 379	Temporal AV. Jiménez - Inter Eléctricas	troncal	4.60286688	-74.08040995	A - Caracas	Alta	288	4.6028669	-74.0804100	CL 13 - Caracas	Portal Norte – Unicervantes
 \.
 
@@ -8738,7 +8738,7 @@ SELECT pg_catalog.setval('public.notificaciones_id_seq', 9, true);
 -- Name: reportes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.reportes_id_seq', 56, true);
+SELECT pg_catalog.setval('public.reportes_id_seq', 59, true);
 
 
 --
@@ -8759,7 +8759,7 @@ SELECT pg_catalog.setval('public.rutas_id_seq', 126, true);
 -- Name: usuarios_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.usuarios_id_seq', 60, true);
+SELECT pg_catalog.setval('public.usuarios_id_seq', 68, true);
 
 
 --
@@ -9181,5 +9181,5 @@ ALTER TABLE ONLY public.vagones
 -- PostgreSQL database dump complete
 --
 
-\unrestrict XCMhhlShSgVD4I9Hq7Eews8vDL8hvobl1T8mUjNKjGJ3MO3JUJY71g2g22tFoME
+\unrestrict vCqvng2sUuRECoXjeXZ3PaAXZiVYiz9TEiqVk9MqPYcPjWH2UnDZbaxaXsX4xaj
 

@@ -519,6 +519,9 @@
           }
           localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
           localStorage.setItem(TOKEN_KEY, res.d.token || '');
+          // Volver al modo ingreso: si se queda en registro, un nuevo
+          // intento de entrada vuelve a registrar el correo
+          if (esRegistro) { alternarModoAuth(); }
           verificarAcceso();
           actualizarNotifBadge();
         })
@@ -555,6 +558,9 @@
           }
           localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
           localStorage.setItem(TOKEN_KEY, res.d.token || '');
+          // Volver al modo ingreso: si se queda en registro, un nuevo
+          // intento de entrada vuelve a registrar el correo
+          if (esRegistro) { alternarModoAuth(); }
           verificarAcceso();
           actualizarNotifBadge();
         })

@@ -30,14 +30,9 @@ const origenes = (process.env.CORS_ORIGIN ||
 
 app.use(cors({
   origin: function (origin, cb) {
-    // Sin origen (mismo servidor / herramientas) o lista configurada
-    if (!origin) { return cb(null, true); }
-    if (origenes.indexOf(origin) !== -1) { return cb(null, true); }
-    // Equipos en red local: permitir cualquier host local/privado
-    if (/^https?:\/\/(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(origin)) {
-      return cb(null, true);
-    }
-    return cb(new Error('CORS: origen no permitido'));
+    // Modo desarrollo: se permite acceso desde localhost, IP local,
+    // celular en la misma red y túneles (ngrok, cloudflared, etc.)
+    return cb(null, true);
   },
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

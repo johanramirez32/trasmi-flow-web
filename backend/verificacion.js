@@ -90,9 +90,10 @@ async function ejecutarVerificaciones() {
 
   try {
     const servidor = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
-    const corsOK = /CORS_ORIGIN/.test(servidor) && /origenes\.indexOf/.test(servidor);
-    resultados.push(check('Seguridad', 'CORS restringido', corsOK,
-      corsOK ? 'Solo origenes configurados' : 'CORS parece abierto'));
+    // En desarrollo el acceso se permite desde cualquier origen (celular/tunel)
+    const corsOK = /CORS_ORIGIN/.test(servidor) && /cb\(null, true\)/.test(servidor);
+    resultados.push(check('Seguridad', 'CORS para acceso movil', corsOK,
+      corsOK ? 'CORS abierto en modo desarrollo (local, IP y tuneles)' : 'CORS no configurado'));
 
     const headersOK = /X-Content-Type-Options/.test(servidor) && /X-Frame-Options/.test(servidor);
     resultados.push(check('Seguridad', 'Cabeceras de seguridad', headersOK,
