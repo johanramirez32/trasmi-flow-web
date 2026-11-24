@@ -45,7 +45,10 @@
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
         }),
-        fetch(API_URL + '/niveles?horas=168').then(function (r) { return r.ok ? r.json() : []; })
+        // Los niveles son complementarios: si fallan, las estaciones igual se cargan
+        fetch(API_URL + '/niveles?horas=168')
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .catch(function () { return []; })
       ])
         .then(function (res) {
           var data = res[0] || [];
@@ -68,8 +71,11 @@
         })
         .catch(function (err) {
           document.getElementById('listaResultado').innerHTML =
-            '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las estaciones.<br>' +
-            '<span class="text-slate-500">Revisa que el servidor este corriendo (npm start)</span></p>';
+            '<div class="text-center py-6 space-y-2">' +
+            '<p class="text-xs text-red-400">No se pudieron cargar las estaciones.</p>' +
+            '<p class="text-[10px] text-slate-500">' + escHtml(err.message) + '</p>' +
+            '<button onclick="cargarEstaciones()" class="px-3 py-2 bg-brand-dark border border-brand-border text-slate-300 text-[11px] font-bold rounded-lg hover:border-brand-red">Reintentar</button>' +
+            '</div>';
           console.error('Error cargando estaciones:', err);
         });
     }

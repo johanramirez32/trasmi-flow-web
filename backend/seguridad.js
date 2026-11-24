@@ -48,7 +48,7 @@ function verificar(token) {
     const datos = JSON.parse(Buffer.from(partes[0], 'base64url').toString('utf8'));
     if (!datos.email || !datos.rol) { return null; }
     // Caducidad: 12 horas
-    if (datos.iat && Date.now() - datos.iat > 12 * 60 * 60 * 1000) { return null; }
+    if (datos.iat && Date.now() - datos.iat > 7 * 24 * 60 * 60 * 1000) { return null; }
     return datos;
   } catch (e) {
     return null;
