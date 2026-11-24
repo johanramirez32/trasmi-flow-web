@@ -499,8 +499,19 @@ async function listarRutasEstacion(req, res) {
       rutas: oficiales.rutas
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'No se pudieron cargar las rutas de la estacion.' });
+    console.error('ERROR_RUTAS_ESTACION: ' + err.message);
+    // Esquema desactualizado en produccion: usar servicio oficial
+    try {
+      const data = await oficial.obtenerDatos();
+      const oficiales = oficial.rutasDeEstacion(data, nombre);
+      return res.json({
+        estacion: oficiales.estacion || nombre,
+        origen: 'oficial',
+        rutas: oficiales.rutas || []
+      });
+    } catch (e2) {
+      res.json({ estacion: nombre, origen: 'vacio', rutas: [] });
+    }
   }
 }
 
