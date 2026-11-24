@@ -20,8 +20,8 @@ async function obtenerNiveles(req, res) {
       };
     }));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'No se pudieron cargar los niveles.' });
+    console.error('ERROR_NIVELES: ' + err.message);
+    res.json([]);
   }
 }
 

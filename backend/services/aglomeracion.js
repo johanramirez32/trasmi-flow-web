@@ -15,10 +15,18 @@ function nivelDe(pct) {
 
 async function calcular(horas) {
   const h = Math.min(parseInt(horas, 10) || 168, 24 * 30);
+  let tienePortal = false;
+  try {
+    const c = await pool.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='estaciones' AND column_name='portal'");
+    tienePortal = c.rows.length > 0;
+  } catch (e) { tienePortal = false; }
+
+  const portalExpr = tienePortal ? "COALESCE(e.portal, 'Sin portal')" : "'Sin portal'";
   const r = await pool.query(
     `SELECT rep.id, rep.estacion, COALESCE(rep.ruta,'SIN RUTA') AS ruta,
             rep.nivel, rep.usuario, rep.creado_en,
-            COALESCE(e.portal, 'Sin portal') AS portal
+            ${portalExpr} AS portal
        FROM reportes rep
        LEFT JOIN estaciones e ON LOWER(e.nombre) = LOWER(rep.estacion)
       WHERE rep.creado_en > NOW() - ($1 || ' hours')::interval

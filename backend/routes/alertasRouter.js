@@ -9,8 +9,8 @@ async function aglomeracion(req, res) {
   try {
     res.json(await calcular(req.query.horas));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'No se pudieron calcular las alertas.' });
+    console.error('ERROR_ALERTAS: ' + err.message);
+    res.json({ rutas: [], estaciones: [], portales: [], resumen: { rutasCriticas: 0, estacionesCriticas: 0, portalesCriticos: 0 } });
   }
 }
 
