@@ -40,17 +40,26 @@
     // DATOS
     // ==========================================================
     function cargarEstaciones() {
-      return fetch(API_URL + '/estaciones')
-        .then(function (r) {
+      return Promise.all([
+        fetch(API_URL + '/estaciones').then(function (r) {
           if (!r.ok) throw new Error('HTTP ' + r.status);
           return r.json();
-        })
-        .then(function (data) {
+        }),
+        fetch(API_URL + '/niveles?horas=168').then(function (r) { return r.ok ? r.json() : []; })
+      ])
+        .then(function (res) {
+          var data = res[0] || [];
+          var niveles = res[1] || [];
+          window.__nivelesUsuario = niveles;
           estaciones = data.map(function (e) {
+            var niv = niveles.find(function (n) { return (n.estacion || '').toLowerCase() === (e.nombre || '').toLowerCase(); });
             return {
               id: e.id, nombre: e.nombre, troncal: e.troncal,
               lat: parseFloat(e.lat), lng: parseFloat(e.lng),
-              aglomeracion: nivelTexto(e.aglomeracion),
+              // El nivel depende de los reportes de los usuarios
+              aglomeracion: niv ? niv.nivel : nivelTexto(e.aglomeracion),
+              porcentaje: niv ? niv.porcentaje : 0,
+              portal: (niv && niv.portal) || e.portal || '',
               capacidad: e.capacidad != null ? e.capacidad : 0
             };
           });

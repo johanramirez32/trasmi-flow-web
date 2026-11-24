@@ -31,6 +31,23 @@
     html { -webkit-text-size-adjust: 100%; }
     body { overflow-x: hidden; }
 
+    /* ---- Dispositivos pequenos: evitar desbordamientos ---- */
+    @media (max-width: 640px) {
+      header .max-w-7xl { padding-left: 0.75rem; padding-right: 0.75rem; }
+      #vistaAuth > div { padding: 1.25rem !important; }
+      .glass-panel { border-radius: 1rem !important; }
+      #panelNotificaciones { width: min(20rem, calc(100vw - 1.5rem)) !important; }
+      #panelRutasLateral { width: min(18rem, calc(100vw - 2rem)) !important; }
+      button, select { min-height: 38px; }
+      h3 { font-size: 1.25rem !important; }
+    }
+    @media (max-width: 360px) {
+      #headerAcciones button { padding-left: 0.5rem !important; padding-right: 0.5rem !important; }
+      #headerAcciones span.max-w-\[120px\] { display: none; }
+    }
+    /* Textos largos nunca rompen el diseno */
+    .break-words { overflow-wrap: anywhere; }
+
     /* ---- Zonas seguras en celulares con muesca ---- */
     .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
 

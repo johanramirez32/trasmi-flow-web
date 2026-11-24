@@ -13,7 +13,7 @@ async function listarEstaciones(req, res) {
 
     if (buscar) {
       const r = await pool.query(
-        `SELECT id, nombre, troncal, lat, lng, aglomeracion
+        `SELECT id, nombre, troncal, lat, lng, aglomeracion, portal, direccion
            FROM estaciones
           WHERE nombre ILIKE $1 OR troncal ILIKE $1
           ORDER BY nombre`,
@@ -23,7 +23,7 @@ async function listarEstaciones(req, res) {
     }
 
     const r = await pool.query(
-      `SELECT id, nombre, troncal, lat, lng, aglomeracion
+      `SELECT id, nombre, troncal, lat, lng, aglomeracion, portal, direccion
          FROM estaciones
         ORDER BY nombre`
     );

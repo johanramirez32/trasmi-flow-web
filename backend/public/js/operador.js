@@ -376,7 +376,7 @@
       var cont = document.getElementById('opListaAglomeracion');
       if (!cont) { return Promise.resolve(); }
 
-      return fetch(API_URL + '/niveles?horas=24')
+      return fetch(API_URL + '/niveles?horas=168')
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (niveles) {
           return fetch(API_URL + '/estaciones')
@@ -455,7 +455,7 @@
         .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function (estaciones) {
           return Promise.all([
-            fetch(API_URL + '/niveles?horas=24').then(function (r2) { if (!r2.ok) throw new Error('HTTP ' + r2.status); return r2.json(); }),
+            fetch(API_URL + '/niveles?horas=168').then(function (r2) { if (!r2.ok) throw new Error('HTTP ' + r2.status); return r2.json(); }),
             Promise.resolve(estaciones)
           ]);
         })
@@ -480,33 +480,32 @@
           ests.sort(function (a, b) {
             function peso(e) {
               var n = (niveles || []).find(function (x) { return x.estacion && x.estacion.toLowerCase() === (e.nombre || '').toLowerCase(); });
-              return n && n.nivel === 'Alta' ? 85 : (n && n.nivel === 'Media' ? 55 : 30);
+              return n && n.porcentaje != null ? n.porcentaje : (n && n.nivel === 'Alta' ? 85 : (n && n.nivel === 'Media' ? 60 : 30));
             }
             return peso(b) - peso(a);
           });
 
           cont.innerHTML = (ests || []).map(function (e) {
-            var color = COLOR_AGLOMERACION[nivel] || '#94a3b8';
-            var nivel = 'Baja';
-            var reportado = false;
-            (niveles || []).forEach(function (n) {
-              if (n.estacion && n.estacion.toLowerCase() === (e.nombre || '').toLowerCase()) {
-                nivel = n.nivel || 'Baja';
-                reportado = true;
-              }
+            var n = (niveles || []).find(function (x) {
+              return x.estacion && x.estacion.toLowerCase() === (e.nombre || '').toLowerCase();
             });
-            var pct = pctAglomeracion(nivel);
+            var nivel = n ? (n.nivel || 'Baja') : 'Baja';
+            var pct = n && n.porcentaje != null ? n.porcentaje : pctAglomeracion(nivel);
+            var color = COLOR_AGLOMERACION[nivel] || '#94a3b8';
             return '<button onclick="seleccionarEstacionOperador(' + e.id + ')" class="w-full text-left p-2 rounded-lg bg-brand-card border border-brand-border hover:border-brand-red">' +
               '<div class="flex items-center justify-between gap-2">' +
                 '<div class="min-w-0">' +
                   '<p class="text-white font-semibold text-xs sm:text-sm truncate">' + escHtml(e.nombre) + '</p>' +
-                  '<p class="text-[11px] text-slate-400 truncate">' + escHtml(e.troncal || '') + '</p>' +
+                  '<p class="text-[11px] text-slate-400 truncate">' + escHtml(e.troncal || '') +
+                    (n && n.portal ? ' · ' + escHtml(n.portal) : '') + '</p>' +
                 '</div>' +
-                '<span class="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0" style="background:' + color + '22;color:' + color + '">' + escHtml(e.aglomeracion || 'Media') + '</span>' +
+                '<span class="text-[10px] font-black px-2 py-0.5 rounded-md shrink-0" style="background:' + color + '22;color:' + color + '">' + escHtml(nivel) + '</span>' +
               '</div>' +
               '<div class="flex items-center justify-between gap-2 mt-1">' +
-                '<span class="text-[10px] text-slate-400">Nivel reportes: ' + escHtml(nivel) + '</span>' +
-                '<span class="text-[10px] text-white font-bold">' + pct + '% acom.</span>' +
+                '<span class="text-[10px] text-slate-400">' +
+                  (n ? escHtml(n.ruta || 'Sin ruta') + ' · ' + (n.reportes || 0) + ' reporte(s)' : 'Sin reportes') +
+                '</span>' +
+                '<span class="text-[10px] font-bold" style="color:' + color + '">' + pct + '% acom.</span>' +
               '</div>' +
             '</button>';
           }).join('');

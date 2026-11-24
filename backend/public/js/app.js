@@ -241,49 +241,63 @@
       var cont = document.getElementById('listaAlertas');
       if (!cont) return;
 
-      return fetch(API_URL + '/niveles?horas=24')
-        .then(function (r) {
-          if (!r.ok) throw new Error('HTTP ' + r.status);
-          return r.json();
-        })
-        .then(function (niveles) {
-          var altas = niveles.filter(function (n) { return n.nivel === 'Alta'; });
-          var medias = niveles.filter(function (n) { return n.nivel === 'Media'; });
+      return fetch(API_URL + '/alertas/aglomeracion?horas=168')
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (datos) {
+          var rutas = datos.rutas || [];
+          var estaciones = datos.estaciones || [];
+          var portales = datos.portales || [];
+          var criticas = rutas.filter(function (x) { return x.porcentaje > 50; });
+          var criticasEst = estaciones.filter(function (x) { return x.porcentaje > 50; });
 
-          if (!altas.length && !medias.length) {
+          if (!criticas.length && !criticasEst.length) {
             cont.innerHTML =
               '<div class="p-5 bg-brand-card border border-emerald-500/30 rounded-2xl flex gap-3 items-start">' +
               '<i data-lucide="check-circle" class="w-6 h-6 text-emerald-400 shrink-0"></i>' +
-              '<div><h4 class="text-white font-bold text-sm">Sin alertas en este momento</h4>' +
-              '<p class="text-xs text-slate-400 mt-1">Ninguna estacion reporta ocupacion alta en las ultimas 24 horas.</p></div></div>';
+              '<div><h4 class="text-white font-bold text-sm">Sin alertas de aglomeración</h4>' +
+              '<p class="text-xs text-slate-400 mt-1">Ninguna ruta ni estación supera el 50% según los reportes de los usuarios.</p></div></div>';
             actualizarIconos();
             return;
           }
 
-          function tarjeta(n, color, icono, titulo) {
+          function tarjeta(n, titulo, subtitulo) {
+            var color = n.nivel === 'Alta' ? '#ef4444' : '#f59e0b';
+            var icono = n.nivel === 'Alta' ? 'alert-triangle' : 'alert-circle';
             return '<div class="p-4 bg-brand-card border rounded-2xl flex gap-3 items-start" style="border-color:' + color + '55">' +
               '<i data-lucide="' + icono + '" class="w-6 h-6 shrink-0" style="color:' + color + '"></i>' +
-              '<div class="min-w-0">' +
+              '<div class="min-w-0 flex-grow">' +
                 '<h4 class="text-white font-bold text-sm break-words">' + titulo + '</h4>' +
-                '<p class="text-xs text-slate-400 mt-1 break-words">' +
-                  escHtml(n.estacion) + ' - ' + tiempoRelativo(n.creado_en) +
-                  (n.usuario ? ' por ' + escHtml(n.usuario.split('@')[0]) : '') +
-                '</p>' +
-              '</div></div>';
+                '<p class="text-xs text-slate-400 mt-1 break-words">' + subtitulo + '</p>' +
+              '</div>' +
+              '<span class="text-[10px] font-black px-2 py-1 rounded-md shrink-0" style="background:' + color + '22;color:' + color + '">' +
+                escHtml(n.nivel) + ' ' + n.porcentaje + '%</span>' +
+            '</div>';
           }
 
-          var html = altas.map(function (n) {
-            return tarjeta(n, '#ef4444', 'alert-triangle', 'Alta afluencia');
-          }).join('') + medias.map(function (n) {
-            return tarjeta(n, '#f59e0b', 'alert-circle', 'Ocupacion moderada');
-          }).join('');
-
+          var html = '';
+          if (portales.length) {
+            html += '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-1">Portales</p>';
+            html += portales.slice(0, 4).map(function (p) {
+              return tarjeta(p, escHtml(p.portal), p.reportes + ' reporte(s) · ' + p.estaciones.length + ' estación(es)');
+            }).join('');
+          }
+          if (criticasEst.length) {
+            html += '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-3">Estaciones</p>';
+            html += criticasEst.slice(0, 8).map(function (e) {
+              return tarjeta(e, escHtml(e.estacion), escHtml(e.portal) + ' · ' + e.reportes + ' reporte(s)');
+            }).join('');
+          }
+          if (criticas.length) {
+            html += '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-3">Rutas</p>';
+            html += criticas.slice(0, 8).map(function (x) {
+              return tarjeta(x, 'Ruta ' + escHtml(x.ruta), escHtml(x.estacion) + ' · ' + x.reportes + ' reporte(s)');
+            }).join('');
+          }
           cont.innerHTML = html;
           actualizarIconos();
         })
         .catch(function (err) {
-          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">' +
-            'No se pudieron cargar las alertas.<br>' +
+          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-6">No se pudieron cargar las alertas.<br>' +
             '<span class="text-slate-500">' + escHtml(err.message) + '</span></p>';
         });
     }
@@ -309,6 +323,18 @@
         });
       }
       html += '</div>';
+
+      var portales = datos.portales || [];
+      if (portales.length) {
+        html += '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-2 mb-1">Portales</p>';
+        portales.slice(0, 4).forEach(function (p) {
+          var color = p.nivel === 'Alta' ? '#ef4444' : (p.nivel === 'Media' ? '#f59e0b' : '#22c55e');
+          html += '<div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-brand-dark/60 border border-brand-border mb-1">' +
+            '<span class="text-[10px] text-white truncate">' + escHtml(p.portal) + '</span>' +
+            '<span class="text-[10px] font-black shrink-0" style="color:' + color + '">' + escHtml(p.nivel) + ' ' + p.porcentaje + '%</span>' +
+          '</div>';
+        });
+      }
 
       if (estaciones.length) {
         html += '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mt-2 mb-1">Niveles por estacion</p>';
@@ -358,10 +384,14 @@
         .then(function (datos) {
           var rutas = datos.rutas || [];
           var estaciones = datos.estaciones || [];
+          var portales = datos.portales || [];
           var etiqueta = '';
           if (contexto.estacion) {
             rutas = rutas.filter(function (x) { return x.estacion === contexto.estacion; });
             estaciones = estaciones.filter(function (x) { return x.estacion === contexto.estacion; });
+            portales = portales.filter(function (x) {
+              return (x.estaciones || []).indexOf(contexto.estacion) !== -1;
+            });
             etiqueta = contexto.estacion;
           }
           if (contexto.ruta) {
@@ -376,7 +406,7 @@
           if (cont) {
             cont.innerHTML = (etiqueta
               ? '<p class="text-[10px] font-black text-brand-red uppercase tracking-wider mb-1">Contexto: ' + escHtml(etiqueta) + '</p>'
-              : '') + htmlAlertasAglomeracion({ rutas: rutas, estaciones: estaciones });
+              : '') + htmlAlertasAglomeracion({ rutas: rutas, estaciones: estaciones, portales: portales });
           }
         })
         .catch(function () {
