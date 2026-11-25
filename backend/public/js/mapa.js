@@ -596,6 +596,35 @@
       }
     }
 
+    /** Dibuja en el mapa una opcion alternativa del itinerario */
+    function verRutaDelPlan(indice) {
+      var datos = window.__itinerarioCache;
+      if (!datos || !datos.opciones || !map) { return; }
+      var op = datos.opciones[indice];
+      if (!op) { return; }
+
+      window.__opcionActiva = indice;
+      limpiarViaje();
+      capaItinerario = L.featureGroup().addTo(map);
+
+      (op.tramos || []).forEach(function (tramo) {
+        var ests = tramo.estaciones || [];
+        if (!ests.length) { return; }
+        var coords = recortarCorredor(tramo, ests[0], ests[ests.length - 1])
+          .filter(function (c) { return c && c[0] != null && c[1] != null; });
+        if (coords.length >= 2) {
+          L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 5, opacity: 0.9 }).addTo(capaItinerario);
+        }
+      });
+
+      marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
+      marcarPunto(datos.destino, '#ef4444', 'Destino: ' + (datos.destino ? datos.destino.nombre : ''), 'B');
+      if (userPos && viajeOrigen) { actualizarRutaPeatonal(); }
+      if (capaItinerario.getLayers().length) {
+        map.fitBounds(capaItinerario.getBounds(), { padding: [40, 40] });
+      }
+    }
+
     /** Panel lateral: pasos del viaje y transbordos */
     function renderItinerario(datos) {
       var panel = document.getElementById('userItinerario');
@@ -633,6 +662,31 @@
             : '<p class="text-[10px] font-black text-amber-400 mt-1">TRANSBORDO en ' + escHtml(t.hasta) + '</p>') +
           '</div>';
       });
+
+      // Rutas alternativas dentro del mismo apartado "Tu viaje"
+      var opciones = (datos.opciones || []).slice(1);
+      if (opciones.length) {
+        html += '<div class="pt-2 mt-2 border-t border-brand-border">' +
+          '<p class="text-[10px] font-black uppercase tracking-wider text-slate-400 mb-2">Rutas alternativas (' + opciones.length + ')</p>';
+        opciones.forEach(function (op, k) {
+          var indice = k + 1;
+          var lineas = (op.lineas || []).join(' → ');
+          var trans = op.transbordos || 0;
+          html += '<div class="p-2.5 mb-2 rounded-xl border border-brand-border bg-brand-dark/70">' +
+            '<div class="flex items-center justify-between gap-2">' +
+              '<p class="text-white font-bold text-[11px]">Alternativa ' + indice + ' · ' + escHtml(lineas) + '</p>' +
+              '<span class="text-[10px] font-black text-emerald-400 shrink-0">~' + (op.minutos_estimados || 0) + ' min</span>' +
+            '</div>' +
+            '<p class="text-[10px] text-slate-400 mt-1">' +
+              (trans ? trans + (trans === 1 ? ' transbordo' : ' transbordos') : 'Sin transbordos') +
+              ' · ' + (op.total_paradas || 0) + ' estaciones</p>' +
+            '<button onclick="verRutaDelPlan(' + (op.indice != null ? op.indice : indice) + ')" ' +
+              'class="mt-2 w-full px-2 py-1.5 bg-brand-dark border border-brand-border text-slate-300 ' +
+              'text-[10px] font-bold rounded-lg hover:border-brand-red">Ver esta alternativa en el mapa</button>' +
+          '</div>';
+        });
+        html += '</div>';
+      }
 
       panel.innerHTML = html;
       panel.classList.remove('hidden');

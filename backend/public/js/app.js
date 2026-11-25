@@ -662,6 +662,11 @@
     function cerrarSesion() {
       localStorage.removeItem('usuarioTransmiFlowReal');
       localStorage.removeItem(TOKEN_KEY);
+      // Limpiar el nombre y los botones del encabezado al salir
+      var header = document.getElementById('headerAcciones');
+      if (header) { header.innerHTML = ''; }
+      var panel = document.getElementById('panelNotificaciones');
+      if (panel) { panel.classList.add('hidden'); }
       if (idWatch !== null) { navigator.geolocation.clearWatch(idWatch); idWatch = null; }
       verificarAcceso();
     }

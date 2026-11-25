@@ -1,9 +1,9 @@
 /**
- * Controller de reportes: crea y lista los reportes de ocupacion.
- * Relaciones: estacion_id -> estaciones, ruta_id -> rutas, usuario_id -> usuarios.
+ * Controller de reportes compatible con esquemas anteriores.
  * POST /api/reportes
  * GET  /api/reportes
  * GET  /api/reportes/rutas
+ * POST /api/reportes/:id/atender
  */
 const { getPool } = require('../db');
 
@@ -11,6 +11,15 @@ const pool = getPool();
 
 function texto(valor, max) {
   return String(valor == null ? '' : valor).trim().slice(0, max);
+}
+
+/** Columnas existentes en una tabla (para despliegues con esquema anterior) */
+async function columnas(tabla) {
+  const r = await pool.query(
+    'SELECT column_name FROM information_schema.columns WHERE table_schema=$1 AND table_name=$2',
+    ['public', tabla]
+  );
+  return r.rows.map(function (x) { return x.column_name; });
 }
 
 async function crearReporte(req, res) {
@@ -24,90 +33,101 @@ async function crearReporte(req, res) {
   }
 
   try {
-    // Resolver llaves foraneas desde los nombres que envia el formulario
-    const est = await pool.query('SELECT id FROM estaciones WHERE LOWER(nombre) = LOWER($1) LIMIT 1', [estacion]);
-    const rut = await pool.query('SELECT id FROM rutas WHERE codigo = $1 LIMIT 1', [ruta]);
-    const usu = await pool.query('SELECT id FROM usuarios WHERE LOWER(email) = LOWER($1) LIMIT 1', [usuario]);
+    const cols = await columnas('reportes');
+    const campos = ['estacion', 'nivel', 'usuario'];
+    const valores = [estacion, nivel, usuario];
 
+    if (cols.indexOf('ruta') !== -1) { campos.push('ruta'); valores.push(ruta); }
+    if (cols.indexOf('estacion_id') !== -1) {
+      const e = await pool.query('SELECT id FROM estaciones WHERE LOWER(nombre)=LOWER($1) LIMIT 1', [estacion]);
+      campos.push('estacion_id'); valores.push(e.rows[0] ? e.rows[0].id : null);
+    }
+    if (cols.indexOf('ruta_id') !== -1 && cols.indexOf('ruta') !== -1) {
+      const rr = await pool.query('SELECT id FROM rutas WHERE codigo=$1 LIMIT 1', [ruta]);
+      campos.push('ruta_id'); valores.push(rr.rows[0] ? rr.rows[0].id : null);
+    }
+    if (cols.indexOf('usuario_id') !== -1) {
+      const u = await pool.query('SELECT id FROM usuarios WHERE LOWER(email)=LOWER($1) LIMIT 1', [usuario]);
+      campos.push('usuario_id'); valores.push(u.rows[0] ? u.rows[0].id : null);
+    }
+
+    const marcadores = campos.map(function (_, i) { return '$' + (i + 1); });
     const resultado = await pool.query(
-      'INSERT INTO reportes (estacion, estacion_id, ruta, ruta_id, nivel, usuario, usuario_id) ' +
-      'VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-      [estacion, est.rows[0] ? est.rows[0].id : null,
-       ruta, rut.rows[0] ? rut.rows[0].id : null,
-       nivel, usuario, usu.rows[0] ? usu.rows[0].id : null]
+      'INSERT INTO reportes (' + campos.join(',') + ') VALUES (' + marcadores.join(',') + ') RETURNING id',
+      valores
     );
 
     const nuevo = await pool.query(
-      'SELECT id, estacion, ruta, nivel, usuario, creado_en FROM reportes WHERE id = $1',
+      'SELECT id, estacion, nivel, usuario, creado_en' +
+      (cols.indexOf('ruta') !== -1 ? ', ruta' : '') + ' FROM reportes WHERE id = $1',
       [resultado.rows[0].id]
     );
     res.status(201).json({ mensaje: 'Reporte recibido', reporte: nuevo.rows[0] });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'No se pudo guardar el reporte.' });
+    console.error('ERROR_CREAR_REPORTE: ' + err.message);
+    res.status(500).json({ error: 'No se pudo guardar el reporte: ' + err.message });
   }
 }
 
-/** Lista reportes con su ruta y si ya fueron atendidos (notificacion enlazada) */
+/** EXISTENCIA de atencion: usa reporte_id si existe, si no compara por texto */
+async function expresionAtendido() {
+  const cols = await columnas('notificaciones');
+  if (cols.indexOf('reporte_id') !== -1) {
+    return 'EXISTS (SELECT 1 FROM notificaciones n WHERE n.reporte_id = r.id)';
+  }
+  return "EXISTS (SELECT 1 FROM notificaciones n WHERE LOWER(n.usuario)=LOWER(r.usuario) " +
+         "AND n.mensaje LIKE '%' || r.estacion || '%' AND n.creado_en >= r.creado_en)";
+}
+
 async function listarReportes(req, res) {
   try {
     const limite = Math.min(parseInt(req.query.limite, 10) || 25, 100);
+    const cols = await columnas('reportes');
+    const rutaCol = cols.indexOf('ruta') !== -1 ? "COALESCE(r.ruta,'') AS ruta," : "'' AS ruta,";
+    const atendido = await expresionAtendido();
     const r = await pool.query(
-      `SELECT r.id, r.estacion, COALESCE(r.ruta, '') AS ruta, r.nivel, r.usuario, r.creado_en,
-              EXISTS (
-                SELECT 1 FROM notificaciones n WHERE n.reporte_id = r.id
-              ) OR EXISTS (
-                SELECT 1 FROM notificaciones n
-                WHERE n.usuario = r.usuario AND n.mensaje LIKE '%' || r.estacion || '%'
-                  AND n.creado_en >= r.creado_en
-              ) AS atendido
-         FROM reportes r
-        ORDER BY r.creado_en DESC, r.id DESC
-        LIMIT $1`,
+      'SELECT r.id, r.estacion, ' + rutaCol + ' r.nivel, r.usuario, r.creado_en, ' +
+      atendido + ' AS atendido FROM reportes r ORDER BY r.creado_en DESC, r.id DESC LIMIT $1',
       [limite]
     );
     res.json(r.rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'No se pudieron cargar los reportes.' });
+    console.error('ERROR_LISTAR_REPORTES: ' + err.message);
+    // Ultimo recurso
+    try {
+      const r = await pool.query('SELECT id, estacion, nivel, usuario, creado_en FROM reportes ORDER BY id DESC LIMIT 25');
+      res.json(r.rows.map(function (x) { return Object.assign({ ruta: '', atendido: false }, x); }));
+    } catch (e2) { res.status(500).json({ error: 'No se pudieron cargar los reportes.' }); }
   }
 }
 
-/** Reportes agrupados por estacion y ruta: que ruta hay que liberar y su estado */
 async function rutasReportadas(req, res) {
   try {
+    const cols = await columnas('reportes');
+    const rutaCol = cols.indexOf('ruta') !== -1 ? "COALESCE(r.ruta,'SIN RUTA')" : "'SIN RUTA'";
+    const atendido = await expresionAtendido();
     const r = await pool.query(
-      `SELECT r.estacion, COALESCE(r.ruta, 'SIN RUTA') AS ruta,
-              r.nivel, r.usuario, r.creado_en,
-              EXISTS (SELECT 1 FROM notificaciones n WHERE n.reporte_id = r.id) AS atendido
-         FROM reportes r
-        ORDER BY r.creado_en DESC
-        LIMIT 100`
+      'SELECT r.estacion, ' + rutaCol + ' AS ruta, r.nivel, r.usuario, r.creado_en, ' +
+      atendido + ' AS atendido FROM reportes r ORDER BY r.creado_en DESC LIMIT 100'
     );
 
     const grupos = {};
     r.rows.forEach(function (x) {
       const k = x.estacion + '|' + x.ruta;
       if (!grupos[k]) {
-        grupos[k] = {
-          estacion: x.estacion, ruta: x.ruta, nivel: x.nivel,
-          atendido: x.atendido, creado_en: x.creado_en, usuarios: [], total: 0
-        };
+        grupos[k] = { estacion: x.estacion, ruta: x.ruta, nivel: x.nivel,
+          atendido: x.atendido, creado_en: x.creado_en, usuarios: [], total: 0 };
       }
       grupos[k].total++;
-      if (grupos[k].usuarios.indexOf(x.usuario) === -1) {
-        grupos[k].usuarios.push(x.usuario);
-      }
+      if (grupos[k].usuarios.indexOf(x.usuario) === -1) { grupos[k].usuarios.push(x.usuario); }
     });
-
     res.json({ rutas: Object.keys(grupos).map(function (k) { return grupos[k]; }) });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'No se pudieron cargar las rutas reportadas.' });
+    console.error('ERROR_RUTAS_REPORTADAS: ' + err.message);
+    res.json({ rutas: [] });
   }
 }
 
-/** Tramitar un reporte: se marca atendido y se notifica al usuario */
 async function atenderReporte(req, res) {
   try {
     const id = req.params.id;
@@ -115,19 +135,26 @@ async function atenderReporte(req, res) {
     if (!r.rows.length) { return res.status(404).json({ error: 'Reporte no encontrado.' }); }
     const rep = r.rows[0];
 
+    const cols = await columnas('notificaciones');
+    const campos = ['usuario', 'mensaje', 'tipo'];
+    const valores = [rep.usuario,
+      'Tu reporte en ' + rep.estacion + (rep.ruta ? ' (ruta ' + rep.ruta + ')' : '') +
+        ' fue tramitado por el operario.', 'operador'];
+    if (cols.indexOf('reporte_id') !== -1) { campos.push('reporte_id'); valores.push(rep.id); }
+    if (cols.indexOf('usuario_id') !== -1) {
+      const u = await pool.query('SELECT id FROM usuarios WHERE LOWER(email)=LOWER($1) LIMIT 1', [rep.usuario]);
+      campos.push('usuario_id'); valores.push(u.rows[0] ? u.rows[0].id : null);
+    }
+    const marcadores = campos.map(function (_, i) { return '$' + (i + 1); });
     await pool.query(
-      'INSERT INTO notificaciones (usuario, usuario_id, mensaje, tipo, reporte_id) VALUES ($1,$2,$3,$4,$5)',
-      [rep.usuario, rep.usuario_id,
-       'Tu reporte en ' + rep.estacion + (rep.ruta ? ' (ruta ' + rep.ruta + ')' : '') + ' fue tramitado por el operario.',
-       'operador', rep.id]
+      'INSERT INTO notificaciones (' + campos.join(',') + ') VALUES (' + marcadores.join(',') + ')',
+      valores
     );
 
-    const actualizado = await pool.query(
-      'SELECT id, estacion, ruta, nivel, usuario, creado_en FROM reportes WHERE id = $1', [id]);
-    res.json({ mensaje: 'Reporte tramitado', reporte: actualizado.rows[0] });
+    res.json({ mensaje: 'Reporte tramitado', id: rep.id });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'No se pudo tramitar el reporte.' });
+    console.error('ERROR_ATENDER_REPORTE: ' + err.message);
+    res.status(500).json({ error: 'No se pudo tramitar el reporte: ' + err.message });
   }
 }
 
