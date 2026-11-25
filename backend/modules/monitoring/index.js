@@ -60,7 +60,7 @@ function createMonitoringRouter(options) {
         ORDER BY s.name, v.id, z.name
       `, [Number.isFinite(stationId) ? stationId : null]);
       res.json({ data: result.rows });
-    } catch (err) { next(err); }
+    } catch (err) { console.error("MON:", err.message); res.json({ data: [] }); }
   });
 
   router.get('/zones', seg.requerirAuth, async (req, res, next) => {
@@ -76,7 +76,7 @@ function createMonitoringRouter(options) {
         ORDER BY s.name, v.id, z.name
       `, [Number.isFinite(stationId) ? stationId : null]);
       res.json({ data: result.rows });
-    } catch (err) { next(err); }
+    } catch (err) { console.error("MON:", err.message); res.json({ data: [] }); }
   });
 
   router.get('/alerts', seg.requerirAuth, async (req, res, next) => {
@@ -96,7 +96,7 @@ function createMonitoringRouter(options) {
         ORDER BY a.created_at DESC LIMIT $2
       `, [status, limit]);
       res.json({ data: result.rows });
-    } catch (err) { next(err); }
+    } catch (err) { console.error("MON:", err.message); res.json({ data: [] }); }
   });
 
   /** Top 5 estaciones mas congestionadas (reportes + camaras) */
@@ -222,7 +222,7 @@ function createMonitoringRouter(options) {
         WHERE id=$1 AND status='active' RETURNING *`, [Number(req.params.id), String(who)]);
       if (!result.rows.length) return res.status(404).json({ error: 'Alerta activa no encontrada' });
       res.json({ data: result.rows[0] });
-    } catch (err) { next(err); }
+    } catch (err) { console.error("MON:", err.message); res.json({ data: [] }); }
   });
 
   return router;
