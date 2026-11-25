@@ -97,6 +97,20 @@ function createMonitoringRouter(options) {
     } catch (err) { console.error('MON_SEED:', err.message); }
   }
 
+  router.get('/debug', async (req, res) => {
+    try {
+      await ensureSeed();
+      const tablas = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND (table_name LIKE 'monitoring_%' OR table_name='vagones') ORDER BY table_name");
+      const cols = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='estaciones' ORDER BY column_name");
+      const counts = {};
+      for (const tb of ['monitoring_stations','monitoring_zones','monitoring_cameras','vagones']) {
+        try { const r = await pool.query('SELECT COUNT(*)::int n FROM ' + tb); counts[tb] = r.rows[0].n; }
+        catch (e) { counts[tb] = 'ERR:' + e.message.slice(0,60); }
+      }
+      res.json({ tablas: tablas.rows.map(x=>x.table_name), columnasEstaciones: cols.rows.map(x=>x.column_name), counts });
+    } catch (e) { res.json({ error: e.message }); }
+  });
+
   function requireWorkerKey(req, res, next) {
     const supplied = req.get('x-monitoring-key');
     if (!apiKey || supplied !== apiKey) {
