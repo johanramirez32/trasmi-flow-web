@@ -61,7 +61,10 @@ async function itinerario(req, res) {
 
     const hay = await pool.query('SELECT COUNT(*)::int n FROM rutas');
     if (!hay.rows[0].n) {
-      return res.status(503).json({ error: 'El sistema aun no tiene las rutas cargadas.' });
+      // En el despliegue la tabla de rutas puede estar vacia: usar el
+      // servicio oficial de Transmilenio, que devuelve el mismo formato
+      // de opciones/tramos que espera el mapa.
+      return oficial.planearRuta(req, res);
     }
 
     // Todas las rutas con sus paradas ordenadas
