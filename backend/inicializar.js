@@ -816,7 +816,10 @@ async function inicializar(pool, intentos = 5) {
   }
 
   for (const sql of ESQUEMA) {
-    await pool.query(sql);
+    try { await pool.query(sql); }
+    catch (err) {
+      console.warn('   Aviso preparando esquema: ' + err.message.slice(0, 120));
+    }
   }
   await sembrarSiEstaVacia(pool);
   await sembrarRutas(pool);

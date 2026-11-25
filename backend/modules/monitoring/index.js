@@ -121,7 +121,7 @@ function createMonitoringRouter(options) {
         LIMIT 5
       `);
       res.json({ data: result.rows });
-    } catch (err) { next(err); }
+    } catch (err) { console.error("MON_TOP:", err.message); res.json({ data: [] }); }
   });
 
   /** Endpoint interno del worker de IA */
