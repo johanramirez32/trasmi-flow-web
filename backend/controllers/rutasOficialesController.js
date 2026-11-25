@@ -463,7 +463,20 @@ async function planearRuta(req, res) {
     }
 
     var opciones = directas.slice(0, 4).map(opcionDe);
-    if (!opciones.length && conSalida.length) { opciones.push(opcionDe(conSalida[0], 0)); }
+    // Si solo hay una directa, se ofrecen como alternativas las demas
+    // lineas que llegan al destino (pueden requerir combinacion).
+    if (opciones.length < 4 && conSalida.length) {
+      conSalida.slice(0, 4 - opciones.length).forEach(function (x) {
+        var op = opcionDe(x, opciones.length);
+        op.etiqueta = 'Alternativa ' + op.indice;
+        op.transbordos = 1;
+        if (op.tramos[0]) {
+          op.tramos[0].tipo_transbordo = 'Combinación en ' + x.estacion;
+          op.tramos[0].transbordo_en = x.estacion;
+        }
+        opciones.push(op);
+      });
+    }
     var mejor = opciones[0];
 
     res.json({

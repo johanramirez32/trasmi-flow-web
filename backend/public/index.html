@@ -426,9 +426,9 @@
 
         <div>
           <label class="block text-xs font-semibold text-slate-300 mb-1.5">Ruta que genera la aglomeracion</label>
-          <select id="repRuta" class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
-            <option value="">Primero elige la estacion</option>
-          </select>
+          <input id="repRuta" list="listaRutasReporte" autocomplete="off" placeholder="Ej: B28"
+            class="w-full px-4 py-3 bg-brand-dark border border-brand-border rounded-xl text-white text-sm">
+          <datalist id="listaRutasReporte"></datalist>
         </div>
 
         <div>

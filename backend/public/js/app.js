@@ -138,7 +138,7 @@
           pintarReportes([respuesta.reporte].concat(cache).slice(0, 25));
 
           campo.value = '';
-          if (rutaSel) { rutaSel.innerHTML = '<option value="">Primero elige la estacion</option>'; }
+          if (rutaSel) { rutaSel.value = ''; }
           if (sug) sug.classList.add('hidden');
           mostrarMensajeReporte('Reporte enviado. Gracias por tu aporte.', 'ok');
           actualizarIconos();
@@ -206,9 +206,10 @@
     /** Carga en el selector las rutas que paran en la estacion reportada */
     function cargarRutasDelReporte(nombre) {
       var sel = document.getElementById('repRuta');
+      var lista = document.getElementById('listaRutasReporte');
       if (!sel) { return Promise.resolve([]); }
-      sel.innerHTML = '<option value="">Cargando rutas...</option>';
-      if (!nombre) { sel.innerHTML = '<option value="">Primero elige la estacion</option>'; return Promise.resolve([]); }
+      if (lista) { lista.innerHTML = ''; }
+      if (!nombre) { return Promise.resolve([]); }
 
       var est = (estaciones || []).find(function (e) { return e.nombre === nombre; });
       var url = API_URL + '/rutas/estacion/' + encodeURIComponent(nombre) +
@@ -218,20 +219,15 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
           var rutas = data.rutas || [];
-          if (!rutas.length) {
-            sel.innerHTML = '<option value="">Sin rutas para esta estacion</option>';
-            return rutas;
+          if (lista) {
+            lista.innerHTML = rutas.map(function (r) {
+              return '<option value="' + escHtml(r.codigo) + '">' + escHtml(r.origen || '') +
+                     ' → ' + escHtml(r.destino || '') + '</option>';
+            }).join('');
           }
-          sel.innerHTML = '<option value="">Selecciona la ruta</option>' + rutas.map(function (r) {
-            return '<option value="' + escHtml(r.codigo) + '">' + escHtml(r.codigo) +
-                   ' · ' + escHtml(r.origen || '') + ' → ' + escHtml(r.destino || '') + '</option>';
-          }).join('');
           return rutas;
         })
-        .catch(function () {
-          sel.innerHTML = '<option value="">No se pudieron cargar las rutas</option>';
-          return [];
-        });
+        .catch(function () { return []; });
     }
 
     // ==========================================================
