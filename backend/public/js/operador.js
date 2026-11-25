@@ -34,6 +34,7 @@
         cargarBagones();
       }
       if (vista === 'camaras') {
+        cargarMonitoreoCamaras();
         var selCamaras = document.getElementById('opSelectCamaras');
         if (selCamaras) { cargarOperadorCamaras(selCamaras.value); }
       }
@@ -1148,12 +1149,73 @@
         });
     }
 
+    /** Dashboard de aglomeración por cámaras del módulo de monitoreo */
+    function cargarMonitoreoCamaras() {
+      var cont = document.getElementById('opListaMonitoreoCamaras');
+      if (!cont) { return; }
+      var sel = document.getElementById('opSelectCamaras');
+      var est = estacionPorValor(sel ? sel.value : '');
+      var q = est ? '?stationId=' + encodeURIComponent(est.id) : '';
+      fetch(API_URL + '/monitoring/dashboard' + q)
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+          var filas = data.data || [];
+          if (!filas.length) {
+            cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-4 col-span-full">Sin zonas de monitoreo.</p>';
+            return;
+          }
+          var colores = { Alta: '#ef4444', Media: '#f59e0b', Baja: '#22c55e' };
+          cont.innerHTML = filas.map(function (x) {
+            var pct = Number(x.occupancy_percentage || 0);
+            var nivel = x.nivel || 'Baja';
+            var color = colores[nivel];
+            return '<div class="p-2.5 rounded-xl border bg-brand-dark/70" style="border-color:' + color + '55">' +
+              '<div class="flex items-center justify-between gap-2">' +
+                '<p class="text-[11px] font-black text-white truncate">' + escHtml(x.station_name || '') +
+                  (x.vagon_name ? ' · ' + escHtml(x.vagon_name) : '') + '</p>' +
+                '<span class="text-[10px] font-black shrink-0" style="color:' + color + '">' + nivel + ' ' + pct.toFixed(0) + '%</span>' +
+              '</div>' +
+              '<p class="text-[10px] text-slate-400 mt-0.5">Ruta ' + escHtml(x.ruta_codigo || 'SIN RUTA') +
+                ' · ' + (x.people_count != null ? x.people_count + ' personas' : 'sin lectura') +
+                ' · ' + escHtml(x.zone_name || '') + '</p>' +
+            '</div>';
+          }).join('');
+        })
+        .catch(function () {
+          cont.innerHTML = '<p class="text-xs text-red-400 text-center py-4 col-span-full">No se pudo cargar el monitoreo.</p>';
+        });
+      cargarTopCongestion();
+    }
+
+    /** Top 5 de estaciones mas congestionadas */
+    function cargarTopCongestion() {
+      var cont = document.getElementById('opListaTopCongestion');
+      if (!cont) { return; }
+      fetch(API_URL + '/monitoring/top')
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function (data) {
+          var filas = data.data || [];
+          if (!filas.length) { cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-3">Sin datos.</p>'; return; }
+          cont.innerHTML = filas.map(function (x, i) {
+            var pct = Number(x.porcentaje_camara || 0);
+            var color = pct >= 75 ? '#ef4444' : (pct >= 50 ? '#f59e0b' : '#22c55e');
+            return '<div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-brand-dark/60 border border-brand-border">' +
+              '<span class="text-[11px] text-white truncate">' + (i + 1) + '. ' + escHtml(x.estacion) +
+                ' <span class="text-slate-500">' + escHtml(x.portal || '') + '</span></span>' +
+              '<span class="text-[10px] font-black shrink-0" style="color:' + color + '">' + pct.toFixed(0) + '% · ' + (x.reportes || 0) + ' rep.</span>' +
+            '</div>';
+          }).join('');
+        })
+        .catch(function () { cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-3">Sin datos.</p>'; });
+    }
+
     function cargarOperadorCamaras(valor) {
       var cont = document.getElementById('opListaCamaras');
       if (!cont) { return Promise.resolve(); }
       var estCam = estacionPorValor(valor);
       var estacion = estCam ? estCam.nombre : valor;
       cargarRutasCamara(estCam);
+      cargarMonitoreoCamaras();
       if (!estacion) {
         cont.innerHTML = '<p class="text-xs text-slate-400 text-center py-6">Selecciona una estacion para ver sus camaras.</p>';
         return Promise.resolve();

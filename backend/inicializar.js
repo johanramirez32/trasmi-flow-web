@@ -206,6 +206,60 @@ const ESQUEMA = [
   `CREATE INDEX IF NOT EXISTS idx_des_est_id ON despachos(estacion_id)`,
   `CREATE INDEX IF NOT EXISTS idx_des_ruta_id ON despachos(ruta_id)`,
   `CREATE INDEX IF NOT EXISTS idx_not_usu_id ON notificaciones(usuario_id)`,
+
+  // Modulo de monitoreo de aglomeracion por camaras (IA)
+  `CREATE TABLE IF NOT EXISTS monitoring_stations (
+     id BIGSERIAL PRIMARY KEY,
+     code VARCHAR(50) NOT NULL UNIQUE,
+     name VARCHAR(150) NOT NULL,
+     location TEXT,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE TABLE IF NOT EXISTS monitoring_zones (
+     id BIGSERIAL PRIMARY KEY,
+     station_id BIGINT NOT NULL REFERENCES monitoring_stations(id) ON DELETE CASCADE,
+     vagon_id BIGINT REFERENCES vagones(id) ON DELETE SET NULL,
+     ruta_codigo VARCHAR(20),
+     code VARCHAR(50) NOT NULL,
+     name VARCHAR(150) NOT NULL,
+     capacity INTEGER NOT NULL CHECK (capacity > 0),
+     area_m2 NUMERIC(10,2) CHECK (area_m2 IS NULL OR area_m2 > 0),
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+     UNIQUE(station_id, code)
+   )`,
+  `CREATE TABLE IF NOT EXISTS monitoring_cameras (
+     id BIGSERIAL PRIMARY KEY,
+     zone_id BIGINT NOT NULL REFERENCES monitoring_zones(id) ON DELETE CASCADE,
+     code VARCHAR(50) NOT NULL UNIQUE,
+     name VARCHAR(160) NOT NULL,
+     source TEXT NOT NULL DEFAULT '0',
+     polygon JSONB NOT NULL DEFAULT '[]'::jsonb,
+     enabled BOOLEAN NOT NULL DEFAULT TRUE,
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE TABLE IF NOT EXISTS monitoring_metrics (
+     id BIGSERIAL PRIMARY KEY,
+     camera_id BIGINT NOT NULL REFERENCES monitoring_cameras(id) ON DELETE CASCADE,
+     people_count INTEGER NOT NULL CHECK (people_count >= 0),
+     occupancy_percentage NUMERIC(7,2) NOT NULL,
+     density_people_m2 NUMERIC(7,2),
+     crowd_level VARCHAR(30) NOT NULL,
+     captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_mon_metrics_camera_time ON monitoring_metrics(camera_id, captured_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS monitoring_alerts (
+     id BIGSERIAL PRIMARY KEY,
+     zone_id BIGINT NOT NULL REFERENCES monitoring_zones(id) ON DELETE CASCADE,
+     camera_id BIGINT REFERENCES monitoring_cameras(id) ON DELETE SET NULL,
+     level VARCHAR(30) NOT NULL,
+     message TEXT NOT NULL,
+     occupancy_percentage NUMERIC(7,2) NOT NULL,
+     status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active','acknowledged','resolved')),
+     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+     acknowledged_at TIMESTAMPTZ,
+     acknowledged_by VARCHAR(150)
+   )`,
+  `CREATE INDEX IF NOT EXISTS idx_mon_alerts_status ON monitoring_alerts(status, created_at DESC)`,
 ];
 
 // ---------------------------------------------------------------
@@ -409,6 +463,44 @@ async function sembrarFlota(pool) {
  * Completa direccion ( ArcGIS ub_est ), portal, vagones por estacion
  * y genera reportes adicionales de prueba.
  */
+/** Siembra estaciones, zonas por vagón y cámaras del módulo de monitoreo */
+async function sincronizarMonitoreo(pool) {
+  try {
+    await pool.query(`INSERT INTO monitoring_stations (code, name, location)
+      SELECT 'EST-' || id, nombre, direccion FROM estaciones
+      WHERE NOT EXISTS (SELECT 1 FROM monitoring_stations ms WHERE ms.code = 'EST-' || estaciones.id)`);
+
+    // Una zona por vagón, con la ruta que para en ese vagón
+    await pool.query(`
+      INSERT INTO monitoring_zones (station_id, vagon_id, ruta_codigo, code, name, capacity, area_m2)
+      SELECT ms.id, v.id,
+             (SELECT vr.codigo FROM vagon_rutas x JOIN rutas vr ON vr.id=x.ruta_id
+               WHERE x.vagon_id=v.id ORDER BY x.orden LIMIT 1),
+             'ZONA-' || v.id, v.nombre,
+             GREATEST(20, COALESCE(e.capacidad,100) /
+               GREATEST(1,(SELECT COUNT(*)::int FROM vagones vv WHERE vv.estacion_id=e.id))),
+             50
+        FROM monitoring_stations ms
+        JOIN estaciones e ON 'EST-' || e.id = ms.code
+        JOIN vagones v ON v.estacion_id = e.id
+       WHERE NOT EXISTS (SELECT 1 FROM monitoring_zones z WHERE z.code = 'ZONA-' || v.id)`);
+
+    // Camaras existentes enlazadas a su zona/vagón
+    await pool.query(`
+      INSERT INTO monitoring_cameras (zone_id, code, name, source, polygon)
+      SELECT z.id, 'CAM-' || c.id, c.nombre, '0', '[[0,0],[640,0],[640,480],[0,480]]'::jsonb
+        FROM camaras c
+        JOIN monitoring_zones z ON z.code = 'ZONA-' || (
+          SELECT v.id FROM vagones v
+          WHERE v.estacion_id = c.estacion_id ORDER BY v.id LIMIT 1)
+       WHERE NOT EXISTS (SELECT 1 FROM monitoring_cameras mc WHERE mc.code = 'CAM-' || c.id)`);
+
+    console.log('   Modulo de monitoreo sincronizado');
+  } catch (err) {
+    console.warn('   No se pudo sincronizar monitoreo: ' + err.message);
+  }
+}
+
 async function enriquecerRed(pool) {
   try {
     // Direccion desde el servicio oficial
@@ -531,6 +623,13 @@ async function enriquecerRed(pool) {
 
 async function normalizarRelaciones(pool) {
   try {
+    // Usuario de sistema para los reportes generados por camaras/IA
+    await pool.query(
+      "INSERT INTO usuarios (nombre, email, password, rol) " +
+      "VALUES ('Sistema Cámaras', 'camara@transmiflow.local', " +
+      "'$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2', 'usuario') " +
+      "ON CONFLICT (email) DO NOTHING");
+
     // Crear referencias faltantes para datos heredados (texto sin FK)
     await pool.query(`INSERT INTO buses (placa, tipo)
       SELECT DISTINCT d.bus, COALESCE(d.tipo_bus,'Bus normal')
@@ -725,6 +824,7 @@ async function inicializar(pool, intentos = 5) {
   await sembrarFlota(pool);
   await arreglarReportes(pool);
   await enriquecerRed(pool);
+  await sincronizarMonitoreo(pool);
   await normalizarRelaciones(pool);
   await sincronizarRutasOficiales(pool);
 }

@@ -77,6 +77,11 @@ app.use('/api/rutas',     require('./routes/rutasRouter'));
 app.use('/api/camaras',   require('./routes/camarasRouter'));
 app.use('/api/flota',    require('./routes/flotaRouter'));
 app.use('/api/alertas', require('./routes/alertasRouter'));
+
+// Modulo independiente de aglomeracion por camaras (IA)
+app.use('/api/monitoring', require('./modules/monitoring').createMonitoringRouter({
+  apiKey: process.env.MONITORING_API_KEY || ''
+}));
 app.use('/api/vagones', require('./routes/vagonesRouter'));
 app.use('/api/notificaciones', require('./routes/notificacionesRouter'));
 

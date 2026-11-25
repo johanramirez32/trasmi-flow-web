@@ -1,8 +1,8 @@
 -- ============================================================
 -- TransmiFlow - Volcado completo de la base de datos
--- Esquema + datos: estaciones, rutas, ruta_estaciones, vagones,
--- vagon_rutas, usuarios, buses, conductores, despachos, reportes,
--- notificaciones y camaras.
+-- Incluye modulo de monitoreo de aglomeracion por camaras:
+-- monitoring_stations, monitoring_zones, monitoring_cameras,
+-- monitoring_metrics y monitoring_alerts.
 --
 -- Restaurar: psql -U postgres -d transmiflow_db -f transmiflow_dump.sql
 -- ============================================================
@@ -11,7 +11,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict vCqvng2sUuRECoXjeXZ3PaAXZiVYiz9TEiqVk9MqPYcPjWH2UnDZbaxaXsX4xaj
+\restrict kZlxcmsawIFqKawSHao2rWnnfUMqueJtzqUwff0e7eBSnjRlKJB7NJ07GJayDTi
 
 -- Dumped from database version 18.6
 -- Dumped by pg_dump version 18.6
@@ -33,6 +33,12 @@ ALTER TABLE IF EXISTS ONLY public.vagon_rutas DROP CONSTRAINT IF EXISTS vagon_ru
 ALTER TABLE IF EXISTS ONLY public.vagon_rutas DROP CONSTRAINT IF EXISTS vagon_rutas_ruta_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.ruta_estaciones DROP CONSTRAINT IF EXISTS ruta_estaciones_ruta_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.ruta_estaciones DROP CONSTRAINT IF EXISTS ruta_estaciones_estacion_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_zones DROP CONSTRAINT IF EXISTS monitoring_zones_vagon_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_zones DROP CONSTRAINT IF EXISTS monitoring_zones_station_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_metrics DROP CONSTRAINT IF EXISTS monitoring_metrics_camera_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_cameras DROP CONSTRAINT IF EXISTS monitoring_cameras_zone_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_alerts DROP CONSTRAINT IF EXISTS monitoring_alerts_zone_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_alerts DROP CONSTRAINT IF EXISTS monitoring_alerts_camera_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.reportes DROP CONSTRAINT IF EXISTS fk_rep_vagon;
 ALTER TABLE IF EXISTS ONLY public.reportes DROP CONSTRAINT IF EXISTS fk_rep_usu;
 ALTER TABLE IF EXISTS ONLY public.reportes DROP CONSTRAINT IF EXISTS fk_rep_ruta;
@@ -55,6 +61,8 @@ DROP INDEX IF EXISTS public.idx_rep_ruta_id;
 DROP INDEX IF EXISTS public.idx_rep_est_id;
 DROP INDEX IF EXISTS public.idx_notificaciones_usuario;
 DROP INDEX IF EXISTS public.idx_not_usu_id;
+DROP INDEX IF EXISTS public.idx_mon_metrics_camera_time;
+DROP INDEX IF EXISTS public.idx_mon_alerts_status;
 DROP INDEX IF EXISTS public.idx_estaciones_troncal;
 DROP INDEX IF EXISTS public.idx_estaciones_nombre;
 DROP INDEX IF EXISTS public.idx_despachos_estacion;
@@ -73,6 +81,14 @@ ALTER TABLE IF EXISTS ONLY public.rutas DROP CONSTRAINT IF EXISTS rutas_codigo_k
 ALTER TABLE IF EXISTS ONLY public.ruta_estaciones DROP CONSTRAINT IF EXISTS ruta_estaciones_pkey;
 ALTER TABLE IF EXISTS ONLY public.reportes DROP CONSTRAINT IF EXISTS reportes_pkey;
 ALTER TABLE IF EXISTS ONLY public.notificaciones DROP CONSTRAINT IF EXISTS notificaciones_pkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_zones DROP CONSTRAINT IF EXISTS monitoring_zones_station_id_code_key;
+ALTER TABLE IF EXISTS ONLY public.monitoring_zones DROP CONSTRAINT IF EXISTS monitoring_zones_pkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_stations DROP CONSTRAINT IF EXISTS monitoring_stations_pkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_stations DROP CONSTRAINT IF EXISTS monitoring_stations_code_key;
+ALTER TABLE IF EXISTS ONLY public.monitoring_metrics DROP CONSTRAINT IF EXISTS monitoring_metrics_pkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_cameras DROP CONSTRAINT IF EXISTS monitoring_cameras_pkey;
+ALTER TABLE IF EXISTS ONLY public.monitoring_cameras DROP CONSTRAINT IF EXISTS monitoring_cameras_code_key;
+ALTER TABLE IF EXISTS ONLY public.monitoring_alerts DROP CONSTRAINT IF EXISTS monitoring_alerts_pkey;
 ALTER TABLE IF EXISTS ONLY public.estaciones DROP CONSTRAINT IF EXISTS estaciones_pkey;
 ALTER TABLE IF EXISTS ONLY public.despachos DROP CONSTRAINT IF EXISTS despachos_pkey;
 ALTER TABLE IF EXISTS ONLY public.conductores DROP CONSTRAINT IF EXISTS conductores_pkey;
@@ -87,6 +103,11 @@ ALTER TABLE IF EXISTS public.rutas ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.ruta_estaciones ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.reportes ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.notificaciones ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.monitoring_zones ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.monitoring_stations ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.monitoring_metrics ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.monitoring_cameras ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.monitoring_alerts ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.estaciones ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.despachos ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.conductores ALTER COLUMN id DROP DEFAULT;
@@ -106,6 +127,16 @@ DROP SEQUENCE IF EXISTS public.reportes_id_seq;
 DROP TABLE IF EXISTS public.reportes;
 DROP SEQUENCE IF EXISTS public.notificaciones_id_seq;
 DROP TABLE IF EXISTS public.notificaciones;
+DROP SEQUENCE IF EXISTS public.monitoring_zones_id_seq;
+DROP TABLE IF EXISTS public.monitoring_zones;
+DROP SEQUENCE IF EXISTS public.monitoring_stations_id_seq;
+DROP TABLE IF EXISTS public.monitoring_stations;
+DROP SEQUENCE IF EXISTS public.monitoring_metrics_id_seq;
+DROP TABLE IF EXISTS public.monitoring_metrics;
+DROP SEQUENCE IF EXISTS public.monitoring_cameras_id_seq;
+DROP TABLE IF EXISTS public.monitoring_cameras;
+DROP SEQUENCE IF EXISTS public.monitoring_alerts_id_seq;
+DROP TABLE IF EXISTS public.monitoring_alerts;
 DROP SEQUENCE IF EXISTS public.estaciones_id_seq;
 DROP TABLE IF EXISTS public.estaciones;
 DROP SEQUENCE IF EXISTS public.despachos_id_seq;
@@ -301,6 +332,184 @@ CREATE SEQUENCE public.estaciones_id_seq
 --
 
 ALTER SEQUENCE public.estaciones_id_seq OWNED BY public.estaciones.id;
+
+
+--
+-- Name: monitoring_alerts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monitoring_alerts (
+    id bigint NOT NULL,
+    zone_id bigint NOT NULL,
+    camera_id bigint,
+    level character varying(30) NOT NULL,
+    message text NOT NULL,
+    occupancy_percentage numeric(7,2) NOT NULL,
+    status character varying(20) DEFAULT 'active'::character varying NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    acknowledged_at timestamp with time zone,
+    acknowledged_by character varying(150),
+    CONSTRAINT monitoring_alerts_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'acknowledged'::character varying, 'resolved'::character varying])::text[])))
+);
+
+
+--
+-- Name: monitoring_alerts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.monitoring_alerts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: monitoring_alerts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.monitoring_alerts_id_seq OWNED BY public.monitoring_alerts.id;
+
+
+--
+-- Name: monitoring_cameras; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monitoring_cameras (
+    id bigint NOT NULL,
+    zone_id bigint NOT NULL,
+    code character varying(50) NOT NULL,
+    name character varying(160) NOT NULL,
+    source text DEFAULT '0'::text NOT NULL,
+    polygon jsonb DEFAULT '[]'::jsonb NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: monitoring_cameras_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.monitoring_cameras_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: monitoring_cameras_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.monitoring_cameras_id_seq OWNED BY public.monitoring_cameras.id;
+
+
+--
+-- Name: monitoring_metrics; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monitoring_metrics (
+    id bigint NOT NULL,
+    camera_id bigint NOT NULL,
+    people_count integer NOT NULL,
+    occupancy_percentage numeric(7,2) NOT NULL,
+    density_people_m2 numeric(7,2),
+    crowd_level character varying(30) NOT NULL,
+    captured_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT monitoring_metrics_people_count_check CHECK ((people_count >= 0))
+);
+
+
+--
+-- Name: monitoring_metrics_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.monitoring_metrics_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: monitoring_metrics_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.monitoring_metrics_id_seq OWNED BY public.monitoring_metrics.id;
+
+
+--
+-- Name: monitoring_stations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monitoring_stations (
+    id bigint NOT NULL,
+    code character varying(50) NOT NULL,
+    name character varying(150) NOT NULL,
+    location text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: monitoring_stations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.monitoring_stations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: monitoring_stations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.monitoring_stations_id_seq OWNED BY public.monitoring_stations.id;
+
+
+--
+-- Name: monitoring_zones; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.monitoring_zones (
+    id bigint NOT NULL,
+    station_id bigint NOT NULL,
+    vagon_id bigint,
+    ruta_codigo character varying(20),
+    code character varying(50) NOT NULL,
+    name character varying(150) NOT NULL,
+    capacity integer NOT NULL,
+    area_m2 numeric(10,2),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT monitoring_zones_area_m2_check CHECK (((area_m2 IS NULL) OR (area_m2 > (0)::numeric))),
+    CONSTRAINT monitoring_zones_capacity_check CHECK ((capacity > 0))
+);
+
+
+--
+-- Name: monitoring_zones_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.monitoring_zones_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: monitoring_zones_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.monitoring_zones_id_seq OWNED BY public.monitoring_zones.id;
 
 
 --
@@ -582,6 +791,41 @@ ALTER TABLE ONLY public.estaciones ALTER COLUMN id SET DEFAULT nextval('public.e
 
 
 --
+-- Name: monitoring_alerts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_alerts ALTER COLUMN id SET DEFAULT nextval('public.monitoring_alerts_id_seq'::regclass);
+
+
+--
+-- Name: monitoring_cameras id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_cameras ALTER COLUMN id SET DEFAULT nextval('public.monitoring_cameras_id_seq'::regclass);
+
+
+--
+-- Name: monitoring_metrics id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_metrics ALTER COLUMN id SET DEFAULT nextval('public.monitoring_metrics_id_seq'::regclass);
+
+
+--
+-- Name: monitoring_stations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_stations ALTER COLUMN id SET DEFAULT nextval('public.monitoring_stations_id_seq'::regclass);
+
+
+--
+-- Name: monitoring_zones id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_zones ALTER COLUMN id SET DEFAULT nextval('public.monitoring_zones_id_seq'::regclass);
+
+
+--
 -- Name: notificaciones id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -695,42 +939,26 @@ COPY public.despachos (id, estacion, bus, operador, creado_en, ruta, tipo_bus, c
 --
 
 COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeracion, capacidad, lat, lng, direccion, portal) FROM stdin;
-321	Marsella	troncal	4.62967723	-74.13016385	F - Americas	Alta	320	4.6296772	-74.1301639	AV Americas - KR 69C	Portal Américas
-323	La Campiña	troncal	4.74265433	-74.09120046	C - Suba	Alta	352	4.7426543	-74.0912005	AV Suba - KR 98A	Portal Suba
-326	Guatoque - Veraguas	troncal	4.60417101	-74.09493313	G - NQS Sur (ramal)	Media	240	4.6041710	-74.0949331	KR 27	Portal Sur - JFK Coop. Financiera
-325	Corferias	troncal	4.63430649	-74.08970085	K - Calle 26	Media	252	4.6343065	-74.0897009	KR 43	Portal 20 de Julio
-335	AV. 68	troncal	4.68610088	-74.08076896	D - Calle 80	Alta	296	4.6861009	-74.0807690	KR 68D	Portal 80
-327	CDS - Carrera 32	troncal	4.61613616	-74.09394954	F - Americas	Baja	168	4.6161362	-74.0939495	AV Americas - KR 32	Portal Américas
-329	Universidad Nacional	troncal	4.63712105	-74.07932618	E - NQS Central	Alta	412	4.6371211	-74.0793262	KR 30 - CL 45	Portal 20 de Julio
-328	Ciudad Universitaria - Lotería de Bogotá	troncal	4.63087543	-74.08352723	K - Calle 26	Media	260	4.6308754	-74.0835272	KR 34	Portal 20 de Julio
-331	Tercer Milenio	troncal	4.59813501	-74.08383625	A - Caracas	Alta	320	4.5981350	-74.0838363	CL 8 - CL 6	Portal Norte – Unicervantes
-332	Concejo de Bogotá	troncal	4.62598737	-74.08028966	K - Calle 26	Media	260	4.6259874	-74.0802897	CL 38	Portal 20 de Julio
-337	Polo - FINCOMERCIO	troncal	4.67016265	-74.06433866	D - Calle 80	Alta	360	4.6701627	-74.0643387	TV 27	Portal 80
-334	7 de Agosto	troncal	4.65729528	-74.07768646	E - NQS Central	Media	260	4.6572953	-74.0776865	KR 30 - CL 63	Portal 20 de Julio
-344	Carrera 90	troncal	4.70466646	-74.10457027	D - Calle 80	Alta	304	4.7046665	-74.1045703	KR 90	Portal 80
-347	Escuela Militar	troncal	4.67553501	-74.06980215	D - Calle 80	Media	272	4.6755350	-74.0698022	KR 40	Portal 80
-340	Salitre - El Greco	troncal	4.65086482	-74.10164882	K - Calle 26	Media	260	4.6508648	-74.1016488	KR 66	Portal 20 de Julio
-339	Quinta Paredes	troncal	4.63750353	-74.09313226	K - Calle 26	Media	260	4.6375035	-74.0931323	KR 47	Portal 20 de Julio
-341	Zona Industrial	troncal	4.62032526	-74.09868611	F - Americas	Baja	168	4.6203253	-74.0986861	CL 13 - KR 38	Portal Américas
 342	León XIII	troncal	4.59217281	-74.19313531	Zona Leon XIII	Media	224	4.5921728	-74.1931353	Soacha	Portal Usme
 343	Paloquemao	troncal	4.61692188	-74.08955344	E - NQS Central	Media	272	4.6169219	-74.0895534	KR 30 - CL 19	Portal 20 de Julio
 349	AV. Cali	troncal	4.70248285	-74.10028965	D - Calle 80	Alta	304	4.7024829	-74.1002897	KR 86	Portal 80
 346	Terreros - Hospital Cardio Vascular	troncal	4.58896270	-74.19952261	Zona Leon XIII	Alta	356	4.5889627	-74.1995226	Soacha	Portal Usme
 348	Mandalay	troncal	4.63086366	-74.14129817	F - Americas	Media	240	4.6308637	-74.1412982	AV Americas KR 73	Portal Américas
-350	Suba - TV. 91	troncal	4.73893679	-74.08699228	C - Suba	Media	264	4.7389368	-74.0869923	AV Suba KR 90	Portal Suba
 353	Prado	troncal	4.71455843	-74.05255829	B - Autopista Norte	Media	248	4.7145584	-74.0525583	CL 128 B	Portal Norte – Unicervantes
 354	Terminal	troncal	4.76881876	-74.04357255	B - Autopista Norte	Baja	152	4.7688188	-74.0435726	CL 190	Portal Norte – Unicervantes
+339	Quinta Paredes	troncal	4.63750353	-74.09313226	K - Calle 26	Media	260	4.6375035	-74.0931323	KR 47	Portal 20 de Julio
 351	Ricaurte - CL 13	troncal	4.61301798	-74.09047650	F - Americas	Alta	312	4.6130180	-74.0904765	CL 13 - KR 28	Portal Américas
 358	Calle 100 - Marketmedios	troncal	4.68394944	-74.05771230	B - Autopista Norte	Alta	392	4.6839494	-74.0577123	CL 97	Portal Norte – Unicervantes
-355	Virrey	troncal	4.67599737	-74.05901952	B - Autopista Norte	Alta	352	4.6759974	-74.0590195	CL 90	Portal Norte – Unicervantes
 359	Calle 142	troncal	4.72685009	-74.05050333	B - Autopista Norte	Baja	180	4.7268501	-74.0505033	CL 142	Portal Norte – Unicervantes
 360	Portal Norte – Unicervantes	portal	4.75462286	-74.04604465	B - Autopista Norte	Baja	210	4.7546229	-74.0460447	CL 173	Portal Norte – Unicervantes
 361	Calle 187	troncal	4.76333655	-74.04444370	B - Autopista Norte	Baja	152	4.7633366	-74.0444437	CL 184	Portal Norte – Unicervantes
 362	Alcalá – Colegio S. Tomás Dominicos	troncal	4.72115820	-74.05145916	B - Autopista Norte	Alta	392	4.7211582	-74.0514592	CL 137	Portal Norte – Unicervantes
+350	Suba - TV. 91	troncal	4.73893679	-74.08699228	C - Suba	Media	264	4.7389368	-74.0869923	AV Suba KR 90	Portal Suba
 363	Calle 146	troncal	4.73089106	-74.04981123	B - Autopista Norte	Media	248	4.7308911	-74.0498112	CL 146	Portal Norte – Unicervantes
 364	Calle 127	troncal	4.70463964	-74.05422516	B - Autopista Norte	Baja	200	4.7046396	-74.0542252	CL 127	Portal Norte – Unicervantes
 365	Héroes - Colmena Seguros	troncal	4.66813603	-74.06030995	B - Autopista Norte	Media	264	4.6681360	-74.0603100	CL 80	Portal Norte – Unicervantes
 368	Mazurén	troncal	4.73458855	-74.04922624	B - Autopista Norte	Media	248	4.7345886	-74.0492262	CL 152	Portal Norte – Unicervantes
+355	Virrey	troncal	4.67599737	-74.05901952	B - Autopista Norte	Alta	352	4.6759974	-74.0590195	CL 90	Portal Norte – Unicervantes
 370	Carrera 53	troncal	4.68180475	-74.07742142	D - Calle 80	Baja	152	4.6818048	-74.0774214	KR 53	Portal 80
 369	Calle 45 - American School Way	troncal	4.63145241	-74.06787872	A - Caracas	Alta	320	4.6314524	-74.0678787	CL 45 - CL 42A	Portal Norte – Unicervantes
 310	CAN	troncal	4.64687639	-74.09904645	K - Calle 26	Media	260	4.6468764	-74.0990465	KR 60	Portal 20 de Julio
@@ -745,6 +973,56 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 318	AV. Boyacá	troncal	4.69393268	-74.08713194	D - Calle 80	Alta	304	4.6939327	-74.0871319	TV 69 Bis	Portal 80
 317	Calle 75 - Zona M	troncal	4.67015101	-74.07130492	E - NQS Central	Media	272	4.6701510	-74.0713049	KR 30 - CL 75A	Portal 20 de Julio
 322	Niza - Calle 127	troncal	4.71200123	-74.07230720	C - Suba	Baja	200	4.7120012	-74.0723072	AV Suba - CL 127	Portal Suba
+321	Marsella	troncal	4.62967723	-74.13016385	F - Americas	Alta	320	4.6296772	-74.1301639	AV Americas - KR 69C	Portal Américas
+323	La Campiña	troncal	4.74265433	-74.09120046	C - Suba	Alta	352	4.7426543	-74.0912005	AV Suba - KR 98A	Portal Suba
+326	Guatoque - Veraguas	troncal	4.60417101	-74.09493313	G - NQS Sur (ramal)	Media	240	4.6041710	-74.0949331	KR 27	Portal Sur - JFK Coop. Financiera
+325	Corferias	troncal	4.63430649	-74.08970085	K - Calle 26	Media	252	4.6343065	-74.0897009	KR 43	Portal 20 de Julio
+335	AV. 68	troncal	4.68610088	-74.08076896	D - Calle 80	Alta	296	4.6861009	-74.0807690	KR 68D	Portal 80
+327	CDS - Carrera 32	troncal	4.61613616	-74.09394954	F - Americas	Baja	168	4.6161362	-74.0939495	AV Americas - KR 32	Portal Américas
+329	Universidad Nacional	troncal	4.63712105	-74.07932618	E - NQS Central	Alta	412	4.6371211	-74.0793262	KR 30 - CL 45	Portal 20 de Julio
+331	Tercer Milenio	troncal	4.59813501	-74.08383625	A - Caracas	Alta	320	4.5981350	-74.0838363	CL 8 - CL 6	Portal Norte – Unicervantes
+332	Concejo de Bogotá	troncal	4.62598737	-74.08028966	K - Calle 26	Media	260	4.6259874	-74.0802897	CL 38	Portal 20 de Julio
+337	Polo - FINCOMERCIO	troncal	4.67016265	-74.06433866	D - Calle 80	Alta	360	4.6701627	-74.0643387	TV 27	Portal 80
+334	7 de Agosto	troncal	4.65729528	-74.07768646	E - NQS Central	Media	260	4.6572953	-74.0776865	KR 30 - CL 63	Portal 20 de Julio
+344	Carrera 90	troncal	4.70466646	-74.10457027	D - Calle 80	Alta	304	4.7046665	-74.1045703	KR 90	Portal 80
+347	Escuela Militar	troncal	4.67553501	-74.06980215	D - Calle 80	Media	272	4.6755350	-74.0698022	KR 40	Portal 80
+340	Salitre - El Greco	troncal	4.65086482	-74.10164882	K - Calle 26	Media	260	4.6508648	-74.1016488	KR 66	Portal 20 de Julio
+341	Zona Industrial	troncal	4.62032526	-74.09868611	F - Americas	Baja	168	4.6203253	-74.0986861	CL 13 - KR 38	Portal Américas
+328	Ciudad Universitaria - Lotería de Bogotá	troncal	4.63087543	-74.08352723	K - Calle 26	Media	260	4.6308754	-74.0835272	KR 34	Portal 20 de Julio
+418	Hospital	troncal	4.59505052	-74.08622629	H - Caracas Sur	Baja	96	4.5950505	-74.0862263	CL 4 - CL 2	Portal Sur - JFK Coop. Financiera
+408	Las Nieves	troncal	4.60606534	-74.07432675	L - Carrera Decima	Media	264	4.6060653	-74.0743268	KR 10 - CL 18	Portal 20 de Julio
+409	Modelia	troncal	4.67502466	-74.11714710	K - Calle 26	Media	260	4.6750247	-74.1171471	KR 84	Portal 20 de Julio
+410	Portal El Dorado – C.C. Nuestro Bogotá	portal	4.68162203	-74.12139802	K - Calle 26	Media	216	4.6816220	-74.1213980	KR 87	Portal 20 de Julio
+411	Museo del Oro	troncal	4.60115298	-74.07290843	J - Eje Ambiental	Baja	144	4.6011530	-74.0729084	KR 2	Portal 20 de Julio
+413	Portal 20 de Julio	portal	4.56571812	-74.09700841	L - Carrera Decima	Alta	350	4.5657181	-74.0970084	KR 5 A CL 33 Sur	Portal 20 de Julio
+422	Portal Usme	portal	4.53171458	-74.11939099	Portal Usme	Baja	210	4.5317146	-74.1193910	CL 65C Sur	Portal Usme
+416	Policarpa	troncal	4.58611582	-74.08701654	L - Carrera Decima	Media	264	4.5861158	-74.0870165	KR 10 - CL 3 Sur	Portal 20 de Julio
+417	Museo Nacional	troncal	4.61524490	-74.06921969	M - Carrera Septima	Media	240	4.6152449	-74.0692197	KR 7 - CL 32	Portal Tunal
+423	Ferias	troncal	4.69088593	-74.08460127	D - Calle 80	Baja	152	4.6908859	-74.0846013	TV 67 Bis	Portal 80
+419	Normandía	troncal	4.66900868	-74.11328003	K - Calle 26	Media	260	4.6690087	-74.1132800	KR 73A	Portal 20 de Julio
+426	Portal Tunal	portal	4.56957146	-74.13924020	Portal Tunal	Baja	152	4.5695715	-74.1392402	AV Boyaca	Portal Tunal
+427	Fucha	troncal	4.58297258	-74.09940175	H - Caracas Sur	Baja	144	4.5829726	-74.0994018	CL 13 Sur - CL 16 Sur	Portal Sur - JFK Coop. Financiera
+428	Minuto de Dios	troncal	4.69688160	-74.09193285	D - Calle 80	Alta	296	4.6968816	-74.0919329	KR 73 A	Portal 80
+431	Portal Suba	portal	4.74681507	-74.09427890	C - Suba	Alta	304	4.7468151	-74.0942789	AV Suba AV Cali	Portal Suba
+432	Suba - AV. Boyacá	troncal	4.72126716	-74.07471163	C - Suba	Baja	144	4.7212672	-74.0747116	AV Suba AV Boyaca	Portal Suba
+434	San Martín	troncal	4.67638966	-74.06717674	C - Suba	Baja	192	4.6763897	-74.0671767	AV Suba - CL 81	Portal Suba
+429	Portal Américas	portal	4.62938131	-74.17305846	F - Americas	Alta	342	4.6293813	-74.1730585	AV Cali - CL 43 Sur	Portal Américas
+436	Santa Isabel	troncal	4.60167503	-74.10261755	G - NQS Sur	Media	240	4.6016750	-74.1026176	KR 30 AV 3	Portal Sur - JFK Coop. Financiera
+439	Quiroga	troncal	4.57680973	-74.11438051	H - Caracas Sur	Baja	144	4.5768097	-74.1143805	CL 31 Sur - CL 32 Sur	Portal Sur - JFK Coop. Financiera
+440	Puentelargo	troncal	4.69340077	-74.06720874	C - Suba	Baja	200	4.6934008	-74.0672087	AV Suba TV 48	Portal Suba
+435	Universidades – CityU	troncal	4.60464623	-74.06731585	K - Calle 26	Media	260	4.6046462	-74.0673159	KR 3	Portal 20 de Julio
+377	Carrera 43 - Comapan	troncal	4.62278154	-74.10143788	F - Americas	Baja	168	4.6227815	-74.1014379	AV Americas - KR 43	Portal Américas
+424	Temporal Marly	troncal	4.63755905	-74.06678795	A - Caracas	Alta	320	4.6375591	-74.0667880	CL 51 - CL 49	Portal Norte – Unicervantes
+438	Puente Aranda	troncal	4.62566974	-74.10463943	F - Americas	Baja	168	4.6256697	-74.1046394	CL 13 KR 47	Portal Américas
+441	San Victorino	troncal	4.60102943	-74.07742242	L - Carrera Decima	Alta	384	4.6010294	-74.0774224	KR 10 - CL 12	Portal 20 de Julio
+378	Consuelo	troncal	4.56022730	-74.12387433	H - Caracas Sur	Baja	192	4.5602273	-74.1238743	KR 11A - KR 10C	Portal Sur - JFK Coop. Financiera
+380	Comuneros	troncal	4.60424998	-74.09986137	G - NQS Sur	Media	252	4.6042500	-74.0998614	KR 30 - CL 6A	Portal Sur - JFK Coop. Financiera
+386	Biblioteca	troncal	4.57030352	-74.13038868	Portal Tunal	Baja	60	4.5703035	-74.1303887	CL 48A Sur	Portal Tunal
+381	El Tiempo – Cámara de Comercio de Bogotá	troncal	4.65706705	-74.10564666	K - Calle 26	Media	240	4.6570671	-74.1056467	KR 68D	Portal 20 de Julio
+382	Biblioteca Tintal	troncal	4.63790778	-74.15935249	F - Americas	Alta	304	4.6379078	-74.1593525	AV Cali - CL 26 Sur	Portal Américas
+383	Ciudad Jardín - UAN	troncal	4.58154254	-74.09035160	L - Carrera Decima	Media	264	4.5815425	-74.0903516	KR 10 - CL 12 Sur	Portal 20 de Julio
+384	Bicentenario	troncal	4.59402077	-74.08183542	L - Carrera Decima	Alta	384	4.5940208	-74.0818354	KR 10 - CL 5	Portal 20 de Julio
+385	Temporal Calle 57	troncal	4.64298162	-74.06582826	A - Caracas	Alta	320	4.6429816	-74.0658283	CL 57 - CL 54	Portal Norte – Unicervantes
 389	Alquería	troncal	4.59426993	-74.13426993	G - NQS Sur	Baja	204	4.5942699	-74.1342699	Autosur - KR 48	Portal Sur - JFK Coop. Financiera
 387	AV. ElDorado	troncal	4.63066841	-74.07987857	E - NQS Central	Media	260	4.6306684	-74.0798786	KR 30 AV 28	Portal 20 de Julio
 390	Bosa	troncal	4.59688795	-74.18122500	G - NQS Sur	Media	272	4.5968880	-74.1812250	Soacha	Portal Sur - JFK Coop. Financiera
@@ -761,56 +1039,6 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 405	Nariño	troncal	4.58628471	-74.09392542	H - Caracas Sur	Baja	144	4.5862847	-74.0939254	CL 8 Sur - CL 11 Sur	Portal Sur - JFK Coop. Financiera
 406	Gratamira	troncal	4.72745584	-74.07472334	C - Suba	Baja	144	4.7274558	-74.0747233	AV Suba - CL 135	Portal Suba
 414	Humedal Córdoba	troncal	4.70668982	-74.07117427	C - Suba	Baja	156	4.7066898	-74.0711743	AV Suba - CL 119	Portal Suba
-418	Hospital	troncal	4.59505052	-74.08622629	H - Caracas Sur	Baja	96	4.5950505	-74.0862263	CL 4 - CL 2	Portal Sur - JFK Coop. Financiera
-408	Las Nieves	troncal	4.60606534	-74.07432675	L - Carrera Decima	Media	264	4.6060653	-74.0743268	KR 10 - CL 18	Portal 20 de Julio
-409	Modelia	troncal	4.67502466	-74.11714710	K - Calle 26	Media	260	4.6750247	-74.1171471	KR 84	Portal 20 de Julio
-410	Portal El Dorado – C.C. Nuestro Bogotá	portal	4.68162203	-74.12139802	K - Calle 26	Media	216	4.6816220	-74.1213980	KR 87	Portal 20 de Julio
-411	Museo del Oro	troncal	4.60115298	-74.07290843	J - Eje Ambiental	Baja	144	4.6011530	-74.0729084	KR 2	Portal 20 de Julio
-413	Portal 20 de Julio	portal	4.56571812	-74.09700841	L - Carrera Decima	Alta	350	4.5657181	-74.0970084	KR 5 A CL 33 Sur	Portal 20 de Julio
-422	Portal Usme	portal	4.53171458	-74.11939099	Portal Usme	Baja	210	4.5317146	-74.1193910	CL 65C Sur	Portal Usme
-416	Policarpa	troncal	4.58611582	-74.08701654	L - Carrera Decima	Media	264	4.5861158	-74.0870165	KR 10 - CL 3 Sur	Portal 20 de Julio
-417	Museo Nacional	troncal	4.61524490	-74.06921969	M - Carrera Septima	Media	240	4.6152449	-74.0692197	KR 7 - CL 32	Portal Tunal
-423	Ferias	troncal	4.69088593	-74.08460127	D - Calle 80	Baja	152	4.6908859	-74.0846013	TV 67 Bis	Portal 80
-419	Normandía	troncal	4.66900868	-74.11328003	K - Calle 26	Media	260	4.6690087	-74.1132800	KR 73A	Portal 20 de Julio
-426	Portal Tunal	portal	4.56957146	-74.13924020	Portal Tunal	Baja	152	4.5695715	-74.1392402	AV Boyaca	Portal Tunal
-427	Fucha	troncal	4.58297258	-74.09940175	H - Caracas Sur	Baja	144	4.5829726	-74.0994018	CL 13 Sur - CL 16 Sur	Portal Sur - JFK Coop. Financiera
-428	Minuto de Dios	troncal	4.69688160	-74.09193285	D - Calle 80	Alta	296	4.6968816	-74.0919329	KR 73 A	Portal 80
-431	Portal Suba	portal	4.74681507	-74.09427890	C - Suba	Alta	304	4.7468151	-74.0942789	AV Suba AV Cali	Portal Suba
-424	Temporal Marly	troncal	4.63755905	-74.06678795	A - Caracas	Alta	320	4.6375591	-74.0667880	CL 51 - CL 49	Portal Norte – Unicervantes
-432	Suba - AV. Boyacá	troncal	4.72126716	-74.07471163	C - Suba	Baja	144	4.7212672	-74.0747116	AV Suba AV Boyaca	Portal Suba
-434	San Martín	troncal	4.67638966	-74.06717674	C - Suba	Baja	192	4.6763897	-74.0671767	AV Suba - CL 81	Portal Suba
-429	Portal Américas	portal	4.62938131	-74.17305846	F - Americas	Alta	342	4.6293813	-74.1730585	AV Cali - CL 43 Sur	Portal Américas
-436	Santa Isabel	troncal	4.60167503	-74.10261755	G - NQS Sur	Media	240	4.6016750	-74.1026176	KR 30 AV 3	Portal Sur - JFK Coop. Financiera
-439	Quiroga	troncal	4.57680973	-74.11438051	H - Caracas Sur	Baja	144	4.5768097	-74.1143805	CL 31 Sur - CL 32 Sur	Portal Sur - JFK Coop. Financiera
-440	Puentelargo	troncal	4.69340077	-74.06720874	C - Suba	Baja	200	4.6934008	-74.0672087	AV Suba TV 48	Portal Suba
-435	Universidades – CityU	troncal	4.60464623	-74.06731585	K - Calle 26	Media	260	4.6046462	-74.0673159	KR 3	Portal 20 de Julio
-377	Carrera 43 - Comapan	troncal	4.62278154	-74.10143788	F - Americas	Baja	168	4.6227815	-74.1014379	AV Americas - KR 43	Portal Américas
-438	Puente Aranda	troncal	4.62566974	-74.10463943	F - Americas	Baja	168	4.6256697	-74.1046394	CL 13 KR 47	Portal Américas
-441	San Victorino	troncal	4.60102943	-74.07742242	L - Carrera Decima	Alta	384	4.6010294	-74.0774224	KR 10 - CL 12	Portal 20 de Julio
-378	Consuelo	troncal	4.56022730	-74.12387433	H - Caracas Sur	Baja	192	4.5602273	-74.1238743	KR 11A - KR 10C	Portal Sur - JFK Coop. Financiera
-380	Comuneros	troncal	4.60424998	-74.09986137	G - NQS Sur	Media	252	4.6042500	-74.0998614	KR 30 - CL 6A	Portal Sur - JFK Coop. Financiera
-386	Biblioteca	troncal	4.57030352	-74.13038868	Portal Tunal	Baja	60	4.5703035	-74.1303887	CL 48A Sur	Portal Tunal
-381	El Tiempo – Cámara de Comercio de Bogotá	troncal	4.65706705	-74.10564666	K - Calle 26	Media	240	4.6570671	-74.1056467	KR 68D	Portal 20 de Julio
-382	Biblioteca Tintal	troncal	4.63790778	-74.15935249	F - Americas	Alta	304	4.6379078	-74.1593525	AV Cali - CL 26 Sur	Portal Américas
-383	Ciudad Jardín - UAN	troncal	4.58154254	-74.09035160	L - Carrera Decima	Media	264	4.5815425	-74.0903516	KR 10 - CL 12 Sur	Portal 20 de Julio
-384	Bicentenario	troncal	4.59402077	-74.08183542	L - Carrera Decima	Alta	384	4.5940208	-74.0818354	KR 10 - CL 5	Portal 20 de Julio
-385	Temporal Calle 57	troncal	4.64298162	-74.06582826	A - Caracas	Alta	320	4.6429816	-74.0658283	CL 57 - CL 54	Portal Norte – Unicervantes
-453	Venecia	troncal	4.59556283	-74.14264921	G - NQS Sur	Baja	204	4.5955628	-74.1426492	Autosur - AV 54	Portal Sur - JFK Coop. Financiera
-454	Danubio	troncal	4.54365433	-74.12085159	Portal Usme	Alta	304	4.5436543	-74.1208516	Av. Calle 51 Sur entre carrera 5 y calle 56 sur	Portal Usme
-455	Portal Sur - JFK Coop. Financiera	portal	4.59693995	-74.16929784	G - NQS Sur	Media	228	4.5969400	-74.1692978	Autosur - KR 82	Portal Sur - JFK Coop. Financiera
-456	Temporal Calle 22	troncal	4.61001988	-74.07554139	A - Caracas	Alta	320	4.6100199	-74.0755414	CL 24 - CL 22	Portal Norte – Unicervantes
-309	AV. Chile	troncal	4.66635264	-74.07457455	E - NQS Central	Alta	344	4.6663526	-74.0745746	KR 30 - CL 72	Portal 20 de Julio
-457	Temporal AV. 39	troncal	4.62689718	-74.06869679	A - Caracas	Alta	312	4.6268972	-74.0686968	AV 39 - AV Calle	Portal Norte – Unicervantes
-458	Temporal Flores – Areandina	troncal	4.65490299	-74.06300913	A - Caracas	Baja	192	4.6549030	-74.0630091	CL 69 - CL 67	Portal Norte – Unicervantes
-459	Tibanica - Primavera	troncal	4.60672702	-74.20605303	Zona Tibanica	Alta	304	4.6067270	-74.2060530	CL 78 A Y CL 78 F	Portal Usme
-460	Los Laureles	troncal	4.61109139	-74.20232841	Zona Tibanica	Alta	304	4.6110914	-74.2023284	Entre CL 80 J Y CL 81	Portal Usme
-461	Islandia	troncal	4.61434757	-74.19374374	Zona Tibanica	Alta	304	4.6143476	-74.1937437	KR 70 A Sur Y CL 69 Sur	Portal Usme
-333	Cl38A sur - CENTRO MAYOR	troncal	4.59380944	-74.12375508	G - NQS Sur	Media	212	4.5938094	-74.1237551	Autosur - KR 39A	Portal Sur - JFK Coop. Financiera
-319	Calle 40 Sur	troncal	4.57579415	-74.12007924	H - Caracas Sur	Alta	392	4.5757942	-74.1200792	CL 38 Sur - CL 40 Sur	Portal Sur - JFK Coop. Financiera
-352	Restrepo	troncal	4.58184906	-74.10142878	H - Caracas Sur	Baja	200	4.5818491	-74.1014288	CL 19 Sur - AV 1 De M	Portal Sur - JFK Coop. Financiera
-357	Pepe Sierra Universidad UTEL	troncal	4.69812689	-74.05530880	B - Autopista Norte	Baja	200	4.6981269	-74.0553088	CL 116	Portal Norte – Unicervantes
-366	Calle 161	troncal	4.74191530	-74.04800035	B - Autopista Norte	Baja	96	4.7419153	-74.0480004	CL 160	Portal Norte – Unicervantes
-415	Parque	troncal	4.56832656	-74.13541451	Portal Tunal	Baja	60	4.5683266	-74.1354145	CL 55 Sur	Portal Tunal
 420	Perdomo	troncal	4.59578778	-74.16496973	G - NQS Sur	Baja	200	4.5957878	-74.1649697	Autosur - KR 78C	Portal Sur - JFK Coop. Financiera
 437	Suba - Calle 95	troncal	4.68469464	-74.06321827	C - Suba	Baja	144	4.6846946	-74.0632183	AV Suba - CL 97	Portal Suba
 442	CC Paseo Villa del Río - Madelena	troncal	4.59628094	-74.15688105	G - NQS Sur	Baja	204	4.5962809	-74.1568811	Autosur - KR 67	Portal Sur - JFK Coop. Financiera
@@ -830,8 +1058,6 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 430	Las Aguas - Centro Colombo Americano	troncal	4.60257976	-74.06840144	J - Eje Ambiental	Baja	120	4.6025798	-74.0684014	KR 3	Portal 20 de Julio
 443	San Mateo - CC Unisur	troncal	4.58596064	-74.20544974	Zona Leon XIII	Alta	424	4.5859606	-74.2054497	Soacha	Portal Usme
 398	Calle 85	troncal	4.67231279	-74.05964363	B - Autopista Norte	Alta	320	4.6723128	-74.0596436	CL 85	Portal Norte – Unicervantes
-356	Toberin - Foundever	troncal	4.74618498	-74.04725485	B - Autopista Norte	Alta	552	4.7461850	-74.0472549	CL 165	Portal Norte – Unicervantes
-367	Calle 106 - Maletas Explora	troncal	4.69298260	-74.05618243	B - Autopista Norte	Media	248	4.6929826	-74.0561824	CL 106	Portal Norte – Unicervantes
 412	General Santander	troncal	4.59355114	-74.12954496	G - NQS Sur	Alta	404	4.5935511	-74.1295450	Autosur - KR 43	Portal Sur - JFK Coop. Financiera
 433	Santa Lucía	troncal	4.57096848	-74.12470872	H - Caracas Sur	Media	272	4.5709685	-74.1247087	CL 46A Sur - Diagonal 4	Portal Sur - JFK Coop. Financiera
 313	Granja - Kr 77	troncal	4.69915096	-74.09601773	D - Calle 80	Alta	392	4.6991510	-74.0960177	KR 77 Bis	Portal 80
@@ -840,14 +1066,539 @@ COPY public.estaciones (id, nombre, tipo, latitud, longitud, troncal, aglomeraci
 336	Distrito Grafiti	troncal	4.62785005	-74.11158411	F - Americas	Media	272	4.6278501	-74.1115841	Americas - KR 53A	Portal Américas
 448	SENA	troncal	4.59737051	-74.11064255	G - NQS Sur	Alta	304	4.5973705	-74.1106426	Autosur - CL 17 S	Portal Sur - JFK Coop. Financiera
 447	San Bernardo	troncal	4.59019556	-74.08432732	L - Carrera Decima	Media	264	4.5901956	-74.0843273	KR 10 - CL 1B Sur	Portal 20 de Julio
+356	Toberin - Foundever	troncal	4.74618498	-74.04725485	B - Autopista Norte	Alta	552	4.7461850	-74.0472549	CL 165	Portal Norte – Unicervantes
+367	Calle 106 - Maletas Explora	troncal	4.69298260	-74.05618243	B - Autopista Norte	Media	248	4.6929826	-74.0561824	CL 106	Portal Norte – Unicervantes
 450	Socorro	troncal	4.56465328	-74.12558394	H - Caracas Sur	Baja	200	4.5646533	-74.1255839	KR 13B - KR 13C	Portal Sur - JFK Coop. Financiera
 449	San Facon Carrera 22	troncal	4.60973521	-74.08679478	F - Americas	Media	272	4.6097352	-74.0867948	AV Americas - KR 22	Portal Américas
 451	21 Ángeles	troncal	4.73550811	-74.08098652	C - Suba	Baja	144	4.7355081	-74.0809865	AV Suba - CL 136	Portal Suba
+453	Venecia	troncal	4.59556283	-74.14264921	G - NQS Sur	Baja	204	4.5955628	-74.1426492	Autosur - AV 54	Portal Sur - JFK Coop. Financiera
+454	Danubio	troncal	4.54365433	-74.12085159	Portal Usme	Alta	304	4.5436543	-74.1208516	Av. Calle 51 Sur entre carrera 5 y calle 56 sur	Portal Usme
+455	Portal Sur - JFK Coop. Financiera	portal	4.59693995	-74.16929784	G - NQS Sur	Media	228	4.5969400	-74.1692978	Autosur - KR 82	Portal Sur - JFK Coop. Financiera
+456	Temporal Calle 22	troncal	4.61001988	-74.07554139	A - Caracas	Alta	320	4.6100199	-74.0755414	CL 24 - CL 22	Portal Norte – Unicervantes
+309	AV. Chile	troncal	4.66635264	-74.07457455	E - NQS Central	Alta	344	4.6663526	-74.0745746	KR 30 - CL 72	Portal 20 de Julio
+457	Temporal AV. 39	troncal	4.62689718	-74.06869679	A - Caracas	Alta	312	4.6268972	-74.0686968	AV 39 - AV Calle	Portal Norte – Unicervantes
+458	Temporal Flores – Areandina	troncal	4.65490299	-74.06300913	A - Caracas	Baja	192	4.6549030	-74.0630091	CL 69 - CL 67	Portal Norte – Unicervantes
+459	Tibanica - Primavera	troncal	4.60672702	-74.20605303	Zona Tibanica	Alta	304	4.6067270	-74.2060530	CL 78 A Y CL 78 F	Portal Usme
+460	Los Laureles	troncal	4.61109139	-74.20232841	Zona Tibanica	Alta	304	4.6110914	-74.2023284	Entre CL 80 J Y CL 81	Portal Usme
+461	Islandia	troncal	4.61434757	-74.19374374	Zona Tibanica	Alta	304	4.6143476	-74.1937437	KR 70 A Sur Y CL 69 Sur	Portal Usme
+333	Cl38A sur - CENTRO MAYOR	troncal	4.59380944	-74.12375508	G - NQS Sur	Media	212	4.5938094	-74.1237551	Autosur - KR 39A	Portal Sur - JFK Coop. Financiera
+319	Calle 40 Sur	troncal	4.57579415	-74.12007924	H - Caracas Sur	Alta	392	4.5757942	-74.1200792	CL 38 Sur - CL 40 Sur	Portal Sur - JFK Coop. Financiera
+352	Restrepo	troncal	4.58184906	-74.10142878	H - Caracas Sur	Baja	200	4.5818491	-74.1014288	CL 19 Sur - AV 1 De M	Portal Sur - JFK Coop. Financiera
+357	Pepe Sierra Universidad UTEL	troncal	4.69812689	-74.05530880	B - Autopista Norte	Baja	200	4.6981269	-74.0553088	CL 116	Portal Norte – Unicervantes
+366	Calle 161	troncal	4.74191530	-74.04800035	B - Autopista Norte	Baja	96	4.7419153	-74.0480004	CL 160	Portal Norte – Unicervantes
+415	Parque	troncal	4.56832656	-74.13541451	Portal Tunal	Baja	60	4.5683266	-74.1354145	CL 55 Sur	Portal Tunal
 452	Temporal Calle 34	troncal	4.62157551	-74.06971918	A - Caracas	Alta	320	4.6215755	-74.0697192	AV Calle 34 - CL 3	Portal Norte – Unicervantes
 320	AV. Américas - AV. Boyacá	troncal	4.63011780	-74.13422457	F - Americas	Media	272	4.6301178	-74.1342246	AV Americas - KR 71	Portal Américas
 421	Hortúa	troncal	4.59084725	-74.09024600	H - Caracas Sur	Baja	192	4.5908473	-74.0902460	CL 1 Sur - CL 3 Sur	Portal Sur - JFK Coop. Financiera
 445	Rionegro	troncal	4.68035106	-74.06481662	C - Suba	Baja	144	4.6803511	-74.0648166	AV Suba - CL 87	Portal Suba
 379	Temporal AV. Jiménez - Inter Eléctricas	troncal	4.60286688	-74.08040995	A - Caracas	Alta	288	4.6028669	-74.0804100	CL 13 - Caracas	Portal Norte – Unicervantes
+\.
+
+
+--
+-- Data for Name: monitoring_alerts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.monitoring_alerts (id, zone_id, camera_id, level, message, occupancy_percentage, status, created_at, acknowledged_at, acknowledged_by) FROM stdin;
+1	235	1	OVER_CAPACITY	Ocupación 105.3% (80 personas)	105.26	active	2026-11-25 18:42:28.632039-05	\N	\N
+\.
+
+
+--
+-- Data for Name: monitoring_cameras; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.monitoring_cameras (id, zone_id, code, name, source, polygon, enabled, created_at) FROM stdin;
+1	235	CAM-1	Camara 1	0	[[0, 0], [640, 0], [640, 480], [0, 480]]	t	2026-11-25 18:34:35.973549-05
+2	227	CAM-2	Camara 1	0	[[0, 0], [640, 0], [640, 480], [0, 480]]	t	2026-11-25 18:34:35.973549-05
+3	235	CAM-5	Camara 2	0	[[0, 0], [640, 0], [640, 480], [0, 480]]	t	2026-11-25 18:34:35.973549-05
+4	227	CAM-6	Camara 2	0	[[0, 0], [640, 0], [640, 480], [0, 480]]	t	2026-11-25 18:34:35.973549-05
+5	245	CAM-3	Camara 1	0	[[0, 0], [640, 0], [640, 480], [0, 480]]	t	2026-11-25 18:34:35.973549-05
+6	171	CAM-4	Camara 1	0	[[0, 0], [640, 0], [640, 480], [0, 480]]	t	2026-11-25 18:34:35.973549-05
+\.
+
+
+--
+-- Data for Name: monitoring_metrics; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.monitoring_metrics (id, camera_id, people_count, occupancy_percentage, density_people_m2, crowd_level, captured_at) FROM stdin;
+1	1	80	105.26	1.60	OVER_CAPACITY	2026-11-25 18:42:28.632039-05
+\.
+
+
+--
+-- Data for Name: monitoring_stations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.monitoring_stations (id, code, name, location, created_at) FROM stdin;
+1	EST-347	Escuela Militar	KR 40	2026-11-25 18:34:35.896682-05
+2	EST-328	Ciudad Universitaria - Lotería de Bogotá	KR 34	2026-11-25 18:34:35.896682-05
+3	EST-340	Salitre - El Greco	KR 66	2026-11-25 18:34:35.896682-05
+4	EST-341	Zona Industrial	CL 13 - KR 38	2026-11-25 18:34:35.896682-05
+5	EST-342	León XIII	Soacha	2026-11-25 18:34:35.896682-05
+6	EST-343	Paloquemao	KR 30 - CL 19	2026-11-25 18:34:35.896682-05
+7	EST-349	AV. Cali	KR 86	2026-11-25 18:34:35.896682-05
+8	EST-346	Terreros - Hospital Cardio Vascular	Soacha	2026-11-25 18:34:35.896682-05
+9	EST-348	Mandalay	AV Americas KR 73	2026-11-25 18:34:35.896682-05
+10	EST-339	Quinta Paredes	KR 47	2026-11-25 18:34:35.896682-05
+11	EST-353	Prado	CL 128 B	2026-11-25 18:34:35.896682-05
+12	EST-354	Terminal	CL 190	2026-11-25 18:34:35.896682-05
+13	EST-351	Ricaurte - CL 13	CL 13 - KR 28	2026-11-25 18:34:35.896682-05
+14	EST-358	Calle 100 - Marketmedios	CL 97	2026-11-25 18:34:35.896682-05
+15	EST-359	Calle 142	CL 142	2026-11-25 18:34:35.896682-05
+16	EST-360	Portal Norte – Unicervantes	CL 173	2026-11-25 18:34:35.896682-05
+17	EST-350	Suba - TV. 91	AV Suba KR 90	2026-11-25 18:34:35.896682-05
+18	EST-361	Calle 187	CL 184	2026-11-25 18:34:35.896682-05
+19	EST-362	Alcalá – Colegio S. Tomás Dominicos	CL 137	2026-11-25 18:34:35.896682-05
+20	EST-363	Calle 146	CL 146	2026-11-25 18:34:35.896682-05
+21	EST-364	Calle 127	CL 127	2026-11-25 18:34:35.896682-05
+22	EST-355	Virrey	CL 90	2026-11-25 18:34:35.896682-05
+23	EST-365	Héroes - Colmena Seguros	CL 80	2026-11-25 18:34:35.896682-05
+24	EST-368	Mazurén	CL 152	2026-11-25 18:34:35.896682-05
+25	EST-370	Carrera 53	KR 53	2026-11-25 18:34:35.896682-05
+26	EST-369	Calle 45 - American School Way	CL 45 - CL 42A	2026-11-25 18:34:35.896682-05
+27	EST-310	CAN	KR 60	2026-11-25 18:34:35.896682-05
+28	EST-371	La Castellana	KR 30 KR 24	2026-11-25 18:34:35.896682-05
+29	EST-372	AV. 1 Mayo	AV 1 De Mayo Con KR 7	2026-11-25 18:34:35.896682-05
+30	EST-374	La Despensa	Soacha	2026-11-25 18:34:35.896682-05
+31	EST-315	Quirigua	KR 94	2026-11-25 18:34:35.896682-05
+32	EST-311	Campín - UAN	KR 30 - CL 53	2026-11-25 18:34:35.896682-05
+33	EST-312	San Diego	KR 10 - CL 23	2026-11-25 18:34:35.896682-05
+34	EST-314	Ricaurte - NQS	KR 30 - CL 10	2026-11-25 18:34:35.896682-05
+35	EST-316	Suba - Calle 100	AV Suba - CL 100	2026-11-25 18:34:35.896682-05
+36	EST-318	AV. Boyacá	TV 69 Bis	2026-11-25 18:34:35.896682-05
+37	EST-317	Calle 75 - Zona M	KR 30 - CL 75A	2026-11-25 18:34:35.896682-05
+38	EST-322	Niza - Calle 127	AV Suba - CL 127	2026-11-25 18:34:35.896682-05
+39	EST-321	Marsella	AV Americas - KR 69C	2026-11-25 18:34:35.896682-05
+40	EST-323	La Campiña	AV Suba - KR 98A	2026-11-25 18:34:35.896682-05
+41	EST-326	Guatoque - Veraguas	KR 27	2026-11-25 18:34:35.896682-05
+42	EST-325	Corferias	KR 43	2026-11-25 18:34:35.896682-05
+43	EST-335	AV. 68	KR 68D	2026-11-25 18:34:35.896682-05
+44	EST-327	CDS - Carrera 32	AV Americas - KR 32	2026-11-25 18:34:35.896682-05
+45	EST-329	Universidad Nacional	KR 30 - CL 45	2026-11-25 18:34:35.896682-05
+46	EST-331	Tercer Milenio	CL 8 - CL 6	2026-11-25 18:34:35.896682-05
+47	EST-332	Concejo de Bogotá	CL 38	2026-11-25 18:34:35.896682-05
+48	EST-337	Polo - FINCOMERCIO	TV 27	2026-11-25 18:34:35.896682-05
+49	EST-334	7 de Agosto	KR 30 - CL 63	2026-11-25 18:34:35.896682-05
+50	EST-344	Carrera 90	KR 90	2026-11-25 18:34:35.896682-05
+51	EST-404	Molinos	KR 9A	2026-11-25 18:34:35.896682-05
+52	EST-405	Nariño	CL 8 Sur - CL 11 Sur	2026-11-25 18:34:35.896682-05
+53	EST-406	Gratamira	AV Suba - CL 135	2026-11-25 18:34:35.896682-05
+54	EST-414	Humedal Córdoba	AV Suba - CL 119	2026-11-25 18:34:35.896682-05
+55	EST-418	Hospital	CL 4 - CL 2	2026-11-25 18:34:35.896682-05
+56	EST-408	Las Nieves	KR 10 - CL 18	2026-11-25 18:34:35.896682-05
+57	EST-409	Modelia	KR 84	2026-11-25 18:34:35.896682-05
+58	EST-410	Portal El Dorado – C.C. Nuestro Bogotá	KR 87	2026-11-25 18:34:35.896682-05
+59	EST-411	Museo del Oro	KR 2	2026-11-25 18:34:35.896682-05
+60	EST-413	Portal 20 de Julio	KR 5 A CL 33 Sur	2026-11-25 18:34:35.896682-05
+61	EST-422	Portal Usme	CL 65C Sur	2026-11-25 18:34:35.896682-05
+62	EST-416	Policarpa	KR 10 - CL 3 Sur	2026-11-25 18:34:35.896682-05
+63	EST-417	Museo Nacional	KR 7 - CL 32	2026-11-25 18:34:35.896682-05
+64	EST-423	Ferias	TV 67 Bis	2026-11-25 18:34:35.896682-05
+65	EST-419	Normandía	KR 73A	2026-11-25 18:34:35.896682-05
+66	EST-426	Portal Tunal	AV Boyaca	2026-11-25 18:34:35.896682-05
+67	EST-427	Fucha	CL 13 Sur - CL 16 Sur	2026-11-25 18:34:35.896682-05
+68	EST-428	Minuto de Dios	KR 73 A	2026-11-25 18:34:35.896682-05
+69	EST-431	Portal Suba	AV Suba AV Cali	2026-11-25 18:34:35.896682-05
+70	EST-432	Suba - AV. Boyacá	AV Suba AV Boyaca	2026-11-25 18:34:35.896682-05
+71	EST-434	San Martín	AV Suba - CL 81	2026-11-25 18:34:35.896682-05
+72	EST-429	Portal Américas	AV Cali - CL 43 Sur	2026-11-25 18:34:35.896682-05
+73	EST-436	Santa Isabel	KR 30 AV 3	2026-11-25 18:34:35.896682-05
+74	EST-439	Quiroga	CL 31 Sur - CL 32 Sur	2026-11-25 18:34:35.896682-05
+75	EST-440	Puentelargo	AV Suba TV 48	2026-11-25 18:34:35.896682-05
+76	EST-424	Temporal Marly	CL 51 - CL 49	2026-11-25 18:34:35.896682-05
+77	EST-435	Universidades – CityU	KR 3	2026-11-25 18:34:35.896682-05
+78	EST-377	Carrera 43 - Comapan	AV Americas - KR 43	2026-11-25 18:34:35.896682-05
+79	EST-438	Puente Aranda	CL 13 KR 47	2026-11-25 18:34:35.896682-05
+80	EST-441	San Victorino	KR 10 - CL 12	2026-11-25 18:34:35.896682-05
+81	EST-378	Consuelo	KR 11A - KR 10C	2026-11-25 18:34:35.896682-05
+82	EST-380	Comuneros	KR 30 - CL 6A	2026-11-25 18:34:35.896682-05
+83	EST-386	Biblioteca	CL 48A Sur	2026-11-25 18:34:35.896682-05
+84	EST-381	El Tiempo – Cámara de Comercio de Bogotá	KR 68D	2026-11-25 18:34:35.896682-05
+85	EST-382	Biblioteca Tintal	AV Cali - CL 26 Sur	2026-11-25 18:34:35.896682-05
+86	EST-383	Ciudad Jardín - UAN	KR 10 - CL 12 Sur	2026-11-25 18:34:35.896682-05
+87	EST-384	Bicentenario	KR 10 - CL 5	2026-11-25 18:34:35.896682-05
+88	EST-385	Temporal Calle 57	CL 57 - CL 54	2026-11-25 18:34:35.896682-05
+89	EST-389	Alquería	Autosur - KR 48	2026-11-25 18:34:35.896682-05
+90	EST-387	AV. ElDorado	KR 30 AV 28	2026-11-25 18:34:35.896682-05
+91	EST-390	Bosa	Soacha	2026-11-25 18:34:35.896682-05
+92	EST-399	NQS - Calle 30 S	Autosur - DG 26 Sur	2026-11-25 18:34:35.896682-05
+93	EST-391	CAD	KR 30 - CL 26	2026-11-25 18:34:35.896682-05
+94	EST-392	Banderas	AV Americas - KR 78	2026-11-25 18:34:35.896682-05
+95	EST-393	Calle 19	CL 19 - CL 17	2026-11-25 18:34:35.896682-05
+96	EST-396	Calle 76 - San Felipe	CL 76 - CL 74	2026-11-25 18:34:35.896682-05
+97	EST-397	Calle 63	CL 63 - CL 60	2026-11-25 18:34:35.896682-05
+98	EST-401	Carrera 47	KR 46	2026-11-25 18:34:35.896682-05
+99	EST-402	Portal 80	KR 96	2026-11-25 18:34:35.896682-05
+100	EST-403	Olaya	CL 24 Sur - CL 27 Sur	2026-11-25 18:34:35.896682-05
+101	EST-352	Restrepo	CL 19 Sur - AV 1 De M	2026-11-25 18:34:35.896682-05
+102	EST-357	Pepe Sierra Universidad UTEL	CL 116	2026-11-25 18:34:35.896682-05
+103	EST-366	Calle 161	CL 160	2026-11-25 18:34:35.896682-05
+104	EST-415	Parque	CL 55 Sur	2026-11-25 18:34:35.896682-05
+105	EST-420	Perdomo	Autosur - KR 78C	2026-11-25 18:34:35.896682-05
+106	EST-437	Suba - Calle 95	AV Suba - CL 97	2026-11-25 18:34:35.896682-05
+107	EST-442	CC Paseo Villa del Río - Madelena	Autosur - KR 67	2026-11-25 18:34:35.896682-05
+108	EST-444	Sevillana	Sevillana	2026-11-25 18:34:35.896682-05
+109	EST-324	Transversal 86	AV Americas - TV 86	2026-11-25 18:34:35.896682-05
+110	EST-330	Avenida Rojas - UNISALESIANA	CL 26 - KR 69 D	2026-11-25 18:34:35.896682-05
+111	EST-338	Tygua - San José	KR 18	2026-11-25 18:34:35.896682-05
+112	EST-345	Gobernación	KR 54	2026-11-25 18:34:35.896682-05
+113	EST-373	De La Sabana	CL 13 - KR 16	2026-11-25 18:34:35.896682-05
+114	EST-375	Calle 72 - Areandina	CL 72 - CL 70A	2026-11-25 18:34:35.896682-05
+115	EST-376	Centro Memoria	KR 20	2026-11-25 18:34:35.896682-05
+116	EST-388	Calle 26 - Atrio	AV Calle 28 - CL 2	2026-11-25 18:34:35.896682-05
+117	EST-394	Temporal AV. Jiménez - Inter Eléctricas	CL 13 - Caracas	2026-11-25 18:34:35.896682-05
+118	EST-400	Country Sur	KR 10 - CL 28 Sur	2026-11-25 18:34:35.896682-05
+119	EST-407	Pradera - Plaza Central	AV Americas - KR 64	2026-11-25 18:34:35.896682-05
+120	EST-425	Patio Bonito	AV Cali - CL 40 Sur	2026-11-25 18:34:35.896682-05
+121	EST-430	Las Aguas - Centro Colombo Americano	KR 3	2026-11-25 18:34:35.896682-05
+122	EST-443	San Mateo - CC Unisur	Soacha	2026-11-25 18:34:35.896682-05
+123	EST-398	Calle 85	CL 85	2026-11-25 18:34:35.896682-05
+124	EST-412	General Santander	Autosur - KR 43	2026-11-25 18:34:35.896682-05
+125	EST-433	Santa Lucía	CL 46A Sur - Diagonal 4	2026-11-25 18:34:35.896682-05
+126	EST-313	Granja - Kr 77	KR 77 Bis	2026-11-25 18:34:35.896682-05
+127	EST-395	Movistar Arena	KR 30 - CL 57	2026-11-25 18:34:35.896682-05
+128	EST-446	Suba - Calle 116	AV Suba CLL 114	2026-11-25 18:34:35.896682-05
+129	EST-336	Distrito Grafiti	Americas - KR 53A	2026-11-25 18:34:35.896682-05
+130	EST-356	Toberin - Foundever	CL 165	2026-11-25 18:34:35.896682-05
+131	EST-367	Calle 106 - Maletas Explora	CL 106	2026-11-25 18:34:35.896682-05
+132	EST-448	SENA	Autosur - CL 17 S	2026-11-25 18:34:35.896682-05
+133	EST-447	San Bernardo	KR 10 - CL 1B Sur	2026-11-25 18:34:35.896682-05
+134	EST-450	Socorro	KR 13B - KR 13C	2026-11-25 18:34:35.896682-05
+135	EST-449	San Facon Carrera 22	AV Americas - KR 22	2026-11-25 18:34:35.896682-05
+136	EST-451	21 Ángeles	AV Suba - CL 136	2026-11-25 18:34:35.896682-05
+137	EST-453	Venecia	Autosur - AV 54	2026-11-25 18:34:35.896682-05
+138	EST-454	Danubio	Av. Calle 51 Sur entre carrera 5 y calle 56 sur	2026-11-25 18:34:35.896682-05
+139	EST-455	Portal Sur - JFK Coop. Financiera	Autosur - KR 82	2026-11-25 18:34:35.896682-05
+140	EST-456	Temporal Calle 22	CL 24 - CL 22	2026-11-25 18:34:35.896682-05
+141	EST-309	AV. Chile	KR 30 - CL 72	2026-11-25 18:34:35.896682-05
+142	EST-457	Temporal AV. 39	AV 39 - AV Calle	2026-11-25 18:34:35.896682-05
+143	EST-458	Temporal Flores – Areandina	CL 69 - CL 67	2026-11-25 18:34:35.896682-05
+144	EST-459	Tibanica - Primavera	CL 78 A Y CL 78 F	2026-11-25 18:34:35.896682-05
+145	EST-460	Los Laureles	Entre CL 80 J Y CL 81	2026-11-25 18:34:35.896682-05
+146	EST-461	Islandia	KR 70 A Sur Y CL 69 Sur	2026-11-25 18:34:35.896682-05
+147	EST-333	Cl38A sur - CENTRO MAYOR	Autosur - KR 39A	2026-11-25 18:34:35.896682-05
+148	EST-319	Calle 40 Sur	CL 38 Sur - CL 40 Sur	2026-11-25 18:34:35.896682-05
+149	EST-320	AV. Américas - AV. Boyacá	AV Americas - KR 71	2026-11-25 18:34:35.896682-05
+150	EST-421	Hortúa	CL 1 Sur - CL 3 Sur	2026-11-25 18:34:35.896682-05
+151	EST-445	Rionegro	AV Suba - CL 87	2026-11-25 18:34:35.896682-05
+152	EST-452	Temporal Calle 34	AV Calle 34 - CL 3	2026-11-25 18:34:35.896682-05
+153	EST-379	Temporal AV. Jiménez - Inter Eléctricas	CL 13 - Caracas	2026-11-25 18:34:35.896682-05
+\.
+
+
+--
+-- Data for Name: monitoring_zones; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.monitoring_zones (id, station_id, vagon_id, ruta_codigo, code, name, capacity, area_m2, created_at) FROM stdin;
+1	141	1	F32	ZONA-1	Vagón 1 · Ida	172	50.00	2026-11-25 18:34:35.900615-05
+2	141	2	B12GS	ZONA-2	Vagón 2 · Vuelta	172	50.00	2026-11-25 18:34:35.900615-05
+3	27	3	MP85	ZONA-3	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+4	27	4	1 P	ZONA-4	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+5	32	5	S42	ZONA-5	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+6	32	6	G12GS	ZONA-6	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+7	33	7	1 P	ZONA-7	Vagón 1 · Ida	144	50.00	2026-11-25 18:34:35.900615-05
+8	33	8	2 P	ZONA-8	Vagón 2 · Vuelta	144	50.00	2026-11-25 18:34:35.900615-05
+9	126	9	6 C	ZONA-9	Vagón 1 · Ida	196	50.00	2026-11-25 18:34:35.900615-05
+10	126	10	6 P	ZONA-10	Vagón 2 · Vuelta	196	50.00	2026-11-25 18:34:35.900615-05
+11	34	11	S48	ZONA-11	Vagón 1 · Ida	196	50.00	2026-11-25 18:34:35.900615-05
+12	34	12	4 P	ZONA-12	Vagón 2 · Vuelta	196	50.00	2026-11-25 18:34:35.900615-05
+13	31	13	6 C	ZONA-13	Vagón 1 · Ida	76	50.00	2026-11-25 18:34:35.900615-05
+14	31	14	6 P	ZONA-14	Vagón 2 · Vuelta	76	50.00	2026-11-25 18:34:35.900615-05
+15	35	15	7 P	ZONA-15	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+16	35	16	7 E	ZONA-16	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+17	37	17	F32	ZONA-17	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+18	37	18	C73	ZONA-18	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+19	36	19	6 C	ZONA-19	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+20	36	20	6 P	ZONA-20	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+21	148	21	3 C	ZONA-21	Vagón 1 · Ida	196	50.00	2026-11-25 18:34:35.900615-05
+22	148	22	H83	ZONA-22	Vagón 2 · Vuelta	196	50.00	2026-11-25 18:34:35.900615-05
+23	149	23	J23B	ZONA-23	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+24	149	24	F63	ZONA-24	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+25	39	25	Z63	ZONA-25	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+26	39	26	F63	ZONA-26	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+27	38	27	7 E	ZONA-27	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+28	38	28	7 P	ZONA-28	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+29	40	29	7 E	ZONA-29	Vagón 1 · Ida	176	50.00	2026-11-25 18:34:35.900615-05
+30	40	30	7 P	ZONA-30	Vagón 2 · Vuelta	176	50.00	2026-11-25 18:34:35.900615-05
+31	109	31	5 C	ZONA-31	Vagón 1 · Ida	120	50.00	2026-11-25 18:34:35.900615-05
+32	109	32	F63	ZONA-32	Vagón 2 · Vuelta	120	50.00	2026-11-25 18:34:35.900615-05
+33	42	33	3 P	ZONA-33	Vagón 1 · Ida	126	50.00	2026-11-25 18:34:35.900615-05
+34	42	34	1 U	ZONA-34	Vagón 2 · Vuelta	126	50.00	2026-11-25 18:34:35.900615-05
+35	41	35	8 T	ZONA-35	Vagón 1 · Ida	120	50.00	2026-11-25 18:34:35.900615-05
+36	41	36	M47	ZONA-36	Vagón 2 · Vuelta	120	50.00	2026-11-25 18:34:35.900615-05
+37	44	37	5 P	ZONA-37	Vagón 1 · Ida	84	50.00	2026-11-25 18:34:35.900615-05
+38	44	38	F23B	ZONA-38	Vagón 2 · Vuelta	84	50.00	2026-11-25 18:34:35.900615-05
+39	2	39	3 P	ZONA-39	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+40	2	40	1 U	ZONA-40	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+41	45	41	S42	ZONA-41	Vagón 1 · Ida	206	50.00	2026-11-25 18:34:35.900615-05
+42	45	42	4 H	ZONA-42	Vagón 2 · Vuelta	206	50.00	2026-11-25 18:34:35.900615-05
+43	110	43	1 U	ZONA-43	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+44	110	44	1 P	ZONA-44	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+45	46	45	S41	ZONA-45	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+46	46	46	3 C	ZONA-46	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+47	47	47	3 P	ZONA-47	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+48	47	48	1 U	ZONA-48	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+49	147	49	B12GS	ZONA-49	Vagón 1 · Ida	106	50.00	2026-11-25 18:34:35.900615-05
+50	147	50	E48	ZONA-50	Vagón 2 · Vuelta	106	50.00	2026-11-25 18:34:35.900615-05
+51	49	51	S42	ZONA-51	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+52	49	52	G12GS	ZONA-52	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+53	43	53	6 P	ZONA-53	Vagón 1 · Ida	148	50.00	2026-11-25 18:34:35.900615-05
+54	43	54	6 C	ZONA-54	Vagón 2 · Vuelta	148	50.00	2026-11-25 18:34:35.900615-05
+55	129	55	J23B	ZONA-55	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+56	129	56	5 P	ZONA-56	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+57	48	57	7 P	ZONA-57	Vagón 1 · Ida	180	50.00	2026-11-25 18:34:35.900615-05
+58	48	58	6 C	ZONA-58	Vagón 2 · Vuelta	180	50.00	2026-11-25 18:34:35.900615-05
+59	111	59	8 T	ZONA-59	Vagón 1 · Ida	114	50.00	2026-11-25 18:34:35.900615-05
+60	111	60	M47	ZONA-60	Vagón 2 · Vuelta	114	50.00	2026-11-25 18:34:35.900615-05
+61	10	61	C73	ZONA-61	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+62	10	62	1 U	ZONA-62	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+63	3	63	1 U	ZONA-63	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+64	3	64	MP85	ZONA-64	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+65	4	65	5 P	ZONA-65	Vagón 1 · Ida	84	50.00	2026-11-25 18:34:35.900615-05
+66	4	66	F23B	ZONA-66	Vagón 2 · Vuelta	84	50.00	2026-11-25 18:34:35.900615-05
+67	5	67	B46	ZONA-67	Vagón 1 · Ida	112	50.00	2026-11-25 18:34:35.900615-05
+68	5	68	S45	ZONA-68	Vagón 2 · Vuelta	112	50.00	2026-11-25 18:34:35.900615-05
+69	6	69	S48	ZONA-69	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+70	6	70	4 H	ZONA-70	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+71	50	71	6 C	ZONA-71	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+72	50	72	6 P	ZONA-72	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+73	112	73	1 U	ZONA-73	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+74	112	74	1 P	ZONA-74	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+75	8	75	B46	ZONA-75	Vagón 1 · Ida	178	50.00	2026-11-25 18:34:35.900615-05
+76	8	76	S45	ZONA-76	Vagón 2 · Vuelta	178	50.00	2026-11-25 18:34:35.900615-05
+77	1	77	7 P	ZONA-77	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+78	1	78	6 C	ZONA-78	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+79	9	79	J23B	ZONA-79	Vagón 1 · Ida	120	50.00	2026-11-25 18:34:35.900615-05
+80	9	80	F63	ZONA-80	Vagón 2 · Vuelta	120	50.00	2026-11-25 18:34:35.900615-05
+81	7	81	6 C	ZONA-81	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+82	7	82	6 P	ZONA-82	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+83	17	83	7 E	ZONA-83	Vagón 1 · Ida	132	50.00	2026-11-25 18:34:35.900615-05
+84	17	84	7 P	ZONA-84	Vagón 2 · Vuelta	132	50.00	2026-11-25 18:34:35.900615-05
+85	13	85	S48	ZONA-85	Vagón 1 · Ida	156	50.00	2026-11-25 18:34:35.900615-05
+86	13	86	J23B	ZONA-86	Vagón 2 · Vuelta	156	50.00	2026-11-25 18:34:35.900615-05
+87	101	87	3 C	ZONA-87	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+88	101	88	H76	ZONA-88	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+89	11	89	F26	ZONA-89	Vagón 1 · Ida	124	50.00	2026-11-25 18:34:35.900615-05
+90	11	90	B74	ZONA-90	Vagón 2 · Vuelta	124	50.00	2026-11-25 18:34:35.900615-05
+91	12	91	8 G	ZONA-91	Vagón 1 · Ida	76	50.00	2026-11-25 18:34:35.900615-05
+92	12	92	B55	ZONA-92	Vagón 2 · Vuelta	76	50.00	2026-11-25 18:34:35.900615-05
+93	22	93	F26	ZONA-93	Vagón 1 · Ida	176	50.00	2026-11-25 18:34:35.900615-05
+94	22	94	B74	ZONA-94	Vagón 2 · Vuelta	176	50.00	2026-11-25 18:34:35.900615-05
+95	130	95	H72	ZONA-95	Vagón 1 · Ida	276	50.00	2026-11-25 18:34:35.900615-05
+96	130	96	B74	ZONA-96	Vagón 2 · Vuelta	276	50.00	2026-11-25 18:34:35.900615-05
+97	102	97	F26	ZONA-97	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+98	102	98	B74	ZONA-98	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+99	14	99	F26	ZONA-99	Vagón 1 · Ida	196	50.00	2026-11-25 18:34:35.900615-05
+100	14	100	B74	ZONA-100	Vagón 2 · Vuelta	196	50.00	2026-11-25 18:34:35.900615-05
+101	15	101	C50	ZONA-101	Vagón 1 · Ida	90	50.00	2026-11-25 18:34:35.900615-05
+102	15	102	B74	ZONA-102	Vagón 2 · Vuelta	90	50.00	2026-11-25 18:34:35.900615-05
+103	16	103	D10	ZONA-103	Vagón 1 · Ida	105	50.00	2026-11-25 18:34:35.900615-05
+104	16	104	B74	ZONA-104	Vagón 2 · Vuelta	105	50.00	2026-11-25 18:34:35.900615-05
+105	18	105	8 G	ZONA-105	Vagón 1 · Ida	76	50.00	2026-11-25 18:34:35.900615-05
+106	18	106	B55	ZONA-106	Vagón 2 · Vuelta	76	50.00	2026-11-25 18:34:35.900615-05
+107	19	107	F26	ZONA-107	Vagón 1 · Ida	196	50.00	2026-11-25 18:34:35.900615-05
+108	19	108	B74	ZONA-108	Vagón 2 · Vuelta	196	50.00	2026-11-25 18:34:35.900615-05
+109	20	109	C50	ZONA-109	Vagón 1 · Ida	124	50.00	2026-11-25 18:34:35.900615-05
+110	20	110	B74	ZONA-110	Vagón 2 · Vuelta	124	50.00	2026-11-25 18:34:35.900615-05
+111	21	111	F26	ZONA-111	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+112	21	112	B74	ZONA-112	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+113	23	113	4 P	ZONA-113	Vagón 1 · Ida	132	50.00	2026-11-25 18:34:35.900615-05
+114	23	114	6 C	ZONA-114	Vagón 2 · Vuelta	132	50.00	2026-11-25 18:34:35.900615-05
+115	103	115	C50	ZONA-115	Vagón 1 · Ida	48	50.00	2026-11-25 18:34:35.900615-05
+116	103	116	B74	ZONA-116	Vagón 2 · Vuelta	48	50.00	2026-11-25 18:34:35.900615-05
+117	131	117	F26	ZONA-117	Vagón 1 · Ida	124	50.00	2026-11-25 18:34:35.900615-05
+118	131	118	B74	ZONA-118	Vagón 2 · Vuelta	124	50.00	2026-11-25 18:34:35.900615-05
+119	24	119	C50	ZONA-119	Vagón 1 · Ida	124	50.00	2026-11-25 18:34:35.900615-05
+120	24	120	B74	ZONA-120	Vagón 2 · Vuelta	124	50.00	2026-11-25 18:34:35.900615-05
+121	26	121	K86CV	ZONA-121	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+122	26	122	M82CV	ZONA-122	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+123	25	123	6 P	ZONA-123	Vagón 1 · Ida	76	50.00	2026-11-25 18:34:35.900615-05
+124	25	124	6 C	ZONA-124	Vagón 2 · Vuelta	76	50.00	2026-11-25 18:34:35.900615-05
+125	28	125	H72	ZONA-125	Vagón 1 · Ida	116	50.00	2026-11-25 18:34:35.900615-05
+126	28	126	B12GS	ZONA-126	Vagón 2 · Vuelta	116	50.00	2026-11-25 18:34:35.900615-05
+127	29	127	2 P	ZONA-127	Vagón 1 · Ida	192	50.00	2026-11-25 18:34:35.900615-05
+128	29	128	2 M	ZONA-128	Vagón 2 · Vuelta	192	50.00	2026-11-25 18:34:35.900615-05
+129	113	129	5 P	ZONA-129	Vagón 1 · Ida	84	50.00	2026-11-25 18:34:35.900615-05
+130	113	130	J23B	ZONA-130	Vagón 2 · Vuelta	84	50.00	2026-11-25 18:34:35.900615-05
+131	30	131	S45	ZONA-131	Vagón 1 · Ida	112	50.00	2026-11-25 18:34:35.900615-05
+132	30	132	G45	ZONA-132	Vagón 2 · Vuelta	112	50.00	2026-11-25 18:34:35.900615-05
+133	114	133	F60	ZONA-133	Vagón 1 · Ida	20	50.00	2026-11-25 18:34:35.900615-05
+134	114	134	J24	ZONA-134	Vagón 2 · Vuelta	20	50.00	2026-11-25 18:34:35.900615-05
+135	115	135	MP85	ZONA-135	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+136	115	136	1 U	ZONA-136	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+137	78	137	5 P	ZONA-137	Vagón 1 · Ida	84	50.00	2026-11-25 18:34:35.900615-05
+138	78	138	5 C	ZONA-138	Vagón 2 · Vuelta	84	50.00	2026-11-25 18:34:35.900615-05
+139	81	139	B72	ZONA-139	Vagón 1 · Ida	96	50.00	2026-11-25 18:34:35.900615-05
+140	81	140	H83	ZONA-140	Vagón 2 · Vuelta	96	50.00	2026-11-25 18:34:35.900615-05
+141	153	141	5 P	ZONA-141	Vagón 1 · Ida	144	50.00	2026-11-25 18:34:35.900615-05
+142	153	142	3 C	ZONA-142	Vagón 2 · Vuelta	144	50.00	2026-11-25 18:34:35.900615-05
+143	82	143	S41	ZONA-143	Vagón 1 · Ida	126	50.00	2026-11-25 18:34:35.900615-05
+144	82	144	M47	ZONA-144	Vagón 2 · Vuelta	126	50.00	2026-11-25 18:34:35.900615-05
+145	84	145	1 U	ZONA-145	Vagón 1 · Ida	120	50.00	2026-11-25 18:34:35.900615-05
+146	84	146	1 P	ZONA-146	Vagón 2 · Vuelta	120	50.00	2026-11-25 18:34:35.900615-05
+147	85	147	5 C	ZONA-147	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+148	85	148	Z63	ZONA-148	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+149	86	149	2 P	ZONA-149	Vagón 1 · Ida	132	50.00	2026-11-25 18:34:35.900615-05
+150	86	150	2 M	ZONA-150	Vagón 2 · Vuelta	132	50.00	2026-11-25 18:34:35.900615-05
+151	87	151	S41	ZONA-151	Vagón 1 · Ida	192	50.00	2026-11-25 18:34:35.900615-05
+152	87	152	2 P	ZONA-152	Vagón 2 · Vuelta	192	50.00	2026-11-25 18:34:35.900615-05
+153	88	153	K86CV	ZONA-153	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+154	88	154	B23	ZONA-154	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+155	83	155	3 C	ZONA-155	Vagón 1 · Ida	30	50.00	2026-11-25 18:34:35.900615-05
+156	83	156	3 P	ZONA-156	Vagón 2 · Vuelta	30	50.00	2026-11-25 18:34:35.900615-05
+157	90	157	S42	ZONA-157	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+158	90	158	4 H	ZONA-158	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+159	116	159	MP85	ZONA-159	Vagón 1 · Ida	20	50.00	2026-11-25 18:34:35.900615-05
+160	116	160	M82CV	ZONA-160	Vagón 2 · Vuelta	20	50.00	2026-11-25 18:34:35.900615-05
+161	89	161	4 H	ZONA-161	Vagón 1 · Ida	102	50.00	2026-11-25 18:34:35.900615-05
+162	89	162	E48	ZONA-162	Vagón 2 · Vuelta	102	50.00	2026-11-25 18:34:35.900615-05
+163	91	163	S45	ZONA-163	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+164	91	164	G45	ZONA-164	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+165	93	165	S48	ZONA-165	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+166	93	166	4 H	ZONA-166	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+167	94	167	J23B	ZONA-167	Vagón 1 · Ida	304	50.00	2026-11-25 18:34:35.900615-05
+168	94	168	F63	ZONA-168	Vagón 2 · Vuelta	304	50.00	2026-11-25 18:34:35.900615-05
+169	95	169	8 T	ZONA-169	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+170	95	170	3 C	ZONA-170	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+171	117	171	5 P	ZONA-171	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+172	117	172	3 C	ZONA-172	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+173	127	173	S42	ZONA-173	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+174	127	174	G12GS	ZONA-174	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+175	96	175	6 P	ZONA-175	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+176	96	176	6 C	ZONA-176	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+177	97	177	K86CV	ZONA-177	Vagón 1 · Ida	20	50.00	2026-11-25 18:34:35.900615-05
+178	97	178	L81CV	ZONA-178	Vagón 2 · Vuelta	20	50.00	2026-11-25 18:34:35.900615-05
+179	123	179	F26	ZONA-179	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+180	123	180	B74	ZONA-180	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+181	92	181	B12GS	ZONA-181	Vagón 1 · Ida	116	50.00	2026-11-25 18:34:35.900615-05
+182	92	182	G47	ZONA-182	Vagón 2 · Vuelta	116	50.00	2026-11-25 18:34:35.900615-05
+183	118	183	2 P	ZONA-183	Vagón 1 · Ida	132	50.00	2026-11-25 18:34:35.900615-05
+184	118	184	2 M	ZONA-184	Vagón 2 · Vuelta	132	50.00	2026-11-25 18:34:35.900615-05
+185	98	185	6 P	ZONA-185	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+186	98	186	6 C	ZONA-186	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+187	99	187	6 C	ZONA-187	Vagón 1 · Ida	82	50.00	2026-11-25 18:34:35.900615-05
+188	99	188	6 P	ZONA-188	Vagón 2 · Vuelta	82	50.00	2026-11-25 18:34:35.900615-05
+189	100	189	3 C	ZONA-189	Vagón 1 · Ida	148	50.00	2026-11-25 18:34:35.900615-05
+190	100	190	H83	ZONA-190	Vagón 2 · Vuelta	148	50.00	2026-11-25 18:34:35.900615-05
+191	51	191	B72	ZONA-191	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+192	51	192	H83	ZONA-192	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+193	52	193	3 C	ZONA-193	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+194	52	194	H76	ZONA-194	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+195	53	195	7 E	ZONA-195	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+196	53	196	7 P	ZONA-196	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+197	119	197	Z63	ZONA-197	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+198	119	198	MP85	ZONA-198	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+199	56	199	2 M	ZONA-199	Vagón 1 · Ida	132	50.00	2026-11-25 18:34:35.900615-05
+200	56	200	2 P	ZONA-200	Vagón 2 · Vuelta	132	50.00	2026-11-25 18:34:35.900615-05
+201	57	201	1 U	ZONA-201	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+202	57	202	1 P	ZONA-202	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+203	58	203	1 U	ZONA-203	Vagón 1 · Ida	108	50.00	2026-11-25 18:34:35.900615-05
+204	58	204	1 P	ZONA-204	Vagón 2 · Vuelta	108	50.00	2026-11-25 18:34:35.900615-05
+205	59	205	F23	ZONA-205	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+206	59	206	J23B	ZONA-206	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+207	124	207	B12GS	ZONA-207	Vagón 1 · Ida	202	50.00	2026-11-25 18:34:35.900615-05
+208	124	208	E48	ZONA-208	Vagón 2 · Vuelta	202	50.00	2026-11-25 18:34:35.900615-05
+209	60	209	2 P	ZONA-209	Vagón 1 · Ida	175	50.00	2026-11-25 18:34:35.900615-05
+210	60	210	2 M	ZONA-210	Vagón 2 · Vuelta	175	50.00	2026-11-25 18:34:35.900615-05
+211	54	211	7 E	ZONA-211	Vagón 1 · Ida	78	50.00	2026-11-25 18:34:35.900615-05
+212	54	212	7 P	ZONA-212	Vagón 2 · Vuelta	78	50.00	2026-11-25 18:34:35.900615-05
+213	104	213	3 C	ZONA-213	Vagón 1 · Ida	30	50.00	2026-11-25 18:34:35.900615-05
+214	104	214	3 P	ZONA-214	Vagón 2 · Vuelta	30	50.00	2026-11-25 18:34:35.900615-05
+215	62	215	2 P	ZONA-215	Vagón 1 · Ida	132	50.00	2026-11-25 18:34:35.900615-05
+216	62	216	2 M	ZONA-216	Vagón 2 · Vuelta	132	50.00	2026-11-25 18:34:35.900615-05
+217	63	217	2 M	ZONA-217	Vagón 1 · Ida	120	50.00	2026-11-25 18:34:35.900615-05
+218	63	218	2 P	ZONA-218	Vagón 2 · Vuelta	120	50.00	2026-11-25 18:34:35.900615-05
+219	55	219	H76	ZONA-219	Vagón 1 · Ida	48	50.00	2026-11-25 18:34:35.900615-05
+220	55	220	3 C	ZONA-220	Vagón 2 · Vuelta	48	50.00	2026-11-25 18:34:35.900615-05
+221	65	221	1 U	ZONA-221	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+222	65	222	1 P	ZONA-222	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+223	105	223	4 H	ZONA-223	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+224	105	224	S41	ZONA-224	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+225	150	225	3 C	ZONA-225	Vagón 1 · Ida	96	50.00	2026-11-25 18:34:35.900615-05
+226	150	226	3 P	ZONA-226	Vagón 2 · Vuelta	96	50.00	2026-11-25 18:34:35.900615-05
+227	61	227	B72	ZONA-227	Vagón 1 · Ida	105	50.00	2026-11-25 18:34:35.900615-05
+228	61	228	H83	ZONA-228	Vagón 2 · Vuelta	105	50.00	2026-11-25 18:34:35.900615-05
+229	64	229	6 C	ZONA-229	Vagón 1 · Ida	76	50.00	2026-11-25 18:34:35.900615-05
+230	64	230	6 P	ZONA-230	Vagón 2 · Vuelta	76	50.00	2026-11-25 18:34:35.900615-05
+231	76	231	K86CV	ZONA-231	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+232	76	232	M82CV	ZONA-232	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+233	120	233	5 C	ZONA-233	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+234	120	234	Z63	ZONA-234	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+235	66	235	3 C	ZONA-235	Vagón 1 · Ida	76	50.00	2026-11-25 18:34:35.900615-05
+236	66	236	3 P	ZONA-236	Vagón 2 · Vuelta	76	50.00	2026-11-25 18:34:35.900615-05
+237	67	237	3 C	ZONA-237	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+238	67	238	H76	ZONA-238	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+239	68	239	6 C	ZONA-239	Vagón 1 · Ida	148	50.00	2026-11-25 18:34:35.900615-05
+240	68	240	6 P	ZONA-240	Vagón 2 · Vuelta	148	50.00	2026-11-25 18:34:35.900615-05
+241	72	241	5 C	ZONA-241	Vagón 1 · Ida	171	50.00	2026-11-25 18:34:35.900615-05
+242	72	242	Z63	ZONA-242	Vagón 2 · Vuelta	171	50.00	2026-11-25 18:34:35.900615-05
+243	121	243	F23	ZONA-243	Vagón 1 · Ida	60	50.00	2026-11-25 18:34:35.900615-05
+244	121	244	J23B	ZONA-244	Vagón 2 · Vuelta	60	50.00	2026-11-25 18:34:35.900615-05
+245	69	245	7 E	ZONA-245	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+246	69	246	7 P	ZONA-246	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+247	70	247	7 E	ZONA-247	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+248	70	248	7 P	ZONA-248	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+249	125	249	3 C	ZONA-249	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+250	125	250	H83	ZONA-250	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+251	71	251	4 P	ZONA-251	Vagón 1 · Ida	96	50.00	2026-11-25 18:34:35.900615-05
+252	71	252	6 C	ZONA-252	Vagón 2 · Vuelta	96	50.00	2026-11-25 18:34:35.900615-05
+253	77	253	1 P	ZONA-253	Vagón 1 · Ida	130	50.00	2026-11-25 18:34:35.900615-05
+254	77	254	1 U	ZONA-254	Vagón 2 · Vuelta	130	50.00	2026-11-25 18:34:35.900615-05
+255	73	255	B12GS	ZONA-255	Vagón 1 · Ida	120	50.00	2026-11-25 18:34:35.900615-05
+256	73	256	M47	ZONA-256	Vagón 2 · Vuelta	120	50.00	2026-11-25 18:34:35.900615-05
+257	106	257	7 P	ZONA-257	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+258	106	258	7 E	ZONA-258	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+259	79	259	J23B	ZONA-259	Vagón 1 · Ida	84	50.00	2026-11-25 18:34:35.900615-05
+260	79	260	F23	ZONA-260	Vagón 2 · Vuelta	84	50.00	2026-11-25 18:34:35.900615-05
+261	74	261	3 C	ZONA-261	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+262	74	262	H83	ZONA-262	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+263	75	263	7 P	ZONA-263	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+264	75	264	7 E	ZONA-264	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+265	80	265	2 M	ZONA-265	Vagón 1 · Ida	192	50.00	2026-11-25 18:34:35.900615-05
+266	80	266	2 P	ZONA-266	Vagón 2 · Vuelta	192	50.00	2026-11-25 18:34:35.900615-05
+267	107	267	4 H	ZONA-267	Vagón 1 · Ida	102	50.00	2026-11-25 18:34:35.900615-05
+268	107	268	S41	ZONA-268	Vagón 2 · Vuelta	102	50.00	2026-11-25 18:34:35.900615-05
+269	122	269	B46	ZONA-269	Vagón 1 · Ida	212	50.00	2026-11-25 18:34:35.900615-05
+270	122	270	S45	ZONA-270	Vagón 2 · Vuelta	212	50.00	2026-11-25 18:34:35.900615-05
+271	108	271	4 H	ZONA-271	Vagón 1 · Ida	102	50.00	2026-11-25 18:34:35.900615-05
+272	108	272	S41	ZONA-272	Vagón 2 · Vuelta	102	50.00	2026-11-25 18:34:35.900615-05
+273	151	273	7 P	ZONA-273	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+274	151	274	7 E	ZONA-274	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+275	128	275	7 P	ZONA-275	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+276	128	276	7 E	ZONA-276	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+277	133	277	B18	ZONA-277	Vagón 1 · Ida	132	50.00	2026-11-25 18:34:35.900615-05
+278	133	278	2 M	ZONA-278	Vagón 2 · Vuelta	132	50.00	2026-11-25 18:34:35.900615-05
+279	132	279	B12GS	ZONA-279	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+280	132	280	G47	ZONA-280	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+281	135	281	5 P	ZONA-281	Vagón 1 · Ida	136	50.00	2026-11-25 18:34:35.900615-05
+282	135	282	J23B	ZONA-282	Vagón 2 · Vuelta	136	50.00	2026-11-25 18:34:35.900615-05
+283	134	283	B72	ZONA-283	Vagón 1 · Ida	100	50.00	2026-11-25 18:34:35.900615-05
+284	134	284	H83	ZONA-284	Vagón 2 · Vuelta	100	50.00	2026-11-25 18:34:35.900615-05
+285	136	285	7 E	ZONA-285	Vagón 1 · Ida	72	50.00	2026-11-25 18:34:35.900615-05
+286	136	286	7 P	ZONA-286	Vagón 2 · Vuelta	72	50.00	2026-11-25 18:34:35.900615-05
+287	152	287	B74	ZONA-287	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+288	152	288	M82CV	ZONA-288	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+289	137	289	4 H	ZONA-289	Vagón 1 · Ida	102	50.00	2026-11-25 18:34:35.900615-05
+290	137	290	S41	ZONA-290	Vagón 2 · Vuelta	102	50.00	2026-11-25 18:34:35.900615-05
+291	138	291	B72	ZONA-291	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+292	138	292	H83	ZONA-292	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+293	139	293	4 H	ZONA-293	Vagón 1 · Ida	114	50.00	2026-11-25 18:34:35.900615-05
+294	139	294	G45	ZONA-294	Vagón 2 · Vuelta	114	50.00	2026-11-25 18:34:35.900615-05
+295	140	295	H76	ZONA-295	Vagón 1 · Ida	160	50.00	2026-11-25 18:34:35.900615-05
+296	140	296	M86CV	ZONA-296	Vagón 2 · Vuelta	160	50.00	2026-11-25 18:34:35.900615-05
+297	142	297	B74	ZONA-297	Vagón 1 · Ida	156	50.00	2026-11-25 18:34:35.900615-05
+298	142	298	M82CV	ZONA-298	Vagón 2 · Vuelta	156	50.00	2026-11-25 18:34:35.900615-05
+299	143	299	G52	ZONA-299	Vagón 1 · Ida	96	50.00	2026-11-25 18:34:35.900615-05
+300	143	300	L81CV	ZONA-300	Vagón 2 · Vuelta	96	50.00	2026-11-25 18:34:35.900615-05
+301	144	301	A61	ZONA-301	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+302	144	302	Z63	ZONA-302	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+303	145	303	A61	ZONA-303	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+304	145	304	Z63	ZONA-304	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
+305	146	305	A61	ZONA-305	Vagón 1 · Ida	152	50.00	2026-11-25 18:34:35.900615-05
+306	146	306	Z63	ZONA-306	Vagón 2 · Vuelta	152	50.00	2026-11-25 18:34:35.900615-05
 \.
 
 
@@ -896,6 +1647,9 @@ COPY public.reportes (id, estacion, nivel, usuario, creado_en, ruta, estacion_id
 53	Portal Sur - JFK Coop. Financiera	Alta	extra15@transmiflow.local	2026-11-19 05:47:24.9709	B46	455	32	56	\N
 54	Calle 26 - Atrio	Media	extra16@transmiflow.local	2026-11-19 04:47:24.971191	1 P	388	3	53	\N
 55	Temporal Calle 34	Alta	extra17@transmiflow.local	2026-11-19 03:47:24.971436	8 G	452	17	47	\N
+68	Portal Américas	Alta	johansrsr32@gmail.com	2026-11-25 17:46:41.035925	B28	429	31	1	\N
+70	Portal Tunal	Alta	camara@transmiflow.local	2026-11-25 18:42:28.632039	3 C	426	7	77	\N
+62	Santa Lucía	Alta	johansrs32@gmail.com	2026-11-23 19:58:45.885345	C17	433	39	2	\N
 \.
 
 
@@ -4719,6 +5473,7 @@ COPY public.usuarios (id, nombre, email, password, creado_en, rol, codigo_operad
 54	Usuario practica	extra4@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
 55	Usuario practica	extra7@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
 56	Usuario practica	extra15@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-19 20:47:24.974522	usuario	\N
+77	Sistema Cámaras	camara@transmiflow.local	$2b$10$MZDLUCkCfX.zEw1MQBUUpeu9xXsdSVHiaRyKI2CvJypcjicyINdf2	2026-11-25 18:48:28.169053	usuario	\N
 \.
 
 
@@ -8728,6 +9483,41 @@ SELECT pg_catalog.setval('public.estaciones_id_seq', 461, true);
 
 
 --
+-- Name: monitoring_alerts_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.monitoring_alerts_id_seq', 1, true);
+
+
+--
+-- Name: monitoring_cameras_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.monitoring_cameras_id_seq', 6, true);
+
+
+--
+-- Name: monitoring_metrics_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.monitoring_metrics_id_seq', 1, true);
+
+
+--
+-- Name: monitoring_stations_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.monitoring_stations_id_seq', 153, true);
+
+
+--
+-- Name: monitoring_zones_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.monitoring_zones_id_seq', 306, true);
+
+
+--
 -- Name: notificaciones_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
@@ -8738,7 +9528,7 @@ SELECT pg_catalog.setval('public.notificaciones_id_seq', 9, true);
 -- Name: reportes_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.reportes_id_seq', 59, true);
+SELECT pg_catalog.setval('public.reportes_id_seq', 70, true);
 
 
 --
@@ -8759,7 +9549,7 @@ SELECT pg_catalog.setval('public.rutas_id_seq', 126, true);
 -- Name: usuarios_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.usuarios_id_seq', 68, true);
+SELECT pg_catalog.setval('public.usuarios_id_seq', 77, true);
 
 
 --
@@ -8830,6 +9620,70 @@ ALTER TABLE ONLY public.despachos
 
 ALTER TABLE ONLY public.estaciones
     ADD CONSTRAINT estaciones_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: monitoring_alerts monitoring_alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_alerts
+    ADD CONSTRAINT monitoring_alerts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: monitoring_cameras monitoring_cameras_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_cameras
+    ADD CONSTRAINT monitoring_cameras_code_key UNIQUE (code);
+
+
+--
+-- Name: monitoring_cameras monitoring_cameras_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_cameras
+    ADD CONSTRAINT monitoring_cameras_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: monitoring_metrics monitoring_metrics_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_metrics
+    ADD CONSTRAINT monitoring_metrics_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: monitoring_stations monitoring_stations_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_stations
+    ADD CONSTRAINT monitoring_stations_code_key UNIQUE (code);
+
+
+--
+-- Name: monitoring_stations monitoring_stations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_stations
+    ADD CONSTRAINT monitoring_stations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: monitoring_zones monitoring_zones_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_zones
+    ADD CONSTRAINT monitoring_zones_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: monitoring_zones monitoring_zones_station_id_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_zones
+    ADD CONSTRAINT monitoring_zones_station_id_code_key UNIQUE (station_id, code);
 
 
 --
@@ -8968,6 +9822,20 @@ CREATE INDEX idx_estaciones_nombre ON public.estaciones USING btree (nombre);
 --
 
 CREATE INDEX idx_estaciones_troncal ON public.estaciones USING btree (troncal);
+
+
+--
+-- Name: idx_mon_alerts_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mon_alerts_status ON public.monitoring_alerts USING btree (status, created_at DESC);
+
+
+--
+-- Name: idx_mon_metrics_camera_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mon_metrics_camera_time ON public.monitoring_metrics USING btree (camera_id, captured_at DESC);
 
 
 --
@@ -9138,6 +10006,54 @@ ALTER TABLE ONLY public.reportes
 
 
 --
+-- Name: monitoring_alerts monitoring_alerts_camera_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_alerts
+    ADD CONSTRAINT monitoring_alerts_camera_id_fkey FOREIGN KEY (camera_id) REFERENCES public.monitoring_cameras(id) ON DELETE SET NULL;
+
+
+--
+-- Name: monitoring_alerts monitoring_alerts_zone_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_alerts
+    ADD CONSTRAINT monitoring_alerts_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.monitoring_zones(id) ON DELETE CASCADE;
+
+
+--
+-- Name: monitoring_cameras monitoring_cameras_zone_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_cameras
+    ADD CONSTRAINT monitoring_cameras_zone_id_fkey FOREIGN KEY (zone_id) REFERENCES public.monitoring_zones(id) ON DELETE CASCADE;
+
+
+--
+-- Name: monitoring_metrics monitoring_metrics_camera_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_metrics
+    ADD CONSTRAINT monitoring_metrics_camera_id_fkey FOREIGN KEY (camera_id) REFERENCES public.monitoring_cameras(id) ON DELETE CASCADE;
+
+
+--
+-- Name: monitoring_zones monitoring_zones_station_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_zones
+    ADD CONSTRAINT monitoring_zones_station_id_fkey FOREIGN KEY (station_id) REFERENCES public.monitoring_stations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: monitoring_zones monitoring_zones_vagon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.monitoring_zones
+    ADD CONSTRAINT monitoring_zones_vagon_id_fkey FOREIGN KEY (vagon_id) REFERENCES public.vagones(id) ON DELETE SET NULL;
+
+
+--
 -- Name: ruta_estaciones ruta_estaciones_estacion_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9181,5 +10097,5 @@ ALTER TABLE ONLY public.vagones
 -- PostgreSQL database dump complete
 --
 
-\unrestrict vCqvng2sUuRECoXjeXZ3PaAXZiVYiz9TEiqVk9MqPYcPjWH2UnDZbaxaXsX4xaj
+\unrestrict kZlxcmsawIFqKawSHao2rWnnfUMqueJtzqUwff0e7eBSnjRlKJB7NJ07GJayDTi
 

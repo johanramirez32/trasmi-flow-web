@@ -204,28 +204,40 @@
     }
 
     /** Carga en el selector las rutas que paran en la estacion reportada */
+    /** Carga las rutas de la estacion, separadas por vagon, en el reporte */
     function cargarRutasDelReporte(nombre) {
       var sel = document.getElementById('repRuta');
       var lista = document.getElementById('listaRutasReporte');
+      var info = document.getElementById('repRutaInfo');
       if (!sel) { return Promise.resolve([]); }
       if (lista) { lista.innerHTML = ''; }
+      if (info) { info.textContent = ''; }
       if (!nombre) { return Promise.resolve([]); }
 
       var est = (estaciones || []).find(function (e) { return e.nombre === nombre; });
-      var url = API_URL + '/rutas/estacion/' + encodeURIComponent(nombre) +
-                (est ? '?id=' + encodeURIComponent(est.id) : '');
+      if (!est) { return Promise.resolve([]); }
 
-      return fetch(url)
-        .then(function (r) { return r.json(); })
+      return fetch(API_URL + '/vagones/' + encodeURIComponent(est.id))
+        .then(function (r) { return r.ok ? r.json() : { vagones: [] }; })
         .then(function (data) {
-          var rutas = data.rutas || [];
+          var vagones = data.vagones || [];
+          var opciones = [];
+          var resumen = [];
+          vagones.forEach(function (v) {
+            var rutas = v.rutas || [];
+            resumen.push(v.nombre + ': ' + (rutas.length ? rutas.map(function (x) { return x.codigo; }).join(', ') : 'sin rutas'));
+            rutas.forEach(function (x) {
+              opciones.push({ codigo: x.codigo, vagon: v.nombre, origen: x.origen, destino: x.destino });
+            });
+          });
           if (lista) {
-            lista.innerHTML = rutas.map(function (r) {
-              return '<option value="' + escHtml(r.codigo) + '">' + escHtml(r.origen || '') +
-                     ' → ' + escHtml(r.destino || '') + '</option>';
+            lista.innerHTML = opciones.map(function (o) {
+              return '<option value="' + escHtml(o.codigo) + '">' + escHtml(o.vagon) + ' · ' +
+                     escHtml(o.origen || '') + ' → ' + escHtml(o.destino || '') + '</option>';
             }).join('');
           }
-          return rutas;
+          if (info) { info.textContent = resumen.join(' | '); }
+          return opciones;
         })
         .catch(function () { return []; });
     }

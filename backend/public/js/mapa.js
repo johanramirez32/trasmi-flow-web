@@ -494,6 +494,10 @@
       marcarPunto(est, '#22c55e', 'Inicio: ' + est.nombre, 'A');
       document.getElementById('listaResultado').innerHTML = listaCercanasHtml();
       cargarRutasDeEstacion(est);
+      fetch(API_URL + '/vagones/' + encodeURIComponent(est.id))
+        .then(function (r) { return r.ok ? r.json() : { vagones: [] }; })
+        .then(function (data) { window.__vagonesCache = data.vagones || []; })
+        .catch(function () { window.__vagonesCache = []; });
       var panel = document.getElementById('panelRutasLateral');
       if (panel) { panel.classList.remove('hidden'); }
     }
@@ -625,6 +629,19 @@
       }
     }
 
+    /** Vagon dondepara una ruta en la estacion seleccionada */
+    function vagonDeRuta(codigo) {
+      var vagones = window.__vagonesCache || [];
+      for (var i = 0; i < vagones.length; i++) {
+        var v = vagones[i];
+        var rutas = v.rutas || [];
+        for (var k = 0; k < rutas.length; k++) {
+          if (rutas[k].codigo === codigo) { return v.nombre; }
+        }
+      }
+      return '';
+    }
+
     /** Panel lateral: pasos del viaje y transbordos */
     function renderItinerario(datos) {
       var panel = document.getElementById('userItinerario');
@@ -672,11 +689,24 @@
           var indice = k + 1;
           var lineas = (op.lineas || []).join(' → ');
           var trans = op.transbordos || 0;
+          var tramos = op.tramos || [];
+          var primero = tramos.length && tramos[0].estaciones && tramos[0].estaciones.length
+            ? tramos[0].estaciones[0].nombre : '';
+          var ultimoTramo = tramos.length ? tramos[tramos.length - 1] : null;
+          var ultimo = ultimoTramo && ultimoTramo.estaciones && ultimoTramo.estaciones.length
+            ? ultimoTramo.estaciones[ultimoTramo.estaciones.length - 1].nombre : '';
+          var vagones = [];
+          tramos.forEach(function (tramo) {
+            var v = vagonDeRuta(tramo.codigo);
+            if (v && vagones.indexOf(v) === -1) { vagones.push(v); }
+          });
           html += '<div class="p-2.5 mb-2 rounded-xl border border-brand-border bg-brand-dark/70">' +
             '<div class="flex items-center justify-between gap-2">' +
               '<p class="text-white font-bold text-[11px]">Alternativa ' + indice + ' · ' + escHtml(lineas) + '</p>' +
               '<span class="text-[10px] font-black text-emerald-400 shrink-0">~' + (op.minutos_estimados || 0) + ' min</span>' +
             '</div>' +
+            '<p class="text-[10px] text-slate-300 mt-1 truncate">' + escHtml(primero) + ' → ' + escHtml(ultimo) + '</p>' +
+            (vagones.length ? '<p class="text-[10px] text-slate-400 mt-0.5">🚃 ' + escHtml(vagones.join(' · ')) + '</p>' : '') +
             '<p class="text-[10px] text-slate-400 mt-1">' +
               (trans ? trans + (trans === 1 ? ' transbordo' : ' transbordos') : 'Sin transbordos') +
               ' · ' + (op.total_paradas || 0) + ' estaciones</p>' +
@@ -1197,4 +1227,52 @@
       marcadorUsuario.bindPopup('<b>Tu ubicación actual</b>').openPopup();
       map.setView([userPos.lat, userPos.lng], 15);
       ponerEstadoGPS('Ubicación mostrada en el mapa', 'emerald');
+      notificarCongestionCercana();
+    }
+
+    /** Notificacion en tiempo real: 5 estaciones congestionadas mas cercanas */
+    function notificarCongestionCercana() {
+      var cont = document.getElementById('listaNotifPanel');
+      var badge = document.getElementById('notifBadge');
+      if (!cont) { return; }
+
+      function dist(a, b) {
+        return distanciaKM(userPos.lat, userPos.lng, a, b);
+      }
+      function render(filas) {
+        if (!filas.length) {
+          cont.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-4">Sin alertas de aglomeración cercanas.</p>';
+          return;
+        }
+        var html = '<p class="text-[10px] font-black text-brand-red uppercase tracking-wider mb-1">5 estaciones congestionadas más cercanas</p>';
+        filas.forEach(function (x, i) {
+          var pct = Number(x.porcentaje || 0);
+          var color = pct >= 75 ? '#ef4444' : (pct >= 50 ? '#f59e0b' : '#22c55e');
+          html += '<div class="w-full text-left p-2 rounded-lg hover:bg-brand-card border-b border-brand-border last:border-0">' +
+            '<p class="text-white font-semibold text-[11px]">' + (i + 1) + '. ' + escHtml(x.estacion || x.nombre || '') +
+              ' <span class="text-slate-500">' + (x.km != null ? x.km.toFixed(1) + ' km' : '') + '</span></p>' +
+            '<p class="text-[10px]" style="color:' + color + '">Aglomeración ' + pct.toFixed(0) + '% · ' +
+              escHtml(x.portal || '') + (x.ruta ? ' · ruta ' + escHtml(x.ruta) : '') + '</p>' +
+          '</div>';
+        });
+        cont.innerHTML = html;
+        if (badge) { badge.textContent = filas.length; badge.classList.remove('hidden'); }
+        var panel = document.getElementById('panelNotificaciones');
+        if (panel) { panel.classList.remove('hidden'); }
+      }
+
+      fetch(API_URL + '/monitoring/top')
+        .then(function (r) { return r.ok ? r.json() : { data: [] }; })
+        .then(function (data) {
+          var filas = (data.data || []).map(function (x) {
+            var coords = estaciones.find(function (e) { return e.nombre === x.estacion; });
+            return {
+              estacion: x.estacion, portal: x.portal,
+              porcentaje: Number(x.porcentaje_camara || 0),
+              km: coords ? dist(coords.lat, coords.lng) : null
+            };
+          }).sort(function (a, b) { return (a.km == null ? 999 : a.km) - (b.km == null ? 999 : b.km); }).slice(0, 5);
+          render(filas);
+        })
+        .catch(function () { render([]); });
     }
