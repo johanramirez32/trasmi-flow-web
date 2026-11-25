@@ -428,9 +428,52 @@ async function planearRuta(req, res) {
       if (r) rutasOrigen.push({ id: r.id, codigo: r.codigo, nombre: r.nombre, origen: r.origen, destino: r.destino, paradas: r.estaciones.length });
     });
 
+    // Opciones en el mismo formato que el planificador de la BD, para que
+    // el mapa pueda dibujar la polilinea y ajustar el zoom.
+    function opcionDe(ruta, indice) {
+      var minutos = Math.max(3, Math.round(3 + ((ruta.estaciones || []).length - 1) * 1.5));
+      var tramo = {
+        tipo: 'transmilenio',
+        orden: 1,
+        codigo: ruta.codigo,
+        nombre: ruta.nombre,
+        color: ['#8b5cf6', '#f59e0b', '#22c55e', '#3b82f6'][indice % 4],
+        coordenadas: ruta.coordenadas,
+        estaciones: ruta.estaciones,
+        indice_origen: ruta.indice_origen,
+        indice_destino: ruta.indice_destino,
+        desde: (ruta.estaciones || [])[0] ? ruta.estaciones[0].nombre : ruta.origen,
+        hasta: (ruta.estaciones || []).length
+          ? ruta.estaciones[ruta.estaciones.length - 1].nombre : ruta.destino,
+        paradas: ruta.paradas,
+        numero_paradas: (ruta.estaciones || []).length,
+        minutos_estimados: minutos,
+        tipo_transbordo: null,
+        transbordo_en: null
+      };
+      return {
+        indice: indice,
+        etiqueta: indice === 0 ? 'Recomendada' : 'Alternativa ' + indice,
+        transbordos: 0,
+        tramos: [tramo],
+        total_paradas: tramo.numero_paradas,
+        minutos_estimados: minutos,
+        lineas: [ruta.codigo]
+      };
+    }
+
+    var opciones = directas.slice(0, 4).map(opcionDe);
+    if (!opciones.length && conSalida.length) { opciones.push(opcionDe(conSalida[0], 0)); }
+    var mejor = opciones[0];
+
     res.json({
       origen: o ? { nombre: o.nombre, num_est: o.num_est, latitud: o.latitud, longitud: o.longitud } : null,
       destino: { nombre: d.nombre, num_est: d.num_est, latitud: d.latitud, longitud: d.longitud },
+      opciones: opciones,
+      tramos: mejor ? mejor.tramos : [],
+      transbordos: mejor ? mejor.transbordos : 0,
+      total_paradas: mejor ? mejor.total_paradas : 0,
+      minutos_estimados: mejor ? mejor.minutos_estimados : 0,
       rutas: directas,
       otras: conSalida,
       rutas_origen: rutasOrigen
