@@ -68,6 +68,35 @@ function createMonitoringRouter(options) {
     return schemaReady;
   }
 
+  async function ensureSeed() {
+    await ensureSchema();
+    try {
+      await pool.query(`INSERT INTO monitoring_stations (code, name, location)
+        SELECT 'EST-' || id, nombre, direccion FROM estaciones
+        WHERE NOT EXISTS (SELECT 1 FROM monitoring_stations ms WHERE ms.code = 'EST-' || estaciones.id)`);
+      await pool.query(`
+        INSERT INTO monitoring_zones (station_id, vagon_id, ruta_codigo, code, name, capacity, area_m2)
+        SELECT ms.id, v.id,
+               (SELECT vr.codigo FROM vagon_rutas x JOIN rutas vr ON vr.id = x.ruta_id
+                 WHERE x.vagon_id = v.id ORDER BY x.orden LIMIT 1),
+               'ZONA-' || v.id, v.nombre,
+               GREATEST(20, COALESCE(e.capacidad, 100) /
+                 GREATEST(1, (SELECT COUNT(*)::int FROM vagones vv WHERE vv.estacion_id = e.id))),
+               50
+          FROM monitoring_stations ms
+          JOIN estaciones e ON 'EST-' || e.id = ms.code
+          JOIN vagones v ON v.estacion_id = e.id
+         WHERE NOT EXISTS (SELECT 1 FROM monitoring_zones z WHERE z.code = 'ZONA-' || v.id)`);
+      await pool.query(`
+        INSERT INTO monitoring_cameras (zone_id, code, name, source, polygon)
+        SELECT z.id, 'CAM-' || c.id, c.nombre, '0', '[[0,0],[640,0],[640,480],[0,480]]'::jsonb
+          FROM camaras c
+          JOIN monitoring_zones z ON z.code = 'ZONA-' || (
+            SELECT v.id FROM vagones v WHERE v.estacion_id = c.estacion_id ORDER BY v.id LIMIT 1)
+         WHERE NOT EXISTS (SELECT 1 FROM monitoring_cameras mc WHERE mc.code = 'CAM-' || c.id)`);
+    } catch (err) { console.error('MON_SEED:', err.message); }
+  }
+
   function requireWorkerKey(req, res, next) {
     const supplied = req.get('x-monitoring-key');
     if (!apiKey || supplied !== apiKey) {
