@@ -17,6 +17,57 @@ function createMonitoringRouter(options) {
   const apiKey = options.apiKey || process.env.MONITORING_API_KEY || '';
   const router = express.Router();
 
+  // El modulo se asegura de que sus tablas existan, incluso si la
+  // inicializacion general del servidor no llego a crearlis.
+  const ESQUEMA = [
+    `CREATE TABLE IF NOT EXISTS monitoring_stations (
+      id BIGSERIAL PRIMARY KEY, code VARCHAR(50) NOT NULL UNIQUE,
+      name VARCHAR(150) NOT NULL, location TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS monitoring_zones (
+      id BIGSERIAL PRIMARY KEY,
+      station_id BIGINT NOT NULL REFERENCES monitoring_stations(id) ON DELETE CASCADE,
+      vagon_id BIGINT REFERENCES vagones(id) ON DELETE SET NULL,
+      ruta_codigo VARCHAR(20), code VARCHAR(50) NOT NULL,
+      name VARCHAR(150) NOT NULL, capacity INTEGER NOT NULL CHECK (capacity > 0),
+      area_m2 NUMERIC(10,2), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(station_id, code))`,
+    `CREATE TABLE IF NOT EXISTS monitoring_cameras (
+      id BIGSERIAL PRIMARY KEY,
+      zone_id BIGINT NOT NULL REFERENCES monitoring_zones(id) ON DELETE CASCADE,
+      code VARCHAR(50) NOT NULL UNIQUE, name VARCHAR(160) NOT NULL,
+      source TEXT NOT NULL DEFAULT '0', polygon JSONB NOT NULL DEFAULT '[]'::jsonb,
+      enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS monitoring_metrics (
+      id BIGSERIAL PRIMARY KEY,
+      camera_id BIGINT NOT NULL REFERENCES monitoring_cameras(id) ON DELETE CASCADE,
+      people_count INTEGER NOT NULL CHECK (people_count >= 0),
+      occupancy_percentage NUMERIC(7,2) NOT NULL, density_people_m2 NUMERIC(7,2),
+      crowd_level VARCHAR(30) NOT NULL,
+      captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`,
+    `CREATE TABLE IF NOT EXISTS monitoring_alerts (
+      id BIGSERIAL PRIMARY KEY,
+      zone_id BIGINT NOT NULL REFERENCES monitoring_zones(id) ON DELETE CASCADE,
+      camera_id BIGINT REFERENCES monitoring_cameras(id) ON DELETE SET NULL,
+      level VARCHAR(30) NOT NULL, message TEXT NOT NULL,
+      occupancy_percentage NUMERIC(7,2) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      acknowledged_at TIMESTAMPTZ, acknowledged_by VARCHAR(150))`,
+  ];
+  let schemaReady = null;
+  function ensureSchema() {
+    if (!schemaReady) {
+      schemaReady = (async () => {
+        for (const sql of ESQUEMA) {
+          try { await pool.query(sql); } catch (err) { console.error('MON_SCHEMA:', err.message); }
+        }
+      })();
+    }
+    return schemaReady;
+  }
+
   function requireWorkerKey(req, res, next) {
     const supplied = req.get('x-monitoring-key');
     if (!apiKey || supplied !== apiKey) {
