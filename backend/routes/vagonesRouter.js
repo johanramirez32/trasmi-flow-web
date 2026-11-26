@@ -9,12 +9,18 @@ const router = express.Router();
 async function listar(req, res) {
   try {
     const id = req.params.estacionId;
-    const v = await pool.query('SELECT * FROM vagones WHERE estacion_id=$1 ORDER BY id', [id]);
-    const vr = await pool.query(
+    async function consulta(sql, params, vacio) {
+      try { return (await pool.query(sql, params)).rows; }
+      catch (err) { console.warn('VAGONES: ' + err.message.slice(0, 90)); return vacio; }
+    }
+
+    const v = { rows: await consulta('SELECT * FROM vagones WHERE estacion_id=$1 ORDER BY id', [id], []) };
+    const vr = { rows: await consulta(
       'SELECT vr.vagon_id, r.id, r.codigo, r.origen, r.destino, vr.orden ' +
       'FROM vagon_rutas vr JOIN rutas r ON r.id=vr.ruta_id ' +
-      'JOIN vagones v ON v.id=vr.vagon_id WHERE v.estacion_id=$1 ORDER BY vr.vagon_id, vr.orden', [id]);
-    const cam = await pool.query('SELECT id, nombre, vagon_id FROM camaras WHERE estacion_id=$1 ORDER BY id', [id]);
+      'JOIN vagones v ON v.id=vr.vagon_id WHERE v.estacion_id=$1 ORDER BY vr.vagon_id, vr.orden', [id], []) };
+    const cam = { rows: await consulta(
+      'SELECT id, nombre, vagon_id FROM camaras WHERE estacion_id=$1 ORDER BY id', [id], []) };
 
     const vagones = v.rows.map(function (vagon) {
       return {
