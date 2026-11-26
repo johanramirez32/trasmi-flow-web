@@ -265,15 +265,37 @@
      * Recorta el corredor de la linea para dibujar SOLO el tramo entre la
      * estacion de inicio y la estacion de destino del usuario.
      */
-    function recortarCorredor(ruta, origen, destino) {
-      var coords = (ruta && ruta.coordenadas) ? ruta.coordenadas : [];
-      if (!coords.length && !(ruta && ruta.estaciones)) { return []; }
+    /** Punto interpolado dentro de un segmento del corredor */
+    function puntoEnSegmento(a, b, t) {
+      if (!a || !b || b.length < 2) { return null; }
+      return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    }
 
+    /**
+     * Recorta la polilinea REAL de la ruta entre la estacion de partida y la
+     * de llegada elegidas por el usuario. El resultado sigue el corredor del
+     * bus (no lineas rectas entre estaciones) y empieza/termina exactamente
+     * en las dos estaciones seleccionadas.
+     */
+    function recortarCorredor(ruta, origen, destino) {
+      var coords = ((ruta && ruta.coordenadas) || []).filter(function (c) {
+        return c && c[0] != null && c[1] != null;
+      });
       var paradas = (ruta && ruta.estaciones) || [];
+
+      function coordsDe(p) {
+        var c = coordsDeParada(p);
+        return (c[0] != null && c[1] != null) ? c : null;
+      }
+
+      if (coords.length < 2) {
+        return paradas.map(coordsDe).filter(Boolean);
+      }
+      if (!paradas.length) { return coords; }
+
       var iO = ruta && ruta.indice_origen;
       var iD = ruta && ruta.indice_destino;
 
-      // Coincidencia por nombre normalizado (soluciona acentos y guiones)
       if ((iO == null || iO < 0) && origen && origen.nombre) {
         var no = normTexto(origen.nombre);
         for (var a = 0; a < paradas.length; a++) {
@@ -290,31 +312,25 @@
       }
       if (iO == null || iO < 0) { iO = indiceParadaCercana(paradas, origen); }
       if (iD == null || iD < 0) { iD = indiceParadaCercana(paradas, destino); }
-      if (iO < 0 || iD < 0 || !paradas.length) { return coords; }
+      if (iO < 0 || iD < 0) { return coords; }
 
-      var ini = Math.min(iO, iD);
-      var fin = Math.max(iO, iD);
-
-      // Trazo estacion por estacion: empieza en la elegida y termina en el destino
-      var porEstaciones = [];
-      for (var k = ini; k <= fin; k++) {
-        var c = coordsDeParada(paradas[k]);
-        if (c[0] != null && c[1] != null) { porEstaciones.push(c); }
-      }
-      if (porEstaciones.length >= 2) { return porEstaciones; }
-
-      // Respaldo: recortar el corredor real proyectando ambas estaciones
       var pa = proyectoEnCorredor(coords, paradas[iO]);
       var pb = proyectoEnCorredor(coords, paradas[iD]);
       var adelante = (pa.i < pb.i) || (pa.i === pb.i && pa.t <= pb.t);
       var iniC = adelante ? pa.i : pb.i;
       var finC = adelante ? pb.i : pa.i;
-      var pIni = adelante ? paradas[iO] : paradas[iD];
-      var pFin = adelante ? paradas[iD] : paradas[iO];
-      var tramo = [coordsDeParada(pIni)];
-      for (var j = iniC + 1; j <= finC; j++) { tramo.push(coords[j]); }
-      tramo.push(coordsDeParada(pFin));
-      return tramo;
+      var desde = coordsDe(paradas[adelante ? iO : iD]);
+      var hasta = coordsDe(paradas[adelante ? iD : iO]);
+
+      var salida = [desde];
+      var inicioInterp = puntoEnSegmento(coords[iniC], coords[iniC + 1], adelante ? pa.t : pb.t);
+      if (inicioInterp) { salida.push(inicioInterp); }
+      for (var k = iniC + 1; k <= finC; k++) { salida.push(coords[k]); }
+      var finInterp = puntoEnSegmento(coords[finC], coords[finC + 1], adelante ? pb.t : pa.t);
+      if (finInterp) { salida.push(finInterp); }
+      salida.push(hasta);
+
+      return salida.filter(Boolean);
     }
 
     /** Deja el mapa limpio: solo el viaje que se va a trazar */
@@ -644,7 +660,6 @@
       marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
       marcarPunto(datos.destino, '#ef4444', 'Destino: ' + (datos.destino ? datos.destino.nombre : ''), 'B');
 
-      if (userPos && viajeOrigen) { actualizarRutaPeatonal(); }
       if (capaItinerario.getLayers().length) {
         map.fitBounds(capaItinerario.getBounds(), { padding: [40, 40] });
       }
@@ -682,7 +697,6 @@
 
       marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
       marcarPunto(datos.destino, '#ef4444', 'Destino: ' + (datos.destino ? datos.destino.nombre : ''), 'B');
-      if (userPos && viajeOrigen) { actualizarRutaPeatonal(); }
       if (capaItinerario.getLayers().length) {
         map.fitBounds(capaItinerario.getBounds(), { padding: [40, 40] });
       }
@@ -851,7 +865,6 @@
       });
       marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
       marcarPunto(datos.destino, '#ef4444', 'Destino: ' + (datos.destino ? datos.destino.nombre : ''), 'B');
-      if (userPos && viajeOrigen) { actualizarRutaPeatonal(); }
       if (capaItinerario.getLayers().length) {
         map.fitBounds(capaItinerario.getBounds(), { padding: [40, 40] });
       }
