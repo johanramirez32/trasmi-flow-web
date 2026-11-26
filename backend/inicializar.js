@@ -837,16 +837,18 @@ async function inicializar(pool, intentos = 5) {
       console.warn('   Aviso preparando esquema: ' + err.message.slice(0, 120));
     }
   }
-  await sembrarSiEstaVacia(pool);
-  await sembrarRutas(pool);
-  await sembrarCamaras(pool);
-  await sembrarFlota(pool);
-  await arreglarReportes(pool);
-  await enriquecerRed(pool);
-  await sincronizarMonitoreo(pool);
+  // Credenciales del operario primero: ninguna semilla puede bloquearlas
   await sembrarOperarioDemo(pool);
-  await normalizarRelaciones(pool);
-  await sincronizarRutasOficiales(pool);
+
+  const semillas = [
+    sembrarSiEstaVacia, sembrarRutas, sembrarCamaras, sembrarFlota,
+    arreglarReportes, enriquecerRed, sincronizarMonitoreo,
+    normalizarRelaciones, sincronizarRutasOficiales
+  ];
+  for (const semilla of semillas) {
+    try { await semilla(pool); }
+    catch (err) { console.warn('   Aviso en ' + semilla.name + ': ' + err.message.slice(0, 120)); }
+  }
 }
 
 module.exports = { inicializar };
