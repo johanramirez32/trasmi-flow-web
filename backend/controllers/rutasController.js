@@ -449,30 +449,37 @@ async function listarRutasEstacion(req, res) {
 
     if (estacion) {
       // 1) Rutas que sirven la estacion
-      const rr = await pool.query(
-        'SELECT DISTINCT r.id, r.codigo, r.nombre, r.color_hex, r.coordenadas, r.origen, r.destino ' +
-        'FROM rutas r ' +
-        'JOIN ruta_estaciones re ON re.ruta_id = r.id ' +
-        'WHERE re.estacion_id = $1 ORDER BY r.codigo',
-        [estacion.id]
-      );
+      let rr = { rows: [] };
+      try {
+        rr = await pool.query(
+          'SELECT DISTINCT r.id, r.codigo, r.nombre, r.color_hex, r.coordenadas, r.origen, r.destino ' +
+          'FROM rutas r ' +
+          'JOIN ruta_estaciones re ON re.ruta_id = r.id ' +
+          'WHERE re.estacion_id = $1 ORDER BY r.codigo',
+          [estacion.id]
+        );
+      } catch (e) {
+        // Esquema incompleto en el despliegue: se continua con datos oficiales
+      }
 
       const ids = rr.rows.map(function (x) { return x.id; });
 
       // 2) Todas las paradas (con su orden) de esas rutas
       let paradasPorRuta = {};
       if (ids.length) {
-        const pp = await pool.query(
-          'SELECT re.ruta_id, re.orden, e.id AS estacion_id, e.nombre AS estacion_nombre, ' +
-          'e.lat AS estacion_lat, e.lng AS estacion_lng ' +
-          'FROM ruta_estaciones re JOIN estaciones e ON e.id = re.estacion_id ' +
-          'WHERE re.ruta_id = ANY($1) ORDER BY re.ruta_id, re.orden',
-          [ids]
-        );
-        pp.rows.forEach(function (x) {
-          if (!paradasPorRuta[x.ruta_id]) paradasPorRuta[x.ruta_id] = [];
-          paradasPorRuta[x.ruta_id].push(parada(x));
-        });
+        try {
+          const pp = await pool.query(
+            'SELECT re.ruta_id, re.orden, e.id AS estacion_id, e.nombre AS estacion_nombre, ' +
+            'e.lat AS estacion_lat, e.lng AS estacion_lng ' +
+            'FROM ruta_estaciones re JOIN estaciones e ON e.id = re.estacion_id ' +
+            'WHERE re.ruta_id = ANY($1) ORDER BY re.ruta_id, re.orden',
+            [ids]
+          );
+          pp.rows.forEach(function (x) {
+            if (!paradasPorRuta[x.ruta_id]) paradasPorRuta[x.ruta_id] = [];
+            paradasPorRuta[x.ruta_id].push(parada(x));
+          });
+        } catch (e) { /* sin paradas en BD */ }
       }
 
       rutas = rr.rows.map(function (x) {
