@@ -57,6 +57,7 @@ function createMonitoringRouter(options) {
       acknowledged_at TIMESTAMPTZ, acknowledged_by VARCHAR(150))`,
   ];
   let schemaReady = null;
+  let seedError = null;
   function ensureSchema() {
     if (!schemaReady) {
       schemaReady = (async () => {
@@ -114,7 +115,7 @@ function createMonitoringRouter(options) {
           JOIN monitoring_zones z ON z.code = 'ZONA-' || (
             SELECT v.id FROM vagones v WHERE v.estacion_id = c.estacion_id ORDER BY v.id LIMIT 1)
          WHERE NOT EXISTS (SELECT 1 FROM monitoring_cameras mc WHERE mc.code = 'CAM-' || c.id)`);
-    } catch (err) { console.error('MON_SEED:', err.message); }
+    } catch (err) { seedError = err.message; console.error('MON_SEED:', err.message); }
   }
 
   router.get('/debug', async (req, res) => {
@@ -127,7 +128,7 @@ function createMonitoringRouter(options) {
         try { const r = await pool.query('SELECT COUNT(*)::int n FROM ' + tb); counts[tb] = r.rows[0].n; }
         catch (e) { counts[tb] = 'ERR:' + e.message.slice(0,60); }
       }
-      res.json({ tablas: tablas.rows.map(x=>x.table_name), columnasEstaciones: cols.rows.map(x=>x.column_name), counts });
+      res.json({ tablas: tablas.rows.map(x=>x.table_name), columnasEstaciones: cols.rows.map(x=>x.column_name), counts, seedError });
     } catch (e) { res.json({ error: e.message }); }
   });
 
