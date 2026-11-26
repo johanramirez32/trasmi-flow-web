@@ -225,6 +225,11 @@
         <span id="txtPreguntaAuth">No tienes cuenta?</span>
         <button type="button" onclick="alternarModoAuth()" id="btnAlternarAuth" class="text-brand-red font-bold hover:underline ml-1">Registrate aqui</button>
       </div>
+      <div class="text-center">
+        <button type="button" onclick="mostrarAuthOperador()" class="text-[10px] font-semibold text-slate-400 hover:text-brand-red hover:underline">
+          &#191;Eres operador? Ingreso operativo
+        </button>
+      </div>
 
       <div class="pt-3 border-t border-brand-border">
         <div class="flex items-center gap-3 mb-3">
@@ -232,12 +237,8 @@
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">O continúa con</span>
           <div class="flex-grow h-px bg-brand-border"></div>
         </div>
-        <div class="grid grid-cols-3 gap-2">
-          <button type="button" onclick="accesoSocial('Google')" title="Ingresar con Gmail"
-            class="group flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl border border-brand-border bg-gradient-to-b from-white/[0.08] to-transparent hover:from-red-500/20 hover:border-red-400 transition-all duration-200 hover:-translate-y-0.5">
-            <span class="text-xl leading-none">🔴</span>
-            <span class="text-[10px] font-bold text-white group-hover:text-red-300">Gmail</span>
-          </button>
+        <div id="btnGoogleOficial" class="flex justify-center"></div>
+        <div class="grid grid-cols-2 gap-2">
           <button type="button" onclick="accesoSocial('Facebook')" title="Ingresar con Facebook"
             class="group flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl border border-brand-border bg-gradient-to-b from-white/[0.08] to-transparent hover:from-blue-600/20 hover:border-blue-400 transition-all duration-200 hover:-translate-y-0.5">
             <span class="text-xl leading-none text-blue-400">f</span>
@@ -249,13 +250,13 @@
             <span class="text-[10px] font-bold text-white group-hover:text-sky-300">Outlook</span>
           </button>
         </div>
-        <p class="text-center text-[9px] text-slate-500 mt-2">Acceso disponible próximamente · usa tu correo y contraseña</p>
+        <p class="text-center text-[9px] text-slate-500 mt-2">Facebook y Outlook disponibles próximamente</p>
       </div>
     </div>
   </div>
 
   <!-- OPERADOR: formulario independiente (correo + contrasena + codigo de autenticacion) -->
-  <div id="authPanelOperador" class="glass-panel p-6 sm:p-8 rounded-3xl border border-brand-border w-full max-w-md shadow-2xl space-y-6 relative z-10">
+  <div id="authPanelOperador" class="hidden glass-panel p-6 sm:p-8 rounded-3xl border border-brand-border w-full max-w-md shadow-2xl space-y-6 relative z-10">
     <div class="text-center space-y-2">
       <div class="inline-flex p-3.5 bg-brand-red/10 border border-brand-red/30 rounded-2xl text-brand-red">
         <i data-lucide="shield-check" class="w-8 h-8"></i>
@@ -289,6 +290,11 @@
         <span id="txtBtnAuthOperador">Ingresar al Panel Operativo</span>
       </button>
     </form>
+    <div class="text-center">
+      <button type="button" onclick="mostrarAuthUsuario()" class="text-[10px] font-semibold text-slate-400 hover:text-brand-red hover:underline">
+        Volver al ingreso de usuarios
+      </button>
+    </div>
   </div>
 </section>
 

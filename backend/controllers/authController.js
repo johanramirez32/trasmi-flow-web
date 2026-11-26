@@ -107,4 +107,75 @@ async function iniciarSesion(req, res) {
   }
 }
 
-module.exports = { registrarUsuario, iniciarSesion, validarPassword };
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID ||
+  '455080318986-lcb6ogr7pb4di2tvi6noatji4c4sjn35.apps.googleusercontent.com';
+const GOOGLE_TOKENINFO_URL = process.env.GOOGLE_TOKENINFO_URL ||
+  'https://oauth2.googleapis.com/tokeninfo';
+
+/** Verifica un ID token de Google y entra (o crea) unicamente como 'usuario'. */
+async function autenticarGoogle(req, res) {
+  const credential = String(req.body && req.body.credential || '').trim();
+  if (!credential) {
+    return res.status(400).json({ error: 'Falta la credencial de Google.' });
+  }
+
+  try {
+    const respuesta = await fetch(
+      `${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(credential)}`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+    if (!respuesta.ok) {
+      return res.status(401).json({ error: 'La credencial de Google no es valida.' });
+    }
+    const info = await respuesta.json();
+
+    if (info.aud !== GOOGLE_CLIENT_ID) {
+      return res.status(401).json({ error: 'La credencial no corresponde a esta aplicacion.' });
+    }
+    if (String(info.email_verified) !== 'true' || !validoCorreo(info.email || '')) {
+      return res.status(401).json({ error: 'El correo de Google no esta verificado.' });
+    }
+
+    const email = String(info.email).toLowerCase();
+    const nombre = texto(info.name || email.split('@')[0], 100);
+
+    let r = await pool.query('SELECT * FROM usuarios WHERE LOWER(email) = LOWER($1)', [email]);
+    let usuario = r.rows[0];
+
+    if (!usuario) {
+      // Google nunca crea operarios: siempre se vincula como ciudadano.
+      const hash = await bcrypt.hash(require('crypto').randomBytes(24).toString('hex'), 10);
+      const nuevo = await pool.query(
+        'INSERT INTO usuarios (nombre, email, password, rol, codigo_operador) ' +
+        'VALUES ($1, $2, $3, $4, NULL) RETURNING id, nombre, email, rol, codigo_operador',
+        [nombre, email, hash, 'usuario']
+      );
+      usuario = nuevo.rows[0];
+    }
+
+    if ((usuario.rol || 'usuario') === 'operario') {
+      return res.status(403).json({
+        error: 'Esta cuenta es operador. Usa el ingreso operativo con tu codigo.'
+      });
+    }
+
+    const datos = {
+      id: usuario.id, nombre: usuario.nombre,
+      email: usuario.email, rol: usuario.rol || 'usuario'
+    };
+    res.json({
+      mensaje: 'Inicio de sesion con Google exitoso',
+      usuario: datos,
+      token: seg.firmar(datos)
+    });
+  } catch (err) {
+    console.error('ERROR_AUTH_GOOGLE: ' + err.message);
+    res.status(502).json({ error: 'No se pudo validar la cuenta de Google.' });
+  }
+}
+
+function configuracionPublica(req, res) {
+  res.json({ googleClientId: GOOGLE_CLIENT_ID });
+}
+
+module.exports = { registrarUsuario, iniciarSesion, validarPassword, autenticarGoogle, configuracionPublica };

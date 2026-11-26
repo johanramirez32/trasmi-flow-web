@@ -561,7 +561,93 @@
         });
     }
 
-    /** Acceso social: requiere credenciales OAuth del proveedor */
+    /** Alternar entre el acceso de ciudadanos y el acceso operativo */
+    function mostrarAuthOperador() {
+      var usu = document.getElementById('authPanelUsuario');
+      var op  = document.getElementById('authPanelOperador');
+      if (usu) { usu.classList.add('hidden'); }
+      if (op)  { op.classList.remove('hidden'); }
+      var msg = document.getElementById('authMensajeErrorOperador');
+      if (msg) { msg.classList.add('hidden'); }
+    }
+
+    function mostrarAuthUsuario() {
+      var usu = document.getElementById('authPanelUsuario');
+      var op  = document.getElementById('authPanelOperador');
+      if (op)  { op.classList.add('hidden'); }
+      if (usu) { usu.classList.remove('hidden'); }
+      cargarGoogle();
+    }
+
+    var googleCargado = false;
+    /** Carga Google Identity Services y dibuja el boton oficial de Gmail */
+    function cargarGoogle() {
+      var cont = document.getElementById('btnGoogleOficial');
+      if (!cont || googleCargado) { return; }
+
+      function dibujar() {
+        if (!window.google || !google.accounts) { return; }
+        fetch(API_URL + '/config')
+          .then(function (r) { return r.json(); })
+          .then(function (cfg) {
+            if (!cfg.googleClientId) { return; }
+            google.accounts.id.initialize({
+              client_id: cfg.googleClientId,
+              callback: respuestaGoogle,
+              ux_mode: 'popup'
+            });
+            cont.innerHTML = '';
+            google.accounts.id.renderButton(cont, {
+              theme: 'filled_blue', size: 'large', shape: 'pill',
+              text: 'signin_with', width: 280
+            });
+            googleCargado = true;
+          })
+          .catch(function () { cont.textContent = 'No se pudo cargar el acceso con Gmail.'; });
+      }
+
+      if (window.google && window.google.accounts) { dibujar(); return; }
+      var s = document.createElement('script');
+      s.src = 'https://accounts.google.com/gsi/client';
+      s.async = true;
+      s.defer = true;
+      s.onload = dibujar;
+      s.onerror = function () { cont.textContent = 'No se pudo cargar el acceso con Gmail.'; };
+      document.head.appendChild(s);
+    }
+
+    /** Envia el ID token de Google al backend para obtener nuestro token */
+    function respuestaGoogle(respuesta) {
+      var msg = document.getElementById('authMensajeError');
+      if (msg) { msg.classList.add('hidden'); }
+      fetch(API_URL + '/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: respuesta.credential })
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) {
+            if (msg) {
+              msg.textContent = res.d.error || 'No se pudo ingresar con Google.';
+              msg.classList.remove('hidden');
+            }
+            return;
+          }
+          localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
+          localStorage.setItem(TOKEN_KEY, res.d.token || '');
+          verificarAcceso();
+          actualizarNotifBadge();
+        })
+        .catch(function () {
+          if (msg) {
+            msg.textContent = 'No se pudo conectar con el servidor.';
+            msg.classList.remove('hidden');
+          }
+        });
+    }
+
+    /** Acceso social: Facebook y Outlook aun no implementados */
     function accesoSocial(proveedor) {
       var msg = document.getElementById('authMensajeError');
       if (msg) {
@@ -664,6 +750,7 @@
       var usuario = localStorage.getItem('usuarioTransmiFlowReal');
       document.getElementById('vistaAuth').classList.toggle('hidden', !!usuario);
       document.getElementById('appContenido').classList.toggle('hidden', !usuario);
+      if (!usuario) { cargarGoogle(); }
       document.getElementById('navPrincipal').classList.toggle('sin-sesion', !usuario);
       document.getElementById('navMovil').classList.toggle('sin-sesion', !usuario);
 

@@ -13,5 +13,9 @@ const limite = seg.limiteIntentos(5, 5 * 60 * 1000);
 
 router.post('/registro', limite, ctrl.registrarUsuario);
 router.post('/login', limite, ctrl.iniciarSesion);
+router.post('/google', limite, ctrl.autenticarGoogle);
+
+// Configuracion publica (solo el Client ID, nunca secretos)
+router.get('/config', ctrl.configuracionPublica);
 
 module.exports = router;
