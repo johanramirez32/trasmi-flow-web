@@ -71,6 +71,26 @@ function createMonitoringRouter(options) {
   async function ensureSeed() {
     await ensureSchema();
     try {
+      // Vagones: uno de ida y uno de vuelta por estacion
+      const nv = await pool.query('SELECT COUNT(*)::int n FROM vagones');
+      if (!nv.rows[0].n) {
+        await pool.query(`INSERT INTO vagones (estacion_id, nombre, sentido)
+          SELECT e.id, 'Vagón 1 · Ida', 'Ida' FROM estaciones e
+          WHERE NOT EXISTS (SELECT 1 FROM vagones v WHERE v.estacion_id = e.id)`);
+        await pool.query(`INSERT INTO vagones (estacion_id, nombre, sentido)
+          SELECT e.id, 'Vagón 2 · Vuelta', 'Vuelta' FROM estaciones e
+          WHERE (SELECT COUNT(*)::int FROM vagones v WHERE v.estacion_id = e.id) = 1`);
+        // Asignar rutas a cada vagón segun el sentido de la parada
+        await pool.query(`
+          INSERT INTO vagon_rutas (vagon_id, ruta_id, orden)
+          SELECT v.id, r.id, re.orden
+            FROM ruta_estaciones re
+            JOIN rutas r ON r.id = re.ruta_id
+            JOIN estaciones e ON e.id = re.estacion_id
+            JOIN vagones v ON v.estacion_id = e.id
+           WHERE NOT EXISTS (SELECT 1 FROM vagon_rutas vr WHERE vr.vagon_id = v.id AND vr.ruta_id = r.id)`);
+      }
+
       await pool.query(`INSERT INTO monitoring_stations (code, name, location)
         SELECT 'EST-' || id, nombre, direccion FROM estaciones
         WHERE NOT EXISTS (SELECT 1 FROM monitoring_stations ms WHERE ms.code = 'EST-' || estaciones.id)`);
