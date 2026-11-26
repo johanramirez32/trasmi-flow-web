@@ -564,11 +564,23 @@
       if (reglas) { reglas.classList.toggle('hidden', !esRegistro); }
     }
 
-    /** Muestra u oculta la contrasena */
-    function togglePassword() {
-      var input = document.getElementById('inputPassword');
+    /** Muestra u oculta contrasena o codigo, con icono Lucide */
+    function toggleCampo(id, boton) {
+      var input = document.getElementById(id);
       if (!input) { return; }
-      input.type = input.type === 'password' ? 'text' : 'password';
+      var mostrar = input.type === 'password';
+      input.type = mostrar ? 'text' : 'password';
+      var icono = boton ? (boton.querySelector('[data-lucide]') || boton.querySelector('i')) : null;
+      if (icono) {
+        icono.setAttribute('data-lucide', mostrar ? 'eye-off' : 'eye');
+        if (window.lucide) { lucide.createIcons(); }
+      }
+      if (boton) { boton.title = mostrar ? 'Ocultar' : (id === 'opInputCodigo' ? 'Mostrar codigo' : 'Mostrar contrasena'); }
+    }
+
+    /** Compatibilidad con el boton anterior */
+    function togglePassword() {
+      toggleCampo('inputPassword', document.getElementById('btnOjoUsuario'));
     }
 
     /** Reglas de contrasena que se validan tambien en el servidor */
