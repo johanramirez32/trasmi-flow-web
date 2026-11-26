@@ -57,6 +57,19 @@ function normEsp(s) {
  * Primero coincidencia exacta (normalizada), luego la que empieza por el texto
  * escrito y por ultimo la que lo contiene.
  */
+/** Estacion oficial mas cercana a unas coordenadas (hasta 1.5 km) */
+function estacionCercana(data, lat, lng) {
+  let mejor = null, mejorDist = Infinity;
+  (data.estaciones || []).forEach(function (e) {
+    const la = e.lat != null ? e.lat : e.latitud;
+    const lo = e.lng != null ? e.lng : e.longitud;
+    if (la == null || lo == null) { return; }
+    const d = Math.sqrt(Math.pow((la - lat) * KY, 2) + Math.pow((lo - lng) * KX, 2));
+    if (d < mejorDist) { mejorDist = d; mejor = e; }
+  });
+  return mejorDist <= 1500 ? mejor : null;
+}
+
 function buscarEstacion(estaciones, nombre) {
   if (!nombre) return null;
   const n = norm(nombre);
@@ -512,6 +525,7 @@ module.exports = {
   listarEstacionesOficiales,
   listarRutasPorEstacion,
   planearRuta,
+  estacionCercana,
   obtenerDatos,
   buscarEstacion,
   rutasDeEstacion,

@@ -268,7 +268,7 @@
               if (!vistos[c]) { vistos[c] = 1; opciones.push({ codigo: c, origen: '', destino: '' }); }
             });
             return pintar(opciones, opciones.length
-              ? 'Rutas oficiales de la estación: ' + opciones.map(function (o) { return o.codigo; }).join(', ')
+              ? (data.estacion_cercana ? 'Rutas de ' + data.estacion_cercana + ' (estación oficial más cercana): ' : 'Rutas oficiales de la estación: ') + opciones.map(function (o) { return o.codigo; }).join(', ')
               : 'Esta estación no tiene rutas registradas.');
           })
           .catch(function () { return pintar([], 'No se pudieron cargar las rutas.'); });

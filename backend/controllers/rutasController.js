@@ -495,7 +495,26 @@ async function listarRutasEstacion(req, res) {
 
     // Sin rutas en la base de datos: datos oficiales de Transmilenio
     const data = await oficial.obtenerDatos();
-    const oficiales = oficial.rutasDeEstacion(data, nombre);
+    let oficiales = oficial.rutasDeEstacion(data, nombre);
+
+    // La estacion puede existir en nuestra BD pero no en el catalogo oficial
+    // (estaciones temporales). En ese caso se usan las rutas de la mas cercana.
+    if (!oficiales.rutas.length && estacion && estacion.lat != null && estacion.lng != null) {
+      const cercana = oficial.estacionCercana(data, Number(estacion.lat), Number(estacion.lng));
+      if (cercana) {
+        const alternas = oficial.rutasDeEstacion(data, cercana.nombre);
+        if (alternas.rutas.length) {
+          oficiales = alternas;
+          return res.json({
+            estacion: estacion.nombre,
+            estacion_cercana: cercana.nombre,
+            origen: 'oficial-cercana',
+            rutas: alternas.rutas
+          });
+        }
+      }
+    }
+
     res.json({
       estacion: oficiales.estacion || (estacion ? estacion.nombre : nombre),
       origen: 'oficial',
