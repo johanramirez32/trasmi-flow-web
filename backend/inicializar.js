@@ -474,7 +474,7 @@ async function sincronizarMonitoreo(pool) {
     await pool.query(`
       INSERT INTO monitoring_zones (station_id, vagon_id, ruta_codigo, code, name, capacity, area_m2)
       SELECT ms.id, v.id,
-             (SELECT vr.codigo FROM vagon_rutas x JOIN rutas vr ON vr.id=x.ruta_id
+             (SELECT COALESCE(to_jsonb(r)->>'codigo', to_jsonb(r)->>'route_code', '') FROM vagon_rutas x JOIN rutas r ON r.id=x.ruta_id
                WHERE x.vagon_id=v.id ORDER BY x.orden LIMIT 1),
              'ZONA-' || v.id, v.nombre,
              GREATEST(20, COALESCE(e.capacidad,100) /
