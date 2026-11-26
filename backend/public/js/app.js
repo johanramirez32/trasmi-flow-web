@@ -2,15 +2,21 @@
     // NAVEGACION
     // ==========================================================
     function cambiarSeccion(id) {
-      ['estaciones', 'alertas', 'reportes', 'operadores'].forEach(function (s) {
-        document.getElementById('sec-' + s).classList.toggle('hidden', s !== id);
-      });
-      if (id === 'estaciones') setTimeout(initMap, 80);
-      if (id === 'reportes')  cargarReportes();
-      if (id === 'alertas')   { cargarAlertas(); cargarNotificaciones(); }
-      if (id === 'operadores') { cargarOperadorSelects(); }
+      var usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || 'null');
+      var esOperario = !!usuario && usuario.rol === 'operario';
 
-      // Resaltar en rojo solo la pestaña activa (escritorio y movil)
+      ['estaciones', 'alertas', 'reportes', 'operadores'].forEach(function (s) {
+        var sec = document.getElementById('sec-' + s);
+        if (!sec) { return; }
+        var permitido = s !== 'operadores' || esOperario;
+        sec.classList.toggle('hidden', s !== id || !permitido);
+      });
+      if (id === 'estaciones' && esOperario === false) setTimeout(initMap, 80);
+      if (id === 'reportes' && esOperario === false) cargarReportes();
+      if (id === 'alertas' && esOperario === false) { cargarAlertas(); cargarNotificaciones(); }
+      if (id === 'operadores' && esOperario) { cargarOperadorSelects(); }
+
+      // Resaltar en rojo solo la pestaña activa (sin quitar el estado oculto)
       var pestañas = {
         estaciones: ['nav-estaciones', 'mnav-estaciones'],
         alertas:    ['nav-alertas', 'mnav-alertas'],
@@ -21,17 +27,25 @@
         pestañas[sec].forEach(function (bid) {
           var b = document.getElementById(bid);
           if (!b) { return; }
+          if (sec === 'operadores' && !esOperario) {
+            b.classList.add('hidden');
+            return;
+          }
           var activo = sec === id;
           if (bid.indexOf('mnav-') === 0) {
-            b.className = 'flex flex-col items-center gap-0.5 px-4 py-1 min-w-[64px] ' +
-              (activo ? 'text-brand-red' : 'text-slate-400');
+            b.classList.remove('text-brand-red', 'text-slate-400', 'font-bold', 'font-semibold');
+            b.classList.add(activo ? 'text-brand-red' : 'text-slate-400');
+            b.classList.add(activo ? 'font-bold' : 'font-semibold');
             var sp = b.querySelector('span');
-            if (sp) { sp.className = 'text-[10px] ' + (activo ? 'font-bold' : 'font-semibold'); }
+            if (sp) {
+              sp.classList.remove('font-bold', 'font-semibold');
+              sp.classList.add(activo ? 'font-bold' : 'font-semibold');
+            }
           } else {
-            b.className = 'px-4 py-2 text-xs rounded-lg flex items-center gap-2 ' +
-              (activo
-                ? 'font-bold text-white bg-brand-red'
-                : 'font-semibold text-slate-400 hover:text-white');
+            b.classList.remove('bg-brand-red', 'text-white', 'text-slate-400', 'font-bold', 'font-semibold');
+            b.classList.add(activo ? 'bg-brand-red' : 'hover:text-white');
+            b.classList.add(activo ? 'text-white' : 'text-slate-400');
+            b.classList.add(activo ? 'font-bold' : 'font-semibold');
           }
         });
       });
