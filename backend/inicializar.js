@@ -10,6 +10,7 @@
  *   3. Si la tabla de estaciones esta vacia, carga las 153 del JSON
  *      Si las tablas de rutas / camaras estan vacias, cargan sus datos
  */
+const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
@@ -621,6 +622,21 @@ async function enriquecerRed(pool) {
   }
 }
 
+/** Operario de demostracion: credenciales entregadas al propietario */
+async function sembrarOperarioDemo(pool) {
+  try {
+    const hash = await bcrypt.hash('ClaveSegura123@', 10);
+    await pool.query(
+      "INSERT INTO usuarios (nombre, email, password, rol, codigo_operador) " +
+      "SELECT 'Operador TransmiFlow', 'operador@transmiflow.local', $1, 'operario', 'OP2026' " +
+      "WHERE NOT EXISTS (SELECT 1 FROM usuarios WHERE email = 'operador@transmiflow.local')",
+      [hash]
+    );
+  } catch (err) {
+    console.warn('   No se pudo sembrar el operario: ' + err.message);
+  }
+}
+
 async function normalizarRelaciones(pool) {
   try {
     // Usuario de sistema para los reportes generados por camaras/IA
@@ -828,6 +844,7 @@ async function inicializar(pool, intentos = 5) {
   await arreglarReportes(pool);
   await enriquecerRed(pool);
   await sincronizarMonitoreo(pool);
+  await sembrarOperarioDemo(pool);
   await normalizarRelaciones(pool);
   await sincronizarRutasOficiales(pool);
 }

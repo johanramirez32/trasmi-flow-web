@@ -232,8 +232,13 @@
           <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">O continúa con</span>
           <div class="flex-grow h-px bg-brand-border"></div>
         </div>
-        <div id="btnGoogleOficial" class="flex justify-center"></div>
-        <div class="grid grid-cols-2 gap-2">
+        <div id="btnGoogleOficial" class="hidden"></div>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="iniciarGoogle()" title="Ingresar con Gmail"
+            class="group flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl border border-brand-border bg-gradient-to-b from-white/[0.08] to-transparent hover:from-red-500/20 hover:border-red-400 transition-all duration-200 hover:-translate-y-0.5">
+            <span class="text-xl leading-none">🔴</span>
+            <span class="text-[10px] font-bold text-white group-hover:text-red-300">Gmail</span>
+          </button>
           <button type="button" onclick="accesoSocial('Facebook')" title="Ingresar con Facebook"
             class="group flex flex-col items-center justify-center gap-1 px-2 py-3 rounded-xl border border-brand-border bg-gradient-to-b from-white/[0.08] to-transparent hover:from-blue-600/20 hover:border-blue-400 transition-all duration-200 hover:-translate-y-0.5">
             <span class="text-xl leading-none text-blue-400">f</span>
@@ -245,7 +250,7 @@
             <span class="text-[10px] font-bold text-white group-hover:text-sky-300">Outlook</span>
           </button>
         </div>
-        <p class="text-center text-[9px] text-slate-500 mt-2">Facebook y Outlook disponibles próximamente</p>
+        <p class="text-center text-[9px] text-slate-500 mt-2">Facebook y Outlook disponibles próximamente · Gmail con tu cuenta de Google</p>
       </div>
     </div>
   </div>

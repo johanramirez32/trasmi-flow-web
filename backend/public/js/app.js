@@ -560,6 +560,31 @@
         });
     }
 
+    /** Abre el cuadro de Google al pulsar el boton Gmail de la fila */
+    function iniciarGoogle() {
+      var cont = document.getElementById('btnGoogleOficial');
+      var msg = document.getElementById('authMensajeError');
+      if (!cont) { return; }
+      var boton = cont.querySelector('[role="button"]') || cont.firstElementChild;
+      if (boton) { boton.click(); return; }
+      if (window.google && google.accounts) {
+        google.accounts.id.prompt(function (notificacion) {
+          if (notificacion && notificacion.isNotDisplayed && notificacion.isNotDisplayed()) {
+            if (msg) {
+              msg.textContent = 'No se pudo abrir Google. Verifica el origen autorizado del cliente OAuth.';
+              msg.classList.remove('hidden');
+            }
+          }
+        });
+        return;
+      }
+      cargarGoogle();
+      if (msg) {
+        msg.textContent = 'Cargando acceso con Google, intenta de nuevo en un momento.';
+        msg.classList.remove('hidden');
+      }
+    }
+
     var googleCargado = false;
     /** Carga Google Identity Services y dibuja el boton oficial de Gmail */
     function cargarGoogle() {
