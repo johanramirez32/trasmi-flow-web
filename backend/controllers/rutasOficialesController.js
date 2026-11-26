@@ -510,17 +510,70 @@ async function planearRuta(req, res) {
     }
 
     var opciones = directas.slice(0, 4).map(opcionDe);
-    // Si solo hay una directa, se ofrecen como alternativas las demas
-    // lineas que llegan al destino (pueden requerir combinacion).
-    if (opciones.length < 4 && conSalida.length) {
-      conSalida.slice(0, 4 - opciones.length).forEach(function (x) {
-        var op = opcionDe(x, opciones.length);
-        op.etiqueta = 'Alternativa ' + op.indice;
-        op.transbordos = 1;
-        if (op.tramos[0]) {
-          op.tramos[0].tipo_transbordo = 'Combinación en ' + x.estacion;
-          op.tramos[0].transbordo_en = x.estacion;
-        }
+
+    // Cuando NO hay ruta directa, construir itinerarios con transbordo real:
+    // tramo 1 sale de la estacion elegida y tramo 2 llega a la elegida.
+    // Nunca se ofrece una ruta que no pase por el origen.
+    if (!opciones.length) {
+      const origenResumen = [];
+      idsOrigen.forEach(function (id) {
+        const r = data.rutas.filter(function (x) { return x.id === id; })[0];
+        if (r) { origenResumen.push(resumenRuta(r)); }
+      });
+
+      const indiceDe = function (ruta, nombre) {
+        const n = norm(nombre);
+        return ruta.paradas.findIndex(function (p) {
+          const m = norm(p);
+          return m === n || m.indexOf(n) === 0 || n.indexOf(m) === 0;
+        });
+      };
+
+      const candidatos = [];
+      origenResumen.forEach(function (ro) {
+        if (ro.indice_origen < 0) { return; }
+        rutasDestino.forEach(function (rd) {
+          if (rd.indice_destino < 0) { return; }
+          // estaciones del tramo 1 donde se puede hacer transbordo
+          for (var k = ro.indice_origen + 1; k < ro.paradas.length; k++) {
+            const nombre = ro.paradas[k];
+            const j = indiceDe(rd, nombre);
+            if (j < 0 || j > rd.indice_destino) { continue; }
+
+            var t1 = {
+              tipo: 'transmilenio', orden: 1, codigo: ro.codigo, nombre: ro.nombre,
+              color: '#8b5cf6', coordenadas: ro.coordenadas, estaciones: ro.estaciones,
+              indice_origen: ro.indice_origen, indice_destino: k,
+              desde: ro.paradas[ro.indice_origen], hasta: nombre,
+              paradas: ro.paradas, numero_paradas: k - ro.indice_origen + 1,
+              minutos_estimados: Math.max(3, Math.round(3 + (k - ro.indice_origen) * 1.5)),
+              tipo_transbordo: 'Combinación en ' + nombre, transbordo_en: nombre
+            };
+            var t2 = {
+              tipo: 'transmilenio', orden: 2, codigo: rd.codigo, nombre: rd.nombre,
+              color: '#f59e0b', coordenadas: rd.coordenadas, estaciones: rd.estaciones,
+              indice_origen: j, indice_destino: rd.indice_destino,
+              desde: nombre, hasta: rd.paradas[rd.indice_destino],
+              paradas: rd.paradas, numero_paradas: rd.indice_destino - j + 1,
+              minutos_estimados: Math.max(3, Math.round(3 + (rd.indice_destino - j) * 1.5)),
+              tipo_transbordo: null, transbordo_en: null
+            };
+            candidatos.push({
+              indice: candidatos.length, etiqueta: '',
+              transbordos: 1, tramos: [t1, t2],
+              total_paradas: t1.numero_paradas + t2.numero_paradas,
+              minutos_estimados: t1.minutos_estimados + t2.minutos_estimados,
+              lineas: [ro.codigo, rd.codigo]
+            });
+            break; // una sola combinacion por par de rutas
+          }
+        });
+      });
+
+      candidatos.sort(function (a, b) { return a.total_paradas - b.total_paradas; });
+      candidatos.slice(0, 4).forEach(function (op) {
+        op.indice = opciones.length;
+        op.etiqueta = op.indice === 0 ? 'Recomendada' : 'Alternativa ' + op.indice;
         opciones.push(op);
       });
     }

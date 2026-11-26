@@ -648,13 +648,16 @@
         if (coords.length >= 2) {
           L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 6, opacity: 0.95 }).addTo(capaItinerario);
         }
-        ests.forEach(function (p) {
-          if (p.lat == null || p.lng == null) { return; }
-          L.circleMarker([p.lat, p.lng], {
+        var iniM = Math.max(0, Math.min(tramo.indice_origen != null ? tramo.indice_origen : 0, ests.length - 1));
+        var finM = Math.max(iniM, Math.min(tramo.indice_destino != null ? tramo.indice_destino : ests.length - 1, ests.length - 1));
+        for (var m = iniM; m <= finM; m++) {
+          var pto = ests[m];
+          if (!pto || pto.lat == null || pto.lng == null) { continue; }
+          L.circleMarker([pto.lat, pto.lng], {
             radius: 3, color: '#ffffff', weight: 1,
             fillColor: tramo.color || '#8b5cf6', fillOpacity: 1
-          }).bindPopup(escHtml(p.nombre)).addTo(capaItinerario);
-        });
+          }).bindPopup(escHtml(pto.nombre)).addTo(capaItinerario);
+        }
       });
 
       marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
@@ -686,13 +689,16 @@
         if (coords.length >= 2) {
           L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 6, opacity: 0.95 }).addTo(capaItinerario);
         }
-        ests.forEach(function (p) {
-          if (p.lat == null || p.lng == null) { return; }
-          L.circleMarker([p.lat, p.lng], {
+        var iniM = Math.max(0, Math.min(tramo.indice_origen != null ? tramo.indice_origen : 0, ests.length - 1));
+        var finM = Math.max(iniM, Math.min(tramo.indice_destino != null ? tramo.indice_destino : ests.length - 1, ests.length - 1));
+        for (var m = iniM; m <= finM; m++) {
+          var pto = ests[m];
+          if (!pto || pto.lat == null || pto.lng == null) { continue; }
+          L.circleMarker([pto.lat, pto.lng], {
             radius: 3, color: '#ffffff', weight: 1,
             fillColor: tramo.color || '#8b5cf6', fillOpacity: 1
-          }).bindPopup(escHtml(p.nombre)).addTo(capaItinerario);
-        });
+          }).bindPopup(escHtml(pto.nombre)).addTo(capaItinerario);
+        }
       });
 
       marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
@@ -750,10 +756,17 @@
           '<details class="mt-2 border-t border-brand-border pt-2">' +
             '<summary class="cursor-pointer text-[10px] font-bold text-brand-red">Ver estación por estación (' + (t.estaciones || []).length + ')</summary>' +
             '<ol class="mt-2 space-y-0.5 max-h-56 overflow-y-auto custom-scroll">' +
-              (t.estaciones || []).map(function (e, k) {
-                return '<li class="text-[10px] text-slate-300 flex gap-1.5"><span class="text-slate-500 shrink-0">' +
-                  (k + 1) + '.</span> ' + escHtml(e.nombre) + '</li>';
-              }).join('') +
+              (function () {
+                var todo = t.estaciones || [];
+                var ini = Math.max(0, Math.min(t.indice_origen != null ? t.indice_origen : 0, todo.length - 1));
+                var fin = Math.max(ini, Math.min(t.indice_destino != null ? t.indice_destino : todo.length - 1, todo.length - 1));
+                var filas = [];
+                for (var k = ini; k <= fin; k++) {
+                  filas.push('<li class="text-[10px] text-slate-300 flex gap-1.5"><span class="text-slate-500 shrink-0">' +
+                    (filas.length + 1) + '.</span> ' + escHtml(todo[k].nombre) + '</li>');
+                }
+                return filas.join('');
+              })() +
             '</ol>' +
           '</details>' +
           (ultimo
