@@ -688,6 +688,43 @@
         });
     }
 
+    /** Ingreso del operador: credenciales propias + codigo */
+    function procesarAuthOperador(event) {
+      event.preventDefault();
+      var email    = document.getElementById('opInputEmail').value.trim();
+      var password = document.getElementById('opInputPassword').value.trim();
+      var codigo   = document.getElementById('opInputCodigo').value.trim();
+      var msg      = document.getElementById('authMensajeErrorOperador');
+
+      if (!email || !password || !codigo) {
+        msg.textContent = 'Completa correo, contrasena y codigo de autenticacion.';
+        msg.classList.remove('hidden');
+        return;
+      }
+
+      fetch(API_URL + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password, codigo: codigo })
+      })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) {
+            msg.textContent = res.d.error || 'Error en la autenticacion';
+            msg.classList.remove('hidden');
+            return;
+          }
+          localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
+          localStorage.setItem(TOKEN_KEY, res.d.token || '');
+          verificarAcceso();
+          actualizarNotifBadge();
+        })
+        .catch(function () {
+          msg.textContent = 'No se pudo conectar con el servidor';
+          msg.classList.remove('hidden');
+        });
+    }
+
     function verificarAcceso() {
       var usuario = localStorage.getItem('usuarioTransmiFlowReal');
       document.getElementById('vistaAuth').classList.toggle('hidden', !!usuario);
