@@ -1,0 +1,18 @@
+{
+  "folders": [
+    { "name": "TransmiFlow (raíz)", "path": "." },
+    { "name": "Backend", "path": "backend" },
+    { "name": "Frontend", "path": "backend/public" },
+    { "name": "Módulos", "path": "backend/modules" },
+    { "name": "Datos", "path": "backend/datos" },
+    { "name": "Pruebas", "path": "backend/test" },
+    { "name": "Documentación", "path": "docs" }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.git": true
+    },
+    "editor.formatOnSave": false
+  }
+}
