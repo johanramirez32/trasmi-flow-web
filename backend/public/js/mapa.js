@@ -267,27 +267,52 @@
      */
     function recortarCorredor(ruta, origen, destino) {
       var coords = (ruta && ruta.coordenadas) ? ruta.coordenadas : [];
-      if (coords.length < 2) { return coords; }
+      if (!coords.length && !(ruta && ruta.estaciones)) { return []; }
 
-      var paradas = ruta.estaciones || [];
-      var iO = ruta.indice_origen;
-      var iD = ruta.indice_destino;
+      var paradas = (ruta && ruta.estaciones) || [];
+      var iO = ruta && ruta.indice_origen;
+      var iD = ruta && ruta.indice_destino;
+
+      // Coincidencia por nombre normalizado (soluciona acentos y guiones)
+      if ((iO == null || iO < 0) && origen && origen.nombre) {
+        var no = normTexto(origen.nombre);
+        for (var a = 0; a < paradas.length; a++) {
+          var na = normTexto(paradas[a].nombre);
+          if (na === no || na.indexOf(no) === 0 || no.indexOf(na) === 0) { iO = a; break; }
+        }
+      }
+      if ((iD == null || iD < 0) && destino && destino.nombre) {
+        var nd = normTexto(destino.nombre);
+        for (var b = 0; b < paradas.length; b++) {
+          var nb = normTexto(paradas[b].nombre);
+          if (nb === nd || nb.indexOf(nd) === 0 || nd.indexOf(nb) === 0) { iD = b; break; }
+        }
+      }
       if (iO == null || iO < 0) { iO = indiceParadaCercana(paradas, origen); }
       if (iD == null || iD < 0) { iD = indiceParadaCercana(paradas, destino); }
-      if (iO < 0 || iD < 0 || iO >= paradas.length || iD >= paradas.length) { return coords; }
+      if (iO < 0 || iD < 0 || !paradas.length) { return coords; }
 
+      var ini = Math.min(iO, iD);
+      var fin = Math.max(iO, iD);
+
+      // Trazo estacion por estacion: empieza en la elegida y termina en el destino
+      var porEstaciones = [];
+      for (var k = ini; k <= fin; k++) {
+        var c = coordsDeParada(paradas[k]);
+        if (c[0] != null && c[1] != null) { porEstaciones.push(c); }
+      }
+      if (porEstaciones.length >= 2) { return porEstaciones; }
+
+      // Respaldo: recortar el corredor real proyectando ambas estaciones
       var pa = proyectoEnCorredor(coords, paradas[iO]);
       var pb = proyectoEnCorredor(coords, paradas[iD]);
       var adelante = (pa.i < pb.i) || (pa.i === pb.i && pa.t <= pb.t);
-
-      var ini = adelante ? pa.i : pb.i;
-      var fin = adelante ? pb.i : pa.i;
+      var iniC = adelante ? pa.i : pb.i;
+      var finC = adelante ? pb.i : pa.i;
       var pIni = adelante ? paradas[iO] : paradas[iD];
       var pFin = adelante ? paradas[iD] : paradas[iO];
-
-      // El trazo empieza y termina exactamente en las dos estaciones marcadas
       var tramo = [coordsDeParada(pIni)];
-      for (var k = ini + 1; k <= fin; k++) { tramo.push(coords[k]); }
+      for (var j = iniC + 1; j <= finC; j++) { tramo.push(coords[j]); }
       tramo.push(coordsDeParada(pFin));
       return tramo;
     }
@@ -577,7 +602,7 @@
       (datos.tramos || []).forEach(function (tramo) {
         var ests = tramo.estaciones || [];
         if (!ests.length) { return; }
-        var coords = recortarCorredor(tramo, ests[0], ests[ests.length - 1])
+        var coords = recortarCorredor(tramo, datos.origen, datos.destino)
           .filter(function (c) { return c && c[0] != null && c[1] != null; });
         if (coords.length >= 2) {
           L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 5, opacity: 0.9 }).addTo(capaItinerario);
@@ -614,7 +639,7 @@
       (op.tramos || []).forEach(function (tramo) {
         var ests = tramo.estaciones || [];
         if (!ests.length) { return; }
-        var coords = recortarCorredor(tramo, ests[0], ests[ests.length - 1])
+        var coords = recortarCorredor(tramo, datos.origen, datos.destino)
           .filter(function (c) { return c && c[0] != null && c[1] != null; });
         if (coords.length >= 2) {
           L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 5, opacity: 0.9 }).addTo(capaItinerario);
@@ -775,7 +800,7 @@
       (op.tramos || []).forEach(function (tramo) {
         var ests = tramo.estaciones || [];
         if (!ests.length) { return; }
-        var coords = recortarCorredor(tramo, ests[0], ests[ests.length - 1])
+        var coords = recortarCorredor(tramo, datos.origen, datos.destino)
           .filter(function (c) { return c && c[0] != null && c[1] != null; });
         if (coords.length >= 2) {
           L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 5, opacity: 0.9 }).addTo(capaItinerario);

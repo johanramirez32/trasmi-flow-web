@@ -108,13 +108,28 @@ function createMonitoringRouter(options) {
           JOIN estaciones e ON 'EST-' || e.id = ms.code
           JOIN vagones v ON v.estacion_id = e.id
          WHERE NOT EXISTS (SELECT 1 FROM monitoring_zones z WHERE z.code = 'ZONA-' || v.id)`);
-      await pool.query(`
-        INSERT INTO monitoring_cameras (zone_id, code, name, source, polygon)
-        SELECT z.id, 'CAM-' || c.id, c.nombre, '0', '[[0,0],[640,0],[640,480],[0,480]]'::jsonb
-          FROM camaras c
-          JOIN monitoring_zones z ON z.code = 'ZONA-' || (
-            SELECT v.id FROM vagones v WHERE v.estacion_id = c.estacion_id ORDER BY v.id LIMIT 1)
-         WHERE NOT EXISTS (SELECT 1 FROM monitoring_cameras mc WHERE mc.code = 'CAM-' || c.id)`);
+      // Una camara por zona, incluso si la tabla heredada esta vacia
+      await pool.query(`INSERT INTO monitoring_cameras (zone_id, code, name, source, polygon)
+        SELECT z.id, 'CAM-' || z.id, 'Camara ' || z.name, '0',
+               '[[0,0],[640,0],[640,480],[0,480]]'::jsonb
+          FROM monitoring_zones z
+         WHERE NOT EXISTS (SELECT 1 FROM monitoring_cameras mc WHERE mc.code = 'CAM-' || z.id)`);
+
+      // Si la tabla heredada 'camaras' esta vacia, poblarla segun columnas disponibles
+      const nc = await pool.query('SELECT COUNT(*)::int n FROM camaras');
+      if (!nc.rows[0].n) {
+        const cols = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='camaras'");
+        const nombres = cols.rows.map(function (x) { return x.column_name; });
+        if (nombres.indexOf('estacion') !== -1 && nombres.indexOf('nombre') !== -1) {
+          const usaId = nombres.indexOf('estacion_id') !== -1;
+          await pool.query(
+            'INSERT INTO camaras (estacion, nombre' + (usaId ? ', estacion_id' : '') + ') ' +
+            "SELECT e.nombre, 'Camara ' || v.nombre" + (usaId ? ', e.id' : '') + ' ' +
+            'FROM vagones v JOIN estaciones e ON e.id = v.estacion_id'
+          );
+        }
+      }
+
     } catch (err) { seedError = err.message; console.error('MON_SEED:', err.message); }
   }
 

@@ -399,8 +399,18 @@ async function planearRuta(req, res) {
 
     const resumenRuta = function (r) {
       const paradas = r.estaciones.map(function (p) { return p.nombre; });
-      const iO = o ? paradas.indexOf(o.nombre) : -1;
-      const iD = paradas.indexOf(d.nombre);
+      const indiceNormalizado = function (nombre) {
+        const n = norm(nombre);
+        if (!n) return -1;
+        let exacto = paradas.findIndex(function (p) { return norm(p) === n; });
+        if (exacto !== -1) return exacto;
+        return paradas.findIndex(function (p) {
+          const mm = norm(p);
+          return mm.indexOf(n) === 0 || n.indexOf(mm) === 0;
+        });
+      };
+      const iO = o ? indiceNormalizado(o.nombre) : -1;
+      const iD = indiceNormalizado(d.nombre);
       return {
         id: r.id, codigo: r.codigo, linea: r.linea, nombre: r.nombre,
         origen: r.origen, destino: r.destino, operativa: r.operativa,

@@ -9,6 +9,32 @@
       if (id === 'reportes')  cargarReportes();
       if (id === 'alertas')   { cargarAlertas(); cargarNotificaciones(); }
       if (id === 'operadores') { cargarOperadorSelects(); }
+
+      // Resaltar en rojo solo la pestaña activa (escritorio y movil)
+      var pestañas = {
+        estaciones: ['nav-estaciones', 'mnav-estaciones'],
+        alertas:    ['nav-alertas', 'mnav-alertas'],
+        reportes:   ['nav-reportes', 'mnav-reportes'],
+        operadores: ['nav-operadores', 'mnav-operadores']
+      };
+      Object.keys(pestañas).forEach(function (sec) {
+        pestañas[sec].forEach(function (bid) {
+          var b = document.getElementById(bid);
+          if (!b) { return; }
+          var activo = sec === id;
+          if (bid.indexOf('mnav-') === 0) {
+            b.className = 'flex flex-col items-center gap-0.5 px-4 py-1 min-w-[64px] ' +
+              (activo ? 'text-brand-red' : 'text-slate-400');
+            var sp = b.querySelector('span');
+            if (sp) { sp.className = 'text-[10px] ' + (activo ? 'font-bold' : 'font-semibold'); }
+          } else {
+            b.className = 'px-4 py-2 text-xs rounded-lg flex items-center gap-2 ' +
+              (activo
+                ? 'font-bold text-white bg-brand-red'
+                : 'font-semibold text-slate-400 hover:text-white');
+          }
+        });
+      });
       actualizarIconos();
     }
     function irAMapa()      { cambiarSeccion('estaciones'); }
@@ -204,7 +230,7 @@
     }
 
     /** Carga en el selector las rutas que paran en la estacion reportada */
-    /** Carga las rutas de la estacion, separadas por vagon, en el reporte */
+    /** Carga las rutas de la estacion (por vagon) con respaldo oficial en Render */
     function cargarRutasDelReporte(nombre) {
       var sel = document.getElementById('repRuta');
       var lista = document.getElementById('listaRutasReporte');
@@ -215,14 +241,46 @@
       if (!nombre) { return Promise.resolve([]); }
 
       var est = (estaciones || []).find(function (e) { return e.nombre === nombre; });
-      if (!est) { return Promise.resolve([]); }
+
+      function pintar(opciones, detalle) {
+        if (lista) {
+          lista.innerHTML = opciones.map(function (o) {
+            return '<option value="' + escHtml(o.codigo) + '">' +
+              escHtml((o.vagon ? o.vagon + ' · ' : '') + (o.origen || '') + ' → ' + (o.destino || '')) +
+              '</option>';
+          }).join('');
+        }
+        if (info) { info.textContent = detalle; }
+        return opciones;
+      }
+
+      function respaldoOficial() {
+        var url = API_URL + '/rutas/estacion/' + encodeURIComponent(nombre) +
+                  (est ? '?id=' + encodeURIComponent(est.id) : '');
+        return fetch(url)
+          .then(function (r) { return r.ok ? r.json() : { rutas: [] }; })
+          .then(function (data) {
+            var codigos = (data.rutas || []).map(function (x) {
+              return typeof x === 'string' ? x : (x.codigo || x.linea || '');
+            }).filter(Boolean);
+            var vistos = {}, opciones = [];
+            codigos.forEach(function (c) {
+              if (!vistos[c]) { vistos[c] = 1; opciones.push({ codigo: c, origen: '', destino: '' }); }
+            });
+            return pintar(opciones, opciones.length
+              ? 'Rutas oficiales de la estación: ' + opciones.map(function (o) { return o.codigo; }).join(', ')
+              : 'Esta estación no tiene rutas registradas.');
+          })
+          .catch(function () { return pintar([], 'No se pudieron cargar las rutas.'); });
+      }
+
+      if (!est) { return respaldoOficial(); }
 
       return fetch(API_URL + '/vagones/' + encodeURIComponent(est.id))
         .then(function (r) { return r.ok ? r.json() : { vagones: [] }; })
         .then(function (data) {
           var vagones = data.vagones || [];
-          var opciones = [];
-          var resumen = [];
+          var opciones = [], resumen = [];
           vagones.forEach(function (v) {
             var rutas = v.rutas || [];
             resumen.push(v.nombre + ': ' + (rutas.length ? rutas.map(function (x) { return x.codigo; }).join(', ') : 'sin rutas'));
@@ -230,16 +288,10 @@
               opciones.push({ codigo: x.codigo, vagon: v.nombre, origen: x.origen, destino: x.destino });
             });
           });
-          if (lista) {
-            lista.innerHTML = opciones.map(function (o) {
-              return '<option value="' + escHtml(o.codigo) + '">' + escHtml(o.vagon) + ' · ' +
-                     escHtml(o.origen || '') + ' → ' + escHtml(o.destino || '') + '</option>';
-            }).join('');
-          }
-          if (info) { info.textContent = resumen.join(' | '); }
-          return opciones;
+          if (!opciones.length) { return respaldoOficial(); }
+          return pintar(opciones, resumen.join(' | '));
         })
-        .catch(function () { return []; });
+        .catch(function () { return respaldoOficial(); });
     }
 
     // ==========================================================
