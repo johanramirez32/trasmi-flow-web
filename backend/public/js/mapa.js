@@ -564,10 +564,16 @@
       var cont = document.getElementById('userMensajeRuta');
       if (cont) { cont.textContent = 'Calculando tu itinerario...'; cont.classList.remove('hidden'); }
 
+      var po = puntoEstacion(viajeOrigen) || [null, null];
+      var pd = puntoEstacion(est) || [null, null];
       var url = API_URL + '/rutas/itinerario?origen=' + encodeURIComponent(viajeOrigen.nombre) +
                 '&destino=' + encodeURIComponent(est.nombre) +
                 '&origen_id=' + encodeURIComponent(viajeOrigen.id) +
-                '&destino_id=' + encodeURIComponent(est.id);
+                '&destino_id=' + encodeURIComponent(est.id) +
+                '&origen_lat=' + encodeURIComponent(po[0]) +
+                '&origen_lng=' + encodeURIComponent(po[1]) +
+                '&destino_lat=' + encodeURIComponent(pd[0]) +
+                '&destino_lng=' + encodeURIComponent(pd[1]);
 
       fetch(url)
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -594,18 +600,37 @@
         });
     }
 
+    /** Coordenadas de una estacion (compatible con ambos esquemas) */
+    function puntoEstacion(e) {
+      if (!e) { return null; }
+      var la = e.lat != null ? e.lat : e.latitud;
+      var lo = e.lng != null ? e.lng : e.longitud;
+      return (la == null || lo == null) ? null : [Number(la), Number(lo)];
+    }
+
+    /** Fuerza que el trazo empiece o termine exactamente donde el usuario eligio */
+    function forzarExtremo(coords, estacion, alInicio) {
+      var p = puntoEstacion(estacion);
+      if (!p || !coords || coords.length < 2) { return coords; }
+      var salida = coords.slice();
+      if (alInicio) { salida[0] = p; } else { salida[salida.length - 1] = p; }
+      return salida;
+    }
+
     /** Dibuja todos los tramos del viaje (caminata + lineas + marcadores) */
     function dibujarItinerario(datos) {
       limpiarViaje();
       capaItinerario = L.featureGroup().addTo(map);
 
-      (datos.tramos || []).forEach(function (tramo) {
+      (datos.tramos || []).forEach(function (tramo, idx, lista) {
         var ests = tramo.estaciones || [];
         if (!ests.length) { return; }
         var coords = recortarCorredor(tramo, datos.origen, datos.destino)
           .filter(function (c) { return c && c[0] != null && c[1] != null; });
+        if (idx === 0) { coords = forzarExtremo(coords, datos.origen || viajeOrigen, true); }
+        if (idx === lista.length - 1) { coords = forzarExtremo(coords, datos.destino || viajeDestino, false); }
         if (coords.length >= 2) {
-          L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 5, opacity: 0.9 }).addTo(capaItinerario);
+          L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 6, opacity: 0.95 }).addTo(capaItinerario);
         }
         ests.forEach(function (p) {
           if (p.lat == null || p.lng == null) { return; }
@@ -636,14 +661,23 @@
       limpiarViaje();
       capaItinerario = L.featureGroup().addTo(map);
 
-      (op.tramos || []).forEach(function (tramo) {
+      (op.tramos || []).forEach(function (tramo, idx, lista) {
         var ests = tramo.estaciones || [];
         if (!ests.length) { return; }
         var coords = recortarCorredor(tramo, datos.origen, datos.destino)
           .filter(function (c) { return c && c[0] != null && c[1] != null; });
+        if (idx === 0) { coords = forzarExtremo(coords, datos.origen || viajeOrigen, true); }
+        if (idx === lista.length - 1) { coords = forzarExtremo(coords, datos.destino || viajeDestino, false); }
         if (coords.length >= 2) {
-          L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 5, opacity: 0.9 }).addTo(capaItinerario);
+          L.polyline(coords, { color: tramo.color || '#8b5cf6', weight: 6, opacity: 0.95 }).addTo(capaItinerario);
         }
+        ests.forEach(function (p) {
+          if (p.lat == null || p.lng == null) { return; }
+          L.circleMarker([p.lat, p.lng], {
+            radius: 3, color: '#ffffff', weight: 1,
+            fillColor: tramo.color || '#8b5cf6', fillOpacity: 1
+          }).bindPopup(escHtml(p.nombre)).addTo(capaItinerario);
+        });
       });
 
       marcarPunto(datos.origen, '#22c55e', 'Inicio: ' + (datos.origen ? datos.origen.nombre : ''), 'A');
@@ -699,6 +733,15 @@
           '<p class="text-[11px] text-slate-400 mt-0.5">' + t.numero_paradas + ' estaciones · ~' +
             (t.minutos_estimados || 0) + ' min' +
             (t.tipo_transbordo ? ' · transbordo en ' + escHtml(t.transbordo_en || t.hasta) : '') + '</p>' +
+          '<details class="mt-2 border-t border-brand-border pt-2">' +
+            '<summary class="cursor-pointer text-[10px] font-bold text-brand-red">Ver estación por estación (' + (t.estaciones || []).length + ')</summary>' +
+            '<ol class="mt-2 space-y-0.5 max-h-56 overflow-y-auto custom-scroll">' +
+              (t.estaciones || []).map(function (e, k) {
+                return '<li class="text-[10px] text-slate-300 flex gap-1.5"><span class="text-slate-500 shrink-0">' +
+                  (k + 1) + '.</span> ' + escHtml(e.nombre) + '</li>';
+              }).join('') +
+            '</ol>' +
+          '</details>' +
           (ultimo
             ? '<p class="text-[10px] font-black text-emerald-400 mt-1">Llegada a ' + escHtml(datos.destino ? datos.destino.nombre : '') + '</p>'
             : '<p class="text-[10px] font-black text-amber-400 mt-1">TRANSBORDO en ' + escHtml(t.hasta) + '</p>') +

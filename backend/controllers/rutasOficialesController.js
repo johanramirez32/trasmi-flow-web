@@ -400,8 +400,32 @@ async function planearRuta(req, res) {
   try {
     const data = await obtenerDatos();
 
-    const o = buscarEstacion(data.estaciones || [], origen);
-    const d = buscarEstacion(data.estaciones || [], destino);
+    let o = buscarEstacion(data.estaciones || [], origen);
+    let d = buscarEstacion(data.estaciones || [], destino);
+
+    // Estaciones temporales de nuestra BD pueden no estar en ArcGIS:
+    // se usa la parada oficial mas cercana a las coordenadas elegidas.
+    let origenElegido = o ? { nombre: o.nombre, num_est: o.num_est, latitud: o.latitud, longitud: o.longitud } : null;
+    let destinoElegido = d ? { nombre: d.nombre, num_est: d.num_est, latitud: d.latitud, longitud: d.longitud } : null;
+
+    const oLat = Number(req.query.origen_lat);
+    const oLng = Number(req.query.origen_lng);
+    if (!o && Number.isFinite(oLat) && Number.isFinite(oLng)) {
+      const cercanaO = estacionCercana(data, oLat, oLng);
+      if (cercanaO) {
+        o = cercanaO;
+        origenElegido = { nombre: origen, num_est: '', latitud: oLat, longitud: oLng };
+      }
+    }
+    const dLat = Number(req.query.destino_lat);
+    const dLng = Number(req.query.destino_lng);
+    if (!d && Number.isFinite(dLat) && Number.isFinite(dLng)) {
+      const cercanaD = estacionCercana(data, dLat, dLng);
+      if (cercanaD) {
+        d = cercanaD;
+        destinoElegido = { nombre: destino, num_est: '', latitud: dLat, longitud: dLng };
+      }
+    }
 
     if (!d) {
       return res.status(404).json({ error: 'No se encontro el destino: ' + destino });
@@ -503,8 +527,8 @@ async function planearRuta(req, res) {
     var mejor = opciones[0];
 
     res.json({
-      origen: o ? { nombre: o.nombre, num_est: o.num_est, latitud: o.latitud, longitud: o.longitud } : null,
-      destino: { nombre: d.nombre, num_est: d.num_est, latitud: d.latitud, longitud: d.longitud },
+      origen: origenElegido,
+      destino: destinoElegido,
       opciones: opciones,
       tramos: mejor ? mejor.tramos : [],
       transbordos: mejor ? mejor.transbordos : 0,

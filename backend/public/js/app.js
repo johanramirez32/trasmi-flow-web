@@ -233,18 +233,17 @@
     /** Carga las rutas de la estacion (por vagon) con respaldo oficial en Render */
     function cargarRutasDelReporte(nombre) {
       var sel = document.getElementById('repRuta');
-      var lista = document.getElementById('listaRutasReporte');
       var info = document.getElementById('repRutaInfo');
       if (!sel) { return Promise.resolve([]); }
-      if (lista) { lista.innerHTML = ''; }
+      if (sel) { sel.innerHTML = '<option value="">Selecciona la ruta</option>'; }
       if (info) { info.textContent = ''; }
       if (!nombre) { return Promise.resolve([]); }
 
       var est = (estaciones || []).find(function (e) { return e.nombre === nombre; });
 
       function pintar(opciones, detalle) {
-        if (lista) {
-          lista.innerHTML = opciones.map(function (o) {
+        if (sel) {
+          sel.innerHTML = '<option value="">Selecciona la ruta</option>' + opciones.map(function (o) {
             return '<option value="' + escHtml(o.codigo) + '">' +
               escHtml((o.vagon ? o.vagon + ' · ' : '') + (o.origen || '') + ' → ' + (o.destino || '')) +
               '</option>';
@@ -561,24 +560,6 @@
         });
     }
 
-    /** Alternar entre el acceso de ciudadanos y el acceso operativo */
-    function mostrarAuthOperador() {
-      var usu = document.getElementById('authPanelUsuario');
-      var op  = document.getElementById('authPanelOperador');
-      if (usu) { usu.classList.add('hidden'); }
-      if (op)  { op.classList.remove('hidden'); }
-      var msg = document.getElementById('authMensajeErrorOperador');
-      if (msg) { msg.classList.add('hidden'); }
-    }
-
-    function mostrarAuthUsuario() {
-      var usu = document.getElementById('authPanelUsuario');
-      var op  = document.getElementById('authPanelOperador');
-      if (op)  { op.classList.add('hidden'); }
-      if (usu) { usu.classList.remove('hidden'); }
-      cargarGoogle();
-    }
-
     var googleCargado = false;
     /** Carga Google Identity Services y dibuja el boton oficial de Gmail */
     function cargarGoogle() {
@@ -685,45 +666,6 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
-      })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-        .then(function (res) {
-          if (!res.ok) {
-            msg.textContent = res.d.error || 'Error en la autenticacion';
-            msg.classList.remove('hidden');
-            return;
-          }
-          localStorage.setItem('usuarioTransmiFlowReal', JSON.stringify(res.d.usuario));
-          localStorage.setItem(TOKEN_KEY, res.d.token || '');
-          // Volver al modo ingreso: si se queda en registro, un nuevo
-          // intento de entrada vuelve a registrar el correo
-          if (esRegistro) { alternarModoAuth(); }
-          verificarAcceso();
-          actualizarNotifBadge();
-        })
-        .catch(function () {
-          msg.textContent = 'No se pudo conectar con el servidor';
-          msg.classList.remove('hidden');
-        });
-    }
-
-    function procesarAuthOperador(event) {
-      event.preventDefault();
-      var email    = document.getElementById('opInputEmail').value.trim();
-      var password = document.getElementById('opInputPassword').value.trim();
-      var codigo   = document.getElementById('opInputCodigo').value.trim();
-      var msg      = document.getElementById('authMensajeErrorOperador');
-
-      if (!email || !password || !codigo) {
-        msg.textContent = 'Completa correo, contrasena y codigo de autenticacion.';
-        msg.classList.remove('hidden');
-        return;
-      }
-
-      fetch(API_URL + '/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email, password: password, codigo: codigo })
       })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
         .then(function (res) {
