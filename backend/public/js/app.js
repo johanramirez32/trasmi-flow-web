@@ -1,9 +1,34 @@
     // ==========================================================
     // NAVEGACION
     // ==========================================================
+    /** Aplica los permisos del rol a menu y secciones (usuario u operario) */
+    function aplicarPermisos() {
+      var u = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || 'null');
+      var esOperario = !!u && u.rol === 'operario';
+      var mapa = {
+        estaciones: ['nav-estaciones', 'mnav-estaciones', 'sec-estaciones'],
+        alertas:    ['nav-alertas', 'mnav-alertas', 'sec-alertas'],
+        reportes:   ['nav-reportes', 'mnav-reportes', 'sec-reportes'],
+        operadores: ['nav-operadores', 'mnav-operadores', 'sec-operadores']
+      };
+      Object.keys(mapa).forEach(function (sec) {
+        var permitido = sec === 'operadores' ? esOperario : !esOperario;
+        mapa[sec].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (!el) { return; }
+          el.classList.toggle('hidden', !permitido);
+          el.style.display = permitido ? '' : 'none';
+        });
+      });
+      return { esOperario: esOperario, logueado: !!u };
+    }
+
     function cambiarSeccion(id) {
+      aplicarPermisos();
       var usuario = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || 'null');
       var esOperario = !!usuario && usuario.rol === 'operario';
+      if (id === 'operadores' && !esOperario) { return; }
+      if (id !== 'operadores' && esOperario) { return; }
 
       ['estaciones', 'alertas', 'reportes', 'operadores'].forEach(function (s) {
         var sec = document.getElementById('sec-' + s);
@@ -51,10 +76,14 @@
       });
       actualizarIconos();
     }
-    function irAMapa()      { cambiarSeccion('estaciones'); }
-    function irAAertas()    { cambiarSeccion('alertas'); }
-    function irAReportes()  { cambiarSeccion('reportes'); }
-    function irAOperadores() { cambiarSeccion('operadores'); }
+    function irAMapa()      { if (!esOperarioActual()) { cambiarSeccion('estaciones'); } }
+    function irAAertas()    { if (!esOperarioActual()) { cambiarSeccion('alertas'); } }
+    function irAReportes()  { if (!esOperarioActual()) { cambiarSeccion('reportes'); } }
+    function irAOperadores() { if (esOperarioActual()) { cambiarSeccion('operadores'); } }
+    function esOperarioActual() {
+      var u = JSON.parse(localStorage.getItem('usuarioTransmiFlowReal') || 'null');
+      return !!u && u.rol === 'operario';
+    }
 
     // ==========================================================
     // REPORTES  (enviar, listar y refrescar)
@@ -766,6 +795,7 @@
 
     function verificarAcceso() {
       var usuario = localStorage.getItem('usuarioTransmiFlowReal');
+      aplicarPermisos();
       document.getElementById('vistaAuth').classList.toggle('hidden', !!usuario);
       document.getElementById('appContenido').classList.toggle('hidden', !usuario);
       if (!usuario) { cargarGoogle(); }
